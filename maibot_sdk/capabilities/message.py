@@ -51,9 +51,7 @@ class MessageCapability:
             **kwargs,
         )
 
-    async def get_by_time_in_chat(
-        self, chat_id: str, start_time: str, end_time: str, **kwargs: Any
-    ) -> Any:
+    async def get_by_time_in_chat(self, chat_id: str, start_time: str, end_time: str, **kwargs: Any) -> Any:
         """按时间范围获取指定聊天流的消息
 
         Args:
