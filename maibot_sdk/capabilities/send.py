@@ -59,7 +59,7 @@ class SendCapability:
             **kwargs,
         )
 
-    async def forward(self, messages: list[dict], stream_id: str, **kwargs) -> Any:
+    async def forward(self, messages: list[dict[str, Any]], stream_id: str, **kwargs: Any) -> Any:
         """发送转发消息
 
         Args:
@@ -73,7 +73,7 @@ class SendCapability:
             **kwargs,
         )
 
-    async def hybrid(self, segments: list[dict], stream_id: str, **kwargs) -> Any:
+    async def hybrid(self, segments: list[dict[str, Any]], stream_id: str, **kwargs: Any) -> Any:
         """发送混合消息（合并转发中的图文混合）
 
         Args:
@@ -101,7 +101,7 @@ class SendCapability:
             **kwargs,
         )
 
-    async def custom(self, custom_type: str, data: Any, stream_id: str, **kwargs) -> Any:
+    async def custom(self, custom_type: str, data: Any, stream_id: str, **kwargs: Any) -> Any:
         """发送自定义类型消息
 
         Args:

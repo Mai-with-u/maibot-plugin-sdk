@@ -53,9 +53,9 @@ class MaiMessages(BaseModel):
     # 修改权限标志
     modify_flags: dict[str, bool] = Field(
         default_factory=lambda: {
-            ModifyFlag.CAN_MODIFY_PROMPT: True,
-            ModifyFlag.CAN_MODIFY_RESPONSE: True,
-            ModifyFlag.CAN_MODIFY_MESSAGE: True,
+            ModifyFlag.CAN_MODIFY_PROMPT.value: True,
+            ModifyFlag.CAN_MODIFY_RESPONSE.value: True,
+            ModifyFlag.CAN_MODIFY_MESSAGE.value: True,
         },
         description="修改权限标志",
     )

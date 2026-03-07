@@ -7,6 +7,9 @@
 from collections.abc import Callable
 from typing import Any
 
+# 装饰器签名: 接受函数返回函数
+_Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
+
 from maibot_sdk.types import (
     ActionComponentInfo,
     ActivationType,
@@ -38,7 +41,7 @@ def Action(
     parallel_action: bool = False,
     action_prompt: str = "",
     **metadata: Any,
-) -> Callable:
+) -> _Decorator:
     """Action 组件装饰器
 
     用法：
@@ -48,7 +51,7 @@ def Action(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         info = ActionComponentInfo(
             name=name,
             description=description,
@@ -75,7 +78,7 @@ def Command(
     pattern: str = "",
     aliases: list[str] | None = None,
     **metadata: Any,
-) -> Callable:
+) -> _Decorator:
     """Command 组件装饰器
 
     用法：
@@ -84,7 +87,7 @@ def Command(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         info = CommandComponentInfo(
             name=name,
             description=description,
@@ -103,7 +106,7 @@ def Tool(
     description: str = "",
     parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
     **metadata: Any,
-) -> Callable:
+) -> _Decorator:
     """Tool 组件装饰器
 
     用法（结构化参数）：
@@ -119,7 +122,7 @@ def Tool(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         typed_params: list[ToolParameterInfo] = []
         raw_params: dict[str, Any] = {}
         if isinstance(parameters, list):
@@ -147,7 +150,7 @@ def EventHandler(
     intercept_message: bool = False,
     weight: int = 0,
     **metadata: Any,
-) -> Callable:
+) -> _Decorator:
     """EventHandler 组件装饰器
 
     Args:
@@ -165,7 +168,7 @@ def EventHandler(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         info = EventHandlerComponentInfo(
             name=name,
             description=description,
@@ -190,7 +193,7 @@ def WorkflowStep(
     error_policy: ErrorPolicy = ErrorPolicy.ABORT,
     filter: dict[str, Any] | None = None,
     **metadata: Any,
-) -> Callable:
+) -> _Decorator:
     """WorkflowStep 组件装饰器
 
     Args:
@@ -213,7 +216,7 @@ def WorkflowStep(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         info = WorkflowStepComponentInfo(
             name=name,
             stage=stage,
