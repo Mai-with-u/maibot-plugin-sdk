@@ -35,7 +35,7 @@ class DatabaseCapability:
             offset: 偏移量
         """
         return await self._ctx.call_capability(
-            "db.query",
+            "database.query",
             table=table,
             filters=filters or {},
             order_by=order_by or [],
@@ -59,9 +59,29 @@ class DatabaseCapability:
             key_value: 主键值（为 None 时表示插入）
         """
         return await self._ctx.call_capability(
-            "db.save",
+            "database.save",
             table=table,
             data=data,
+            key_field=key_field,
+            key_value=key_value,
+        )
+
+    async def get(
+        self,
+        table: str,
+        key_field: str = "id",
+        key_value: Any = None,
+    ) -> Any:
+        """按主键获取单条数据
+
+        Args:
+            table: 表名
+            key_field: 主键字段名
+            key_value: 主键值
+        """
+        return await self._ctx.call_capability(
+            "database.get",
+            table=table,
             key_field=key_field,
             key_value=key_value,
         )
@@ -78,7 +98,7 @@ class DatabaseCapability:
             filters: 过滤条件
         """
         return await self._ctx.call_capability(
-            "db.delete",
+            "database.delete",
             table=table,
             filters=filters,
         )
@@ -95,7 +115,7 @@ class DatabaseCapability:
             filters: 过滤条件
         """
         result = await self._ctx.call_capability(
-            "db.count",
+            "database.count",
             table=table,
             filters=filters or {},
         )

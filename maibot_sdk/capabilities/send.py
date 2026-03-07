@@ -87,6 +87,20 @@ class SendCapability:
             **kwargs,
         )
 
+    async def command(self, command: str, stream_id: str, **kwargs: Any) -> Any:
+        """发送命令消息
+
+        Args:
+            command: 命令内容
+            stream_id: 目标消息流 ID
+        """
+        return await self._ctx.call_capability(
+            "send.command",
+            command=command,
+            stream_id=stream_id,
+            **kwargs,
+        )
+
     async def custom(self, custom_type: str, data: Any, stream_id: str, **kwargs) -> Any:
         """发送自定义类型消息
 

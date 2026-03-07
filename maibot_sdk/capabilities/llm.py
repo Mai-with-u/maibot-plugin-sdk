@@ -84,7 +84,7 @@ class LLMCapability:
 
     async def get_available_models(self) -> list[str]:
         """获取可用模型列表"""
-        result = await self._ctx.call_capability("llm.get_models")
+        result = await self._ctx.call_capability("llm.get_available_models")
         if isinstance(result, list):
             return result
         return []

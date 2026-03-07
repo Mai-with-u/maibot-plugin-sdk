@@ -51,6 +51,24 @@ class MessageCapability:
             **kwargs,
         )
 
+    async def get_by_time_in_chat(
+        self, chat_id: str, start_time: str, end_time: str, **kwargs: Any
+    ) -> Any:
+        """按时间范围获取指定聊天流的消息
+
+        Args:
+            chat_id: 聊天流 ID
+            start_time: 起始时间
+            end_time: 结束时间
+        """
+        return await self._ctx.call_capability(
+            "message.get_by_time_in_chat",
+            chat_id=chat_id,
+            start_time=start_time,
+            end_time=end_time,
+            **kwargs,
+        )
+
     async def count_new(self, chat_id: str, since: str) -> Any:
         """统计新消息数量"""
         return await self._ctx.call_capability(

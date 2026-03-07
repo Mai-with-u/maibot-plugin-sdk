@@ -38,7 +38,7 @@ dev = [
 Homepage = "https://github.com/Mai-with-u/maibot-plugin-sdk"
 Repository = "https://github.com/Mai-with-u/maibot-plugin-sdk"
 Issues = "https://github.com/Mai-with-u/maibot-plugin-sdk/issues"
-Documentation = "https://github.com/Mai-with-u/maibot-plugin-sdk#readme"
+Documentation = "https://github.com/Mai-with-u/maibot-plugin-sdk/blob/main/docs/guide.md"
 
 [build-system]
 requires = ["setuptools>=68.0"]

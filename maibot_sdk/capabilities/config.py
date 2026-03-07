@@ -31,6 +31,18 @@ class ConfigCapability:
         )
         return result if result is not None else default
 
+    async def get_plugin(self, plugin_name: str | None = None) -> dict[str, Any]:
+        """获取插件级配置
+
+        Args:
+            plugin_name: 插件名称，为 None 时获取当前插件配置
+        """
+        result = await self._ctx.call_capability(
+            "config.get_plugin",
+            plugin_name=plugin_name,
+        )
+        return result if isinstance(result, dict) else {}
+
     async def get_all(self) -> dict[str, Any]:
         """获取当前插件的全部配置"""
         result = await self._ctx.call_capability("config.get_all")

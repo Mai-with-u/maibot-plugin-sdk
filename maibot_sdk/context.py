@@ -7,14 +7,19 @@ PluginContext 由 Runner SDK Runtime 在插件加载时注入。
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
 from maibot_sdk.capabilities.database import DatabaseCapability
 from maibot_sdk.capabilities.emoji import EmojiCapability
 from maibot_sdk.capabilities.frequency import FrequencyCapability
+from maibot_sdk.capabilities.knowledge import KnowledgeCapability
 from maibot_sdk.capabilities.llm import LLMCapability
+from maibot_sdk.capabilities.logging import LoggingCapability
 from maibot_sdk.capabilities.message import MessageCapability
+from maibot_sdk.capabilities.person import PersonCapability
 from maibot_sdk.capabilities.send import SendCapability
+from maibot_sdk.capabilities.tool import ToolCapability
 
 # RPC 调用函数类型: async (method, plugin_id, payload) -> result
 RpcCallFn = Callable[..., Awaitable[Any]]
@@ -45,6 +50,11 @@ class PluginContext:
         self.message: MessageCapability = MessageCapability(self)
         self.frequency: FrequencyCapability = FrequencyCapability(self)
         self.component: ComponentCapability = ComponentCapability(self)
+        self.chat: ChatCapability = ChatCapability(self)
+        self.person: PersonCapability = PersonCapability(self)
+        self.knowledge: KnowledgeCapability = KnowledgeCapability(self)
+        self.tool: ToolCapability = ToolCapability(self)
+        self.logging: LoggingCapability = LoggingCapability(self)
 
     @property
     def plugin_id(self) -> str:

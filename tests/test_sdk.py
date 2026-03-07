@@ -86,6 +86,46 @@ def test_context_raises_without_rpc():
         pass
 
 
+def test_context_has_all_capabilities():
+    """验证 PluginContext 暴露了全部 13 个能力代理"""
+    from maibot_sdk.context import PluginContext
+
+    ctx = PluginContext(plugin_id="__test__", rpc_call=None)
+
+    expected = [
+        "send", "db", "llm", "config", "emoji", "message",
+        "frequency", "component", "chat", "person",
+        "knowledge", "tool", "logging",
+    ]
+    for attr in expected:
+        assert hasattr(ctx, attr), f"PluginContext 缺少能力代理: {attr}"
+
+
+def test_capability_classes_importable():
+    """确保所有能力代理类可以正常 import"""
+    from maibot_sdk.capabilities.chat import ChatCapability
+    from maibot_sdk.capabilities.component import ComponentCapability
+    from maibot_sdk.capabilities.config import ConfigCapability
+    from maibot_sdk.capabilities.database import DatabaseCapability
+    from maibot_sdk.capabilities.emoji import EmojiCapability
+    from maibot_sdk.capabilities.frequency import FrequencyCapability
+    from maibot_sdk.capabilities.knowledge import KnowledgeCapability
+    from maibot_sdk.capabilities.llm import LLMCapability
+    from maibot_sdk.capabilities.logging import LoggingCapability
+    from maibot_sdk.capabilities.message import MessageCapability
+    from maibot_sdk.capabilities.person import PersonCapability
+    from maibot_sdk.capabilities.send import SendCapability
+    from maibot_sdk.capabilities.tool import ToolCapability
+
+    assert all([
+        ChatCapability, ComponentCapability, ConfigCapability,
+        DatabaseCapability, EmojiCapability, FrequencyCapability,
+        KnowledgeCapability, LLMCapability, LoggingCapability,
+        MessageCapability, PersonCapability, SendCapability,
+        ToolCapability,
+    ])
+
+
 def test_version():
     import maibot_sdk
 

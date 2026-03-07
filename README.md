@@ -136,3 +136,7 @@ pytest
 ## 许可证
 
 本项目使用 [AGPL-3.0](LICENSE) 许可证。
+
+## 完整文档
+
+详见 [插件开发指南](docs/guide.md)。
