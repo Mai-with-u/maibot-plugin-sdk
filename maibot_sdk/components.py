@@ -7,9 +7,6 @@
 from collections.abc import Callable
 from typing import Any
 
-# 装饰器签名: 接受函数返回函数
-_Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
-
 from maibot_sdk.types import (
     ActionComponentInfo,
     ActivationType,
@@ -23,6 +20,9 @@ from maibot_sdk.types import (
     WorkflowStage,
     WorkflowStepComponentInfo,
 )
+
+# 装饰器签名: 接受函数返回函数
+_Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
 
 # 标记属性名，用于在方法上附加组件信息
 _COMPONENT_INFO_ATTR = "__maibot_component_info__"
