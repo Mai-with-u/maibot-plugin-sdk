@@ -8,12 +8,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ─── 枚举类型 ──────────────────────────────────────────────────────
 
 
 class ComponentType(str, Enum):
     """组件类型"""
+
     ACTION = "action"
     COMMAND = "command"
     TOOL = "tool"
@@ -23,6 +23,7 @@ class ComponentType(str, Enum):
 
 class ActivationType(str, Enum):
     """Action 激活类型"""
+
     NEVER = "never"
     ALWAYS = "always"
     RANDOM = "random"
@@ -31,6 +32,7 @@ class ActivationType(str, Enum):
 
 class ChatMode(str, Enum):
     """聊天模式"""
+
     FOCUS = "focus"
     NORMAL = "normal"
     PRIORITY = "priority"
@@ -39,6 +41,7 @@ class ChatMode(str, Enum):
 
 class EventType(str, Enum):
     """事件类型 — 与旧系统完全对齐"""
+
     UNKNOWN = "unknown"
     ON_START = "on_start"
     ON_STOP = "on_stop"
@@ -54,6 +57,7 @@ class EventType(str, Enum):
 
 class ToolParamType(str, Enum):
     """工具参数类型"""
+
     STRING = "string"
     INTEGER = "integer"
     FLOAT = "float"
@@ -64,6 +68,7 @@ class ToolParamType(str, Enum):
 
 class WorkflowStage(str, Enum):
     """Workflow 阶段"""
+
     INGRESS = "ingress"
     PRE_PROCESS = "pre_process"
     PLAN = "plan"
@@ -74,6 +79,7 @@ class WorkflowStage(str, Enum):
 
 class ModifyFlag(str, Enum):
     """消息可修改标志"""
+
     CAN_MODIFY_PROMPT = "can_modify_prompt"
     CAN_MODIFY_RESPONSE = "can_modify_response"
     CAN_MODIFY_MESSAGE = "can_modify_message"
@@ -81,16 +87,18 @@ class ModifyFlag(str, Enum):
 
 class HookResult(str, Enum):
     """Workflow hook 返回值语义"""
-    CONTINUE = "continue"        # 继续当前 stage 的下一个 hook
-    SKIP_STAGE = "skip_stage"    # 跳过当前 stage 剩余 hook，进入下一个 stage
-    ABORT = "abort"              # 终止整个 pipeline
+
+    CONTINUE = "continue"  # 继续当前 stage 的下一个 hook
+    SKIP_STAGE = "skip_stage"  # 跳过当前 stage 剩余 hook，进入下一个 stage
+    ABORT = "abort"  # 终止整个 pipeline
 
 
 class ErrorPolicy(str, Enum):
     """Hook 异常处理策略"""
-    ABORT = "abort"   # 异常终止 pipeline（默认）
-    SKIP = "skip"     # 记录日志，跳过此 hook 继续
-    LOG = "log"       # 记录日志，将异常传给后续 hook
+
+    ABORT = "abort"  # 异常终止 pipeline（默认）
+    SKIP = "skip"  # 记录日志，跳过此 hook 继续
+    LOG = "log"  # 记录日志，将异常传给后续 hook
 
 
 # ─── 工具参数定义 ──────────────────────────────────────────────────
@@ -98,6 +106,7 @@ class ErrorPolicy(str, Enum):
 
 class ToolParameterInfo(BaseModel):
     """工具参数定义"""
+
     name: str = Field(description="参数名称")
     param_type: ToolParamType = Field(default=ToolParamType.STRING, description="参数类型")
     description: str = Field(default="", description="参数描述")
@@ -110,6 +119,7 @@ class ToolParameterInfo(BaseModel):
 
 class ComponentInfo(BaseModel):
     """组件信息（SDK 侧声明）"""
+
     name: str = Field(description="组件名称")
     type: ComponentType = Field(description="组件类型")
     description: str = Field(default="", description="组件描述")
@@ -119,6 +129,7 @@ class ComponentInfo(BaseModel):
 
 class ActionComponentInfo(ComponentInfo):
     """Action 组件信息"""
+
     type: ComponentType = ComponentType.ACTION
     activation_type: ActivationType = ActivationType.ALWAYS
     activation_keywords: list[str] = Field(default_factory=list)
@@ -133,6 +144,7 @@ class ActionComponentInfo(ComponentInfo):
 
 class CommandComponentInfo(ComponentInfo):
     """Command 组件信息"""
+
     type: ComponentType = ComponentType.COMMAND
     command_pattern: str = Field(default="", description="命令正则模式")
     aliases: list[str] = Field(default_factory=list, description="命令别名")
@@ -140,6 +152,7 @@ class CommandComponentInfo(ComponentInfo):
 
 class ToolComponentInfo(ComponentInfo):
     """Tool 组件信息"""
+
     type: ComponentType = ComponentType.TOOL
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
     parameters_raw: dict[str, Any] = Field(default_factory=dict, description="原始参数 schema（兼容 dict 声明）")
@@ -147,6 +160,7 @@ class ToolComponentInfo(ComponentInfo):
 
 class EventHandlerComponentInfo(ComponentInfo):
     """EventHandler 组件信息"""
+
     type: ComponentType = ComponentType.EVENT_HANDLER
     event_type: EventType = EventType.ON_MESSAGE
     intercept_message: bool = Field(default=False, description="是否阻塞消息链")
@@ -155,6 +169,7 @@ class EventHandlerComponentInfo(ComponentInfo):
 
 class WorkflowStepComponentInfo(ComponentInfo):
     """WorkflowStep 组件信息"""
+
     type: ComponentType = ComponentType.WORKFLOW_STEP
     stage: WorkflowStage = Field(description="所属 workflow 阶段")
     priority: int = Field(default=0, description="阶段内优先级（越高越先执行）")
@@ -169,6 +184,7 @@ class WorkflowStepComponentInfo(ComponentInfo):
 
 class CapabilityResult(BaseModel):
     """能力调用结果"""
+
     success: bool
     result: Any = None
     error: str = ""

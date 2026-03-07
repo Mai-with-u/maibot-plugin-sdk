@@ -14,6 +14,7 @@ from maibot_sdk.types import ModifyFlag
 
 class MessageSegment(BaseModel):
     """消息段"""
+
     type: str = Field(default="text", description="段类型: text, image, at, reply, ...")
     data: dict[str, Any] = Field(default_factory=dict, description="段数据")
 

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class ComponentCapability:
     """插件和组件管理能力"""
 
-    def __init__(self, ctx: "PluginContext"):
+    def __init__(self, ctx: PluginContext):
         self._ctx = ctx
 
     async def get_all_plugins(self) -> Any:
@@ -46,7 +46,9 @@ class ComponentCapability:
             stream_id=stream_id,
         )
 
-    async def disable_component(self, name: str, component_type: str, scope: str = "global", stream_id: str = "") -> Any:
+    async def disable_component(
+        self, name: str, component_type: str, scope: str = "global", stream_id: str = ""
+    ) -> Any:
         """禁用组件"""
         return await self._ctx.call_capability(
             "component.disable",

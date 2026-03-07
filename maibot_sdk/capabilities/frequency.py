@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class FrequencyCapability:
     """发言频率控制能力"""
 
-    def __init__(self, ctx: "PluginContext"):
+    def __init__(self, ctx: PluginContext):
         self._ctx = ctx
 
     async def get_current_talk_value(self, chat_id: str) -> Any:

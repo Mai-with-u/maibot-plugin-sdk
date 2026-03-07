@@ -1,11 +1,9 @@
 """maibot-plugin-sdk 基础测试"""
 
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler, PluginContext
-from maibot_sdk.components import collect_components
+from maibot_sdk import Action, Command, EventHandler, MaiBotPlugin, Tool
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
-    ChatMode,
     ComponentType,
     EventType,
     ModifyFlag,
@@ -83,11 +81,12 @@ def test_context_raises_without_rpc():
     plugin = SamplePlugin()
     try:
         _ = plugin.ctx
-        assert False, "应该抛出 RuntimeError"
+        raise AssertionError("应该抛出 RuntimeError")
     except RuntimeError:
         pass
 
 
 def test_version():
     import maibot_sdk
+
     assert maibot_sdk.__version__ == "1.0.0"

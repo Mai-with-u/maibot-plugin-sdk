@@ -4,7 +4,8 @@
 PluginContext 由 Runner SDK Runtime 在插件加载时注入。
 """
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability

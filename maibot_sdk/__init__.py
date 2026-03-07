@@ -8,9 +8,9 @@
 - PluginContext: 插件运行时上下文（提供能力代理）
 """
 
-from maibot_sdk.plugin import MaiBotPlugin
-from maibot_sdk.components import Action, Command, Tool, EventHandler, WorkflowStep
+from maibot_sdk.components import Action, Command, EventHandler, Tool, WorkflowStep
 from maibot_sdk.context import PluginContext
+from maibot_sdk.plugin import MaiBotPlugin
 
 __version__ = "1.0.0"
 

@@ -135,4 +135,4 @@ pytest
 
 ## 许可证
 
-本项目使用 [GPL-3.0](LICENSE) 许可证。
+本项目使用 [AGPL-3.0](LICENSE) 许可证。

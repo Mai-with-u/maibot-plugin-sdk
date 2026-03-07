@@ -4,7 +4,8 @@
 装饰器将组件元数据附加到方法上，Runner 在加载时收集。
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from maibot_sdk.types import (
     ActionComponentInfo,
@@ -46,6 +47,7 @@ def Action(
         async def handle_my_action(self, **kwargs):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         info = ActionComponentInfo(
             name=name,
@@ -63,6 +65,7 @@ def Action(
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
+
     return decorator
 
 
@@ -80,6 +83,7 @@ def Command(
         async def handle_hello(self, **kwargs):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         info = CommandComponentInfo(
             name=name,
@@ -90,6 +94,7 @@ def Command(
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
+
     return decorator
 
 
@@ -113,6 +118,7 @@ def Tool(
         async def handle_search(self, query: str, **kwargs):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         typed_params: list[ToolParameterInfo] = []
         raw_params: dict[str, Any] = {}
@@ -130,6 +136,7 @@ def Tool(
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
+
     return decorator
 
 
@@ -157,6 +164,7 @@ def EventHandler(
         async def filter_message(self, message, **kwargs):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         info = EventHandlerComponentInfo(
             name=name,
@@ -168,6 +176,7 @@ def EventHandler(
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
+
     return decorator
 
 
@@ -203,6 +212,7 @@ def WorkflowStep(
             # 只读观察者，并发执行
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         info = WorkflowStepComponentInfo(
             name=name,
@@ -217,6 +227,7 @@ def WorkflowStep(
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
+
     return decorator
 
 
@@ -236,9 +247,11 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
             continue
         if callable(attr) and hasattr(attr, _COMPONENT_INFO_ATTR):
             info = getattr(attr, _COMPONENT_INFO_ATTR)
-            components.append({
-                "name": info.name,
-                "type": info.type.value,
-                "metadata": info.model_dump(exclude={"name", "type"}),
-            })
+            components.append(
+                {
+                    "name": info.name,
+                    "type": info.type.value,
+                    "metadata": info.model_dump(exclude={"name", "type"}),
+                }
+            )
     return components
