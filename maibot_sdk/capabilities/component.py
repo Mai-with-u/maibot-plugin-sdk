@@ -1,0 +1,78 @@
+"""组件管理能力代理
+
+对应旧系统的 component_manage_api + plugin_manage_api。
+"""
+
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from maibot_sdk.context import PluginContext
+
+
+class ComponentCapability:
+    """插件和组件管理能力"""
+
+    def __init__(self, ctx: "PluginContext"):
+        self._ctx = ctx
+
+    async def get_all_plugins(self) -> Any:
+        """获取所有已注册插件信息"""
+        return await self._ctx.call_capability("component.get_all_plugins")
+
+    async def get_plugin_info(self, plugin_name: str) -> Any:
+        """获取指定插件信息"""
+        return await self._ctx.call_capability(
+            "component.get_plugin_info",
+            plugin_name=plugin_name,
+        )
+
+    async def list_loaded_plugins(self) -> Any:
+        """列出已加载的插件"""
+        return await self._ctx.call_capability("component.list_loaded_plugins")
+
+    async def list_registered_plugins(self) -> Any:
+        """列出已注册的插件"""
+        return await self._ctx.call_capability("component.list_registered_plugins")
+
+    async def enable_component(self, name: str, component_type: str, scope: str = "global", stream_id: str = "") -> Any:
+        """启用组件"""
+        return await self._ctx.call_capability(
+            "component.enable",
+            name=name,
+            component_type=component_type,
+            scope=scope,
+            stream_id=stream_id,
+        )
+
+    async def disable_component(self, name: str, component_type: str, scope: str = "global", stream_id: str = "") -> Any:
+        """禁用组件"""
+        return await self._ctx.call_capability(
+            "component.disable",
+            name=name,
+            component_type=component_type,
+            scope=scope,
+            stream_id=stream_id,
+        )
+
+    async def load_plugin(self, plugin_name: str) -> Any:
+        """加载指定插件"""
+        return await self._ctx.call_capability(
+            "component.load_plugin",
+            plugin_name=plugin_name,
+        )
+
+    async def unload_plugin(self, plugin_name: str) -> Any:
+        """卸载指定插件"""
+        return await self._ctx.call_capability(
+            "component.unload_plugin",
+            plugin_name=plugin_name,
+        )
+
+    async def reload_plugin(self, plugin_name: str) -> Any:
+        """重新加载指定插件"""
+        return await self._ctx.call_capability(
+            "component.reload_plugin",
+            plugin_name=plugin_name,
+        )

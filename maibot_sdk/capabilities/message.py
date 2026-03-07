@@ -1,0 +1,60 @@
+"""消息能力代理
+
+对应旧系统的 message_api，所有方法底层转发为 cap.request RPC。
+"""
+
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from maibot_sdk.context import PluginContext
+
+
+class MessageCapability:
+    """消息查询能力"""
+
+    def __init__(self, ctx: "PluginContext"):
+        self._ctx = ctx
+
+    async def get_recent(self, chat_id: str, limit: int = 10) -> Any:
+        """获取最近消息
+
+        Args:
+            chat_id: 聊天流 ID
+            limit: 消息条数
+        """
+        return await self._ctx.call_capability(
+            "message.get_recent",
+            chat_id=chat_id,
+            limit=limit,
+        )
+
+    async def build_readable(self, messages: Any, **kwargs: Any) -> Any:
+        """构建可读的消息字符串
+
+        Args:
+            messages: 消息列表（从 get_recent 等方法获取）
+        """
+        return await self._ctx.call_capability(
+            "message.build_readable",
+            messages=messages,
+            **kwargs,
+        )
+
+    async def get_by_time(self, start_time: str, end_time: str, **kwargs: Any) -> Any:
+        """按时间范围获取消息"""
+        return await self._ctx.call_capability(
+            "message.get_by_time",
+            start_time=start_time,
+            end_time=end_time,
+            **kwargs,
+        )
+
+    async def count_new(self, chat_id: str, since: str) -> Any:
+        """统计新消息数量"""
+        return await self._ctx.call_capability(
+            "message.count_new",
+            chat_id=chat_id,
+            since=since,
+        )
