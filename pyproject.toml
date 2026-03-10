@@ -3,7 +3,7 @@ name = "maibot-plugin-sdk"
 version = "1.2.0"
 description = "MaiBot 插件开发 SDK"
 readme = "README.md"
-license = "AGPL-3.0-only"
+license = "LGPL-3.0-only"
 requires-python = ">=3.10"
 authors = [
     { name = "MaiBot Team" },

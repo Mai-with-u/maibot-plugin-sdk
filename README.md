@@ -81,4 +81,4 @@ pytest -v                 # 测试
 
 ## 许可证
 
-[AGPL-3.0](LICENSE)
+[LGPL-3.0](LICENSE)
