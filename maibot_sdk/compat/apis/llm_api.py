@@ -21,7 +21,8 @@ def get_available_models() -> dict[str, Any]:
     """获取可用模型配置 (同步，兼容层下功能受限)"""
     warnings.warn(
         "llm_api.get_available_models() 已弃用，请使用 await self.ctx.llm.get_available_models()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return {}
 

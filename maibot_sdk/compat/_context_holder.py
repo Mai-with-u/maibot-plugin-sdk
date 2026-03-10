@@ -29,7 +29,6 @@ def require_context() -> PluginContext:
     """获取当前上下文，不存在时抛出 RuntimeError"""
     if _current_ctx is None:
         raise RuntimeError(
-            "旧版插件兼容层: PluginContext 尚未注入。"
-            "确保插件在 Runner 环境中运行且 LegacyPluginAdapter 已初始化。"
+            "旧版插件兼容层: PluginContext 尚未注入。确保插件在 Runner 环境中运行且 LegacyPluginAdapter 已初始化。"
         )
     return _current_ctx

@@ -31,6 +31,7 @@ def register_plugin(cls: type | None = None, **kwargs: Any):
 
         # 在调用方所在模块打标记
         import inspect
+
         frame = inspect.stack()[1]
         module = inspect.getmodule(frame[0])
         if module is not None:

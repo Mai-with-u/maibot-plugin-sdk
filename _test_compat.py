@@ -111,6 +111,7 @@ print("[PASS] from ... import ... 风格全部通过")
 # 4. 验证基类签名
 # ==================================================================
 
+
 # --- BaseAction ---
 class _TestAction(BaseAction):
     action_name = "test_action"
@@ -121,6 +122,7 @@ class _TestAction(BaseAction):
 
     async def execute(self):
         return True, "ok"
+
 
 action = _TestAction(
     action_data={"key": "val"},
@@ -146,6 +148,7 @@ assert info.activation_type == ActionActivationType.KEYWORD
 assert info.activation_keywords == ["hello"]
 print("[PASS] BaseAction.get_action_info() 正确")
 
+
 # --- BaseCommand ---
 class _TestCommand(BaseCommand):
     command_name = "test_cmd"
@@ -154,6 +157,7 @@ class _TestCommand(BaseCommand):
 
     async def execute(self):
         return True, "ok", 0
+
 
 cmd = _TestCommand(message=None, plugin_config={"a": {"b": 1}})
 assert cmd.plugin_config == {"a": {"b": 1}}
@@ -164,6 +168,7 @@ cmd_info = _TestCommand.get_command_info()
 assert cmd_info.name == "test_cmd"
 assert cmd_info.command_pattern == r"/test (?P<arg>\w+)"
 print("[PASS] BaseCommand 签名和方法正确")
+
 
 # --- BaseEventHandler ---
 class _TestHandler(BaseEventHandler):
@@ -176,6 +181,7 @@ class _TestHandler(BaseEventHandler):
     async def execute(self, message):
         return True, False, None, None, None
 
+
 handler = _TestHandler()
 handler.set_plugin_config({"x": 1})
 handler.set_plugin_name("my_plugin")
@@ -186,6 +192,7 @@ handler_info = _TestHandler.get_handler_info()
 assert handler_info.name == "test_handler"
 assert handler_info.weight == 10
 print("[PASS] BaseEventHandler 签名和方法正确")
+
 
 # --- BaseTool ---
 class _TestTool(BaseTool):
@@ -198,6 +205,7 @@ class _TestTool(BaseTool):
 
     async def execute(self, function_args):
         return {"name": self.name, "content": "result"}
+
 
 tool = _TestTool(plugin_config={"p": 1}, chat_stream=None)
 assert tool.plugin_config == {"p": 1}
@@ -332,6 +340,7 @@ class _TestPlugin(BasePlugin):
             (_TestTool.get_tool_info(), _TestTool),
         ]
 
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
     adapter = LegacyPluginAdapter(_TestPlugin())
@@ -349,6 +358,7 @@ adapter.set_plugin_config({"test_key": "test_val"})
 assert adapter._plugin_config == {"test_key": "test_val"}
 print("[PASS] LegacyPluginAdapter.set_plugin_config() 正确")
 
+
 # ==================================================================
 # 8. 验证 register_plugin 装饰器
 # ==================================================================
@@ -361,6 +371,7 @@ print("[PASS] LegacyPluginAdapter.set_plugin_config() 正确")
 class _TestRegisteredPlugin(BasePlugin):
     def get_plugin_components(self):
         return []
+
 
 assert hasattr(_TestRegisteredPlugin, "_plugin_meta")
 assert _TestRegisteredPlugin._plugin_meta["name"] == "test_compat_plugin"

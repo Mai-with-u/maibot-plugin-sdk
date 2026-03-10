@@ -43,6 +43,7 @@ class _AliasLoader(importlib.abc.Loader):
             module.__dict__.update(self._real_module.__dict__)
         pass
 
+
 # 旧模块路径 → 新模块路径 的映射
 _MODULE_MAP: dict[str, str] = {
     "src.plugin_system": "maibot_sdk.compat",
@@ -133,7 +134,7 @@ class _LegacyPluginSystemFinder(MetaPathFinder):
         # 确定目标模块路径
         new_name = _MODULE_MAP.get(fullname)
         if new_name is None:
-            suffix = fullname[len("src.plugin_system."):]
+            suffix = fullname[len("src.plugin_system.") :]
             new_name = f"maibot_sdk.compat.{suffix}"
 
         # 从 sys.modules 获取已加载模块，避免重复加载导致类标识不同

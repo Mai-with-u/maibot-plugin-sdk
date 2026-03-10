@@ -21,6 +21,7 @@ def _get_chat():
 
 class SpecialTypes(Enum):
     """特殊枚举类型"""
+
     ALL_PLATFORMS = "all_platforms"
 
 
@@ -51,8 +52,10 @@ class ChatManager:
 def get_all_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_all_streams(platform)
 
+
 def get_group_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_group_streams(platform)
+
 
 def get_all_group_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_group_streams(platform)

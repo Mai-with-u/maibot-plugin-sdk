@@ -96,8 +96,11 @@ class ConfigSection:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "title": self.title, "description": self.description,
-            "icon": self.icon, "collapsed": self.collapsed, "order": self.order,
+            "title": self.title,
+            "description": self.description,
+            "icon": self.icon,
+            "collapsed": self.collapsed,
+            "order": self.order,
         }
 
 
@@ -112,8 +115,12 @@ class ConfigTab:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "title": self.title, "sections": self.sections,
-            "icon": self.icon, "order": self.order, "badge": self.badge,
+            "id": self.id,
+            "title": self.title,
+            "sections": self.sections,
+            "icon": self.icon,
+            "order": self.order,
+            "badge": self.badge,
         }
 
 
@@ -127,7 +134,10 @@ class ConfigLayout:
 
 
 def section_meta(
-    title: str, description: str | None = None,
-    icon: str | None = None, collapsed: bool = False, order: int = 0,
+    title: str,
+    description: str | None = None,
+    icon: str | None = None,
+    collapsed: bool = False,
+    order: int = 0,
 ) -> str | ConfigSection:
     return ConfigSection(title=title, description=description, icon=icon, collapsed=collapsed, order=order)

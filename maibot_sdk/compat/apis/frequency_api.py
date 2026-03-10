@@ -21,7 +21,8 @@ def get_current_talk_value(chat_id: str) -> float:
     """获取当前聊天话题值 (同步，兼容层下返回 0.0)"""
     warnings.warn(
         "frequency_api.get_current_talk_value() 已弃用，请使用 await self.ctx.frequency.get_current_talk_value()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return 0.0
 

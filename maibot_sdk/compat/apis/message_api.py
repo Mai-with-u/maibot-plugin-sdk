@@ -24,6 +24,7 @@ def _get_message():
 # 同步方法 (旧版签名，新架构下功能受限)
 # ===========================================================================
 
+
 def get_messages_by_time(
     start_time: float,
     end_time: float,
@@ -34,7 +35,8 @@ def get_messages_by_time(
     """获取时间范围内的消息 (同步，兼容层下返回空列表)"""
     warnings.warn(
         "message_api.get_messages_by_time() 已弃用且在新架构下为异步，请使用 await self.ctx.message.get_by_time()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return []
 
@@ -52,7 +54,8 @@ def get_messages_by_time_in_chat(
     """获取指定聊天中时间范围内的消息"""
     warnings.warn(
         "message_api.get_messages_by_time_in_chat() 已弃用，请使用 await self.ctx.message.get_by_time_in_chat()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return []
 
@@ -61,7 +64,8 @@ def count_new_messages(chat_id: str, start_time: float, end_time: float) -> int:
     """计算新消息数量"""
     warnings.warn(
         "message_api.count_new_messages() 已弃用，请使用 await self.ctx.message.count_new()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return 0
 
@@ -94,17 +98,14 @@ def filter_mai_messages(messages: list[Any]) -> list[Any]:
 # 异步版本 (新增，供有能力迁移的插件使用)
 # ===========================================================================
 
-async def async_get_messages_by_time(
-    start_time: float, end_time: float, **kwargs: Any
-) -> list[Any]:
+
+async def async_get_messages_by_time(start_time: float, end_time: float, **kwargs: Any) -> list[Any]:
     """异步版获取时间范围内的消息"""
     msg = _get_message()
     if msg is None:
         return []
     try:
-        return await msg.get_by_time(
-            start_time=str(start_time), end_time=str(end_time), **kwargs
-        )
+        return await msg.get_by_time(start_time=str(start_time), end_time=str(end_time), **kwargs)
     except Exception as e:
         logger.error(f"async_get_messages_by_time 失败: {e}")
         return []
@@ -119,8 +120,7 @@ async def async_get_messages_by_time_in_chat(
         return []
     try:
         return await msg.get_by_time_in_chat(
-            chat_id=chat_id,
-            start_time=str(start_time), end_time=str(end_time), **kwargs
+            chat_id=chat_id, start_time=str(start_time), end_time=str(end_time), **kwargs
         )
     except Exception as e:
         logger.error(f"async_get_messages_by_time_in_chat 失败: {e}")

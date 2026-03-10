@@ -74,9 +74,8 @@ class BaseAction(ABC):
         self.plugin_config = plugin_config or {}
 
         # 设置动作基本信息
-        self.action_name = (
-            getattr(self.__class__, "action_name", "")
-            or self.__class__.__name__.lower().replace("action", "")
+        self.action_name = getattr(self.__class__, "action_name", "") or self.__class__.__name__.lower().replace(
+            "action", ""
         )
         self.action_description = getattr(self.__class__, "action_description", self.__doc__ or "Action组件")
         self.action_parameters = getattr(self.__class__, "action_parameters", {}).copy()
@@ -154,13 +153,17 @@ class BaseAction(ABC):
         """发送文本消息"""
         warnings.warn("BaseAction.send_text() 已弃用，请使用 self.ctx.send.text()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.text_to_stream(
-            text=content, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
-            typing=typing, storage_message=storage_message,
+            text=content,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            typing=typing,
+            storage_message=storage_message,
         )
 
     async def send_emoji(
@@ -173,12 +176,15 @@ class BaseAction(ABC):
         """发送表情包"""
         warnings.warn("BaseAction.send_emoji() 已弃用，请使用 self.ctx.send.emoji()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.emoji_to_stream(
-            emoji_base64=emoji_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            emoji_base64=emoji_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -192,12 +198,15 @@ class BaseAction(ABC):
         """发送图片"""
         warnings.warn("BaseAction.send_image() 已弃用，请使用 self.ctx.send.image()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.image_to_stream(
-            image_base64=image_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            image_base64=image_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -215,13 +224,16 @@ class BaseAction(ABC):
             stacklevel=2,
         )
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         command_data = {"name": command_name, "args": args or {}}
         return await send_api.command_to_stream(
-            command=command_data, stream_id=stream_id,
-            storage_message=storage_message, display_message=display_message,
+            command=command_data,
+            stream_id=stream_id,
+            storage_message=storage_message,
+            display_message=display_message,
         )
 
     async def send_custom(
@@ -236,12 +248,17 @@ class BaseAction(ABC):
         """发送自定义类型消息"""
         warnings.warn("BaseAction.send_custom() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type=message_type, content=content, stream_id=stream_id,
-            typing=typing, set_reply=set_reply, reply_message=reply_message,
+            message_type=message_type,
+            content=content,
+            stream_id=stream_id,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -253,11 +270,13 @@ class BaseAction(ABC):
         """转发消息"""
         warnings.warn("BaseAction.send_forward() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.custom_reply_set_to_stream(
-            reply_set={"forward": messages_list}, stream_id=stream_id,
+            reply_set={"forward": messages_list},
+            stream_id=stream_id,
             storage_message=storage_message,
         )
 
@@ -265,11 +284,14 @@ class BaseAction(ABC):
         """发送语音消息"""
         warnings.warn("BaseAction.send_voice() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self.chat_id or self._stream_id
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type="voice", content=audio_base64, stream_id=stream_id,
+            message_type="voice",
+            content=audio_base64,
+            stream_id=stream_id,
             storage_message=False,
         )
 
@@ -284,6 +306,7 @@ class BaseAction(ABC):
         """存储动作信息到数据库"""
         warnings.warn("BaseAction.store_action_info() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import database_api
+
         await database_api.store_action_info(
             chat_stream=self.chat_stream,
             action_build_into_prompt=action_build_into_prompt,

@@ -44,6 +44,7 @@ class LegacyPluginAdapter:
         self._plugin_config = config or {}
         try:
             from maibot_sdk.compat.apis import config_api
+
             config_api.set_config_cache(plugin_cfg=self._plugin_config)
         except Exception:
             pass
@@ -151,12 +152,14 @@ class LegacyPluginAdapter:
         params: list[dict[str, Any]] = []
         for p in getattr(tool, "parameters", []):
             if isinstance(p, (list, tuple)) and len(p) >= 3:
-                params.append({
-                    "name": p[0],
-                    "type": str(p[1]),
-                    "description": p[2],
-                    "required": p[3] if len(p) > 3 else False,
-                })
+                params.append(
+                    {
+                        "name": p[0],
+                        "type": str(p[1]),
+                        "description": p[2],
+                        "required": p[3] if len(p) > 3 else False,
+                    }
+                )
         return params
 
     # ── 组件调用桥接 ──────────────────────────────────────────
@@ -187,8 +190,18 @@ class LegacyPluginAdapter:
             instance.plugin_config = plugin_config
             instance.action_message = kwargs.get("action_message", getattr(instance, "action_message", None))
             instance._stream_id = stream_id
-            for attr in ("chat_id", "user_id", "message", "message_id", "platform",
-                         "group_id", "group_name", "user_nickname", "is_group", "target_id"):
+            for attr in (
+                "chat_id",
+                "user_id",
+                "message",
+                "message_id",
+                "platform",
+                "group_id",
+                "group_name",
+                "user_nickname",
+                "is_group",
+                "target_id",
+            ):
                 if attr in kwargs:
                     setattr(instance, attr, kwargs[attr])
             return await instance.execute()

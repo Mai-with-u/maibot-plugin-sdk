@@ -34,8 +34,7 @@ def show_banner_once() -> None:
         _banner_shown = True
         _logger.warning(_BANNER)
         warnings.warn(
-            "旧版插件系统 (src.plugin_system) 已弃用，请迁移到新版 maibot_sdk。"
-            "此兼容层将在未来版本中移除。",
+            "旧版插件系统 (src.plugin_system) 已弃用，请迁移到新版 maibot_sdk。此兼容层将在未来版本中移除。",
             DeprecationWarning,
             stacklevel=3,
         )

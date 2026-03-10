@@ -69,6 +69,7 @@ async def execute_workflow_message(
     """执行 workflow 消息"""
     warnings.warn("workflow_api.execute_workflow_message() 已弃用", DeprecationWarning, stacklevel=2)
     from maibot_sdk.compat.base.workflow_types import WorkflowContext, WorkflowStepResult
+
     return WorkflowStepResult(success=False, error="兼容层不支持"), message, context or WorkflowContext()
 
 

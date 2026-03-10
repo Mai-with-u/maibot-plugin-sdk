@@ -87,12 +87,15 @@ class BaseCommand(ABC):
         """发送回复消息"""
         warnings.warn("BaseCommand.send_text() 已弃用，请使用 self.ctx.send.text()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.text_to_stream(
-            text=content, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            text=content,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -106,12 +109,15 @@ class BaseCommand(ABC):
         """发送图片"""
         warnings.warn("BaseCommand.send_image() 已弃用，请使用 self.ctx.send.image()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.image_to_stream(
-            image_base64=image_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            image_base64=image_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -125,12 +131,15 @@ class BaseCommand(ABC):
         """发送表情包"""
         warnings.warn("BaseCommand.send_emoji() 已弃用，请使用 self.ctx.send.emoji()", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.emoji_to_stream(
-            emoji_base64=emoji_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            emoji_base64=emoji_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -148,24 +157,30 @@ class BaseCommand(ABC):
             stacklevel=2,
         )
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         command_data = {"name": command_name, "args": args or {}}
         return await send_api.command_to_stream(
-            command=command_data, stream_id=stream_id,
-            storage_message=storage_message, display_message=display_message,
+            command=command_data,
+            stream_id=stream_id,
+            storage_message=storage_message,
+            display_message=display_message,
         )
 
     async def send_voice(self, voice_base64: str) -> bool:
         """发送语音消息"""
         warnings.warn("BaseCommand.send_voice() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type="voice", content=voice_base64, stream_id=stream_id,
+            message_type="voice",
+            content=voice_base64,
+            stream_id=stream_id,
             storage_message=False,
         )
 
@@ -180,12 +195,16 @@ class BaseCommand(ABC):
         """发送混合类型消息"""
         warnings.warn("BaseCommand.send_hybrid() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.custom_reply_set_to_stream(
-            reply_set={"hybrid": message_tuple_list}, stream_id=stream_id,
-            typing=typing, set_reply=set_reply, reply_message=reply_message,
+            reply_set={"hybrid": message_tuple_list},
+            stream_id=stream_id,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -197,11 +216,13 @@ class BaseCommand(ABC):
         """转发消息"""
         warnings.warn("BaseCommand.send_forward() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.custom_reply_set_to_stream(
-            reply_set={"forward": messages_list}, stream_id=stream_id,
+            reply_set={"forward": messages_list},
+            stream_id=stream_id,
             storage_message=storage_message,
         )
 
@@ -218,13 +239,18 @@ class BaseCommand(ABC):
         """发送自定义类型消息"""
         warnings.warn("BaseCommand.send_custom() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         stream_id = self._get_stream_id()
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type=message_type, content=content, stream_id=stream_id,
-            display_message=display_message, typing=typing,
-            set_reply=set_reply, reply_message=reply_message,
+            message_type=message_type,
+            content=content,
+            stream_id=stream_id,
+            display_message=display_message,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 

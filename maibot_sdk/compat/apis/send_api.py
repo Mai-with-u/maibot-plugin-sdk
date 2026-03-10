@@ -24,6 +24,7 @@ def _get_send():
 # text_to_stream / text_to_group / text_to_user
 # ===========================================================================
 
+
 async def text_to_stream(
     text: str,
     stream_id: str,
@@ -41,9 +42,12 @@ async def text_to_stream(
         return False
     try:
         await send.text(
-            text=text, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
-            typing=typing, storage_message=storage_message,
+            text=text,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            typing=typing,
+            storage_message=storage_message,
             **kwargs,
         )
         return True
@@ -68,6 +72,7 @@ async def text_to_user(text: str, user_id: str, **kwargs: Any) -> bool:
 # emoji_to_stream
 # ===========================================================================
 
+
 async def emoji_to_stream(
     emoji_base64: str,
     stream_id: str,
@@ -83,9 +88,12 @@ async def emoji_to_stream(
         return False
     try:
         await send.emoji(
-            emoji_data=emoji_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
-            storage_message=storage_message, **kwargs,
+            emoji_data=emoji_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            storage_message=storage_message,
+            **kwargs,
         )
         return True
     except Exception as e:
@@ -96,6 +104,7 @@ async def emoji_to_stream(
 # ===========================================================================
 # image_to_stream
 # ===========================================================================
+
 
 async def image_to_stream(
     image_base64: str,
@@ -112,9 +121,12 @@ async def image_to_stream(
         return False
     try:
         await send.image(
-            image_data=image_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
-            storage_message=storage_message, **kwargs,
+            image_data=image_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            storage_message=storage_message,
+            **kwargs,
         )
         return True
     except Exception as e:
@@ -125,6 +137,7 @@ async def image_to_stream(
 # ===========================================================================
 # command_to_stream
 # ===========================================================================
+
 
 async def command_to_stream(
     command: Any,
@@ -146,8 +159,10 @@ async def command_to_stream(
         # 旧版 command 可能是 dict，新版接收 str
         cmd_str = command if isinstance(command, str) else str(command)
         await send.command(
-            command=cmd_str, stream_id=stream_id,
-            storage_message=storage_message, display_message=display_message,
+            command=cmd_str,
+            stream_id=stream_id,
+            storage_message=storage_message,
+            display_message=display_message,
             **kwargs,
         )
         return True
@@ -159,6 +174,7 @@ async def command_to_stream(
 # ===========================================================================
 # custom_to_stream
 # ===========================================================================
+
 
 async def custom_to_stream(
     message_type: str,
@@ -178,10 +194,15 @@ async def custom_to_stream(
         return False
     try:
         await send.custom(
-            custom_type=message_type, data=content, stream_id=stream_id,
-            display_message=display_message, typing=typing,
-            set_reply=set_reply, reply_message=reply_message,
-            storage_message=storage_message, **kwargs,
+            custom_type=message_type,
+            data=content,
+            stream_id=stream_id,
+            display_message=display_message,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            storage_message=storage_message,
+            **kwargs,
         )
         return True
     except Exception as e:
@@ -192,6 +213,7 @@ async def custom_to_stream(
 # ===========================================================================
 # custom_reply_set_to_stream (ReplySetModel → custom)
 # ===========================================================================
+
 
 async def custom_reply_set_to_stream(
     reply_set: Any,
@@ -211,9 +233,14 @@ async def custom_reply_set_to_stream(
         # 将 ReplySetModel 转为可序列化的 dict
         data = reply_set.to_dict() if hasattr(reply_set, "to_dict") else str(reply_set)
         await send.custom(
-            custom_type="reply_set", data=data, stream_id=stream_id,
-            typing=typing, set_reply=set_reply, reply_message=reply_message,
-            storage_message=storage_message, **kwargs,
+            custom_type="reply_set",
+            data=data,
+            stream_id=stream_id,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            storage_message=storage_message,
+            **kwargs,
         )
         return True
     except Exception as e:
@@ -225,6 +252,7 @@ async def custom_reply_set_to_stream(
 # custom_message (旧版通用发送)
 # ===========================================================================
 
+
 async def custom_message(
     message_type: str,
     content: Any,
@@ -235,6 +263,8 @@ async def custom_message(
     """通用消息发送 (旧版兼容)"""
     warnings.warn("send_api.custom_message() 已弃用", DeprecationWarning, stacklevel=2)
     return await custom_to_stream(
-        message_type=message_type, content=content,
-        stream_id=target_id, **kwargs,
+        message_type=message_type,
+        content=content,
+        stream_id=target_id,
+        **kwargs,
     )

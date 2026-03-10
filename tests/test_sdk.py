@@ -93,9 +93,19 @@ def test_context_has_all_capabilities():
     ctx = PluginContext(plugin_id="__test__", rpc_call=None)
 
     expected = [
-        "send", "db", "llm", "config", "emoji", "message",
-        "frequency", "component", "chat", "person",
-        "knowledge", "tool", "logging",
+        "send",
+        "db",
+        "llm",
+        "config",
+        "emoji",
+        "message",
+        "frequency",
+        "component",
+        "chat",
+        "person",
+        "knowledge",
+        "tool",
+        "logging",
     ]
     for attr in expected:
         assert hasattr(ctx, attr), f"PluginContext 缺少能力代理: {attr}"
@@ -117,13 +127,23 @@ def test_capability_classes_importable():
     from maibot_sdk.capabilities.send import SendCapability
     from maibot_sdk.capabilities.tool import ToolCapability
 
-    assert all([
-        ChatCapability, ComponentCapability, ConfigCapability,
-        DatabaseCapability, EmojiCapability, FrequencyCapability,
-        KnowledgeCapability, LLMCapability, LoggingCapability,
-        MessageCapability, PersonCapability, SendCapability,
-        ToolCapability,
-    ])
+    assert all(
+        [
+            ChatCapability,
+            ComponentCapability,
+            ConfigCapability,
+            DatabaseCapability,
+            EmojiCapability,
+            FrequencyCapability,
+            KnowledgeCapability,
+            LLMCapability,
+            LoggingCapability,
+            MessageCapability,
+            PersonCapability,
+            SendCapability,
+            ToolCapability,
+        ]
+    )
 
 
 def test_version():

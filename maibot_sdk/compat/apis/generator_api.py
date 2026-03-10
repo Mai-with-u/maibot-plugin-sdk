@@ -28,7 +28,8 @@ def get_replyer(
     """
     warnings.warn(
         "generator_api.get_replyer() 已弃用，新版 SDK 不再暴露回复器对象",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return None
 

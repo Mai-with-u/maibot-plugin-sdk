@@ -83,12 +83,16 @@ class BaseEventHandler(ABC):
         """发送文本消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_text() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.text_to_stream(
-            text=content, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
-            typing=typing, storage_message=storage_message,
+            text=content,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
+            typing=typing,
+            storage_message=storage_message,
         )
 
     async def send_image(
@@ -102,11 +106,14 @@ class BaseEventHandler(ABC):
         """发送图片到指定聊天流"""
         warnings.warn("BaseEventHandler.send_image() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.image_to_stream(
-            image_base64=image_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            image_base64=image_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -121,11 +128,14 @@ class BaseEventHandler(ABC):
         """发送表情包到指定聊天流"""
         warnings.warn("BaseEventHandler.send_emoji() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.emoji_to_stream(
-            emoji_base64=emoji_base64, stream_id=stream_id,
-            set_reply=set_reply, reply_message=reply_message,
+            emoji_base64=emoji_base64,
+            stream_id=stream_id,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -137,10 +147,13 @@ class BaseEventHandler(ABC):
         """发送语音消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_voice() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type="voice", content=voice_base64, stream_id=stream_id,
+            message_type="voice",
+            content=voice_base64,
+            stream_id=stream_id,
             storage_message=False,
         )
 
@@ -155,12 +168,15 @@ class BaseEventHandler(ABC):
         """发送命令消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_command() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         command_data = {"name": command_name, "args": args or {}}
         return await send_api.command_to_stream(
-            command=command_data, stream_id=stream_id,
-            storage_message=storage_message, display_message=display_message,
+            command=command_data,
+            stream_id=stream_id,
+            storage_message=storage_message,
+            display_message=display_message,
         )
 
     async def send_custom(
@@ -177,12 +193,17 @@ class BaseEventHandler(ABC):
         """发送自定义类型消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_custom() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.custom_to_stream(
-            message_type=message_type, content=content, stream_id=stream_id,
-            display_message=display_message, typing=typing,
-            set_reply=set_reply, reply_message=reply_message,
+            message_type=message_type,
+            content=content,
+            stream_id=stream_id,
+            display_message=display_message,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -198,11 +219,15 @@ class BaseEventHandler(ABC):
         """发送混合类型消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_hybrid() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.custom_reply_set_to_stream(
-            reply_set={"hybrid": message_tuple_list}, stream_id=stream_id,
-            typing=typing, set_reply=set_reply, reply_message=reply_message,
+            reply_set={"hybrid": message_tuple_list},
+            stream_id=stream_id,
+            typing=typing,
+            set_reply=set_reply,
+            reply_message=reply_message,
             storage_message=storage_message,
         )
 
@@ -215,10 +240,12 @@ class BaseEventHandler(ABC):
         """转发消息到指定聊天流"""
         warnings.warn("BaseEventHandler.send_forward() 已弃用", DeprecationWarning, stacklevel=2)
         from maibot_sdk.compat.apis import send_api
+
         if not stream_id:
             return False
         return await send_api.custom_reply_set_to_stream(
-            reply_set={"forward": messages_list}, stream_id=stream_id,
+            reply_set={"forward": messages_list},
+            stream_id=stream_id,
             storage_message=storage_message,
         )
 

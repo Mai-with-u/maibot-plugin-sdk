@@ -21,7 +21,8 @@ def get_person_id(platform: str, user_id: Any) -> str:
     """根据平台和用户 ID 获取 person_id (同步，兼容层下返回空)"""
     warnings.warn(
         "person_api.get_person_id() 已弃用，请使用 await self.ctx.person.get_id()",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning,
+        stacklevel=2,
     )
     return ""
 

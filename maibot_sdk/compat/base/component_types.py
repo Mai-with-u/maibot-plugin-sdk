@@ -120,9 +120,7 @@ class CommandInfo(ComponentInfo):
 
 @dataclass
 class ToolInfo(ComponentInfo):
-    tool_parameters: list[tuple[str, ToolParamType, str, bool, list[str] | None]] = field(
-        default_factory=list
-    )
+    tool_parameters: list[tuple[str, ToolParamType, str, bool, list[str] | None]] = field(default_factory=list)
     tool_description: str = ""
 
     def __post_init__(self) -> None:
@@ -219,6 +217,7 @@ class MaiMessages:
 
     def deepcopy(self) -> "MaiMessages":
         import copy
+
         return copy.deepcopy(self)
 
     def modify_message_segments(self, new_segments: list[Any], suppress_warning: bool = False) -> None:
