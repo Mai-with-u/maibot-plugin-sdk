@@ -18,7 +18,11 @@ _local_handlers: dict[str, Callable[..., Any]] = {}
 
 def register_service(service_info: Any, service_handler: Callable[..., Any]) -> bool:
     """注册插件服务 (兼容层下仅在进程内有效)"""
-    warnings.warn("plugin_service_api.register_service() 已弃用，新版 IPC 架构不支持跨进程服务", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "plugin_service_api.register_service() 已弃用，新版 IPC 架构不支持跨进程服务",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     key = getattr(service_info, "service_name", str(service_info))
     _local_services[key] = service_info
     _local_handlers[key] = service_handler

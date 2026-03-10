@@ -22,7 +22,11 @@ async def get_by_description(description: str) -> tuple[str, str, str] | None:
     Returns:
         (base64编码, 描述, 情感标签) 或 None
     """
-    warnings.warn("emoji_api.get_by_description() 已弃用，请使用 self.ctx.emoji.get_by_description()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "emoji_api.get_by_description() 已弃用，请使用 self.ctx.emoji.get_by_description()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     emoji = _get_emoji()
     if emoji is None:
         return None

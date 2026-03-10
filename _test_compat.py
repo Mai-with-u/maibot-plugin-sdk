@@ -3,6 +3,9 @@
 验证 import hook、基类、API 模块等所有兼容层组件能正常工作。
 """
 
+from __future__ import annotations
+
+import logging
 import sys
 import warnings
 
@@ -296,7 +299,7 @@ assert callable(workflow_api.publish_event)
 print("[PASS] workflow_api 函数签名完整")
 
 # constants
-from src.plugin_system.apis.constants import PROJECT_ROOT
+from src.plugin_system.apis.constants import PROJECT_ROOT  # noqa: E402
 
 assert isinstance(PROJECT_ROOT, str) or PROJECT_ROOT is not None
 print("[PASS] constants 完整")
@@ -317,7 +320,7 @@ print("[PASS] config_api 同步调用正确")
 # ==================================================================
 # 7. 验证 LegacyPluginAdapter 基本流程
 # ==================================================================
-from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter  # noqa: E402
 
 
 class _TestPlugin(BasePlugin):
@@ -366,7 +369,6 @@ print("[PASS] @register_plugin 装饰器正确")
 # ==================================================================
 # 9. 验证 get_logger
 # ==================================================================
-import logging
 
 test_logger = get_logger("test_plugin")
 assert isinstance(test_logger, logging.Logger)

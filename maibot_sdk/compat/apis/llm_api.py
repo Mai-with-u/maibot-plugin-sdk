@@ -38,7 +38,11 @@ async def generate_with_model(
     Returns:
         (是否成功, 生成内容, 推理过程, 模型名称)
     """
-    warnings.warn("llm_api.generate_with_model() 已弃用，请使用 self.ctx.llm.generate()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "llm_api.generate_with_model() 已弃用，请使用 self.ctx.llm.generate()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     llm = _get_llm()
     if llm is None:
         return False, "", "", ""

@@ -43,10 +43,8 @@ class BasePlugin(ABC):
         """
         ...
 
-    async def on_load(self) -> None:
+    async def on_load(self) -> None:  # noqa: B027
         """插件加载后回调（可选覆盖）"""
-        pass
 
-    async def on_unload(self) -> None:
+    async def on_unload(self) -> None:  # noqa: B027
         """插件卸载前回调（可选覆盖）"""
-        pass

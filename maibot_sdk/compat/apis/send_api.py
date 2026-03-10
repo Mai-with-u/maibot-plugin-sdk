@@ -134,7 +134,11 @@ async def command_to_stream(
     **kwargs: Any,
 ) -> bool:
     """发送命令到指定聊天流"""
-    warnings.warn("send_api.command_to_stream() 已弃用，请使用 self.ctx.send.command()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "send_api.command_to_stream() 已弃用，请使用 self.ctx.send.command()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     send = _get_send()
     if send is None:
         return False

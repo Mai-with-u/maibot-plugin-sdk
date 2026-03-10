@@ -44,7 +44,11 @@ async def generate_reply(
     Returns:
         (是否成功, ReplySetModel, 额外数据)
     """
-    warnings.warn("generator_api.generate_reply() 已弃用，请使用 self.ctx.llm.generate()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "generator_api.generate_reply() 已弃用，请使用 self.ctx.llm.generate()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     llm = _get_llm()
     if llm is None:
         return False, None, None

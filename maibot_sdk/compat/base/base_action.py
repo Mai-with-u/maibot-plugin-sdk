@@ -74,7 +74,10 @@ class BaseAction(ABC):
         self.plugin_config = plugin_config or {}
 
         # 设置动作基本信息
-        self.action_name = getattr(self.__class__, "action_name", "") or self.__class__.__name__.lower().replace("action", "")
+        self.action_name = (
+            getattr(self.__class__, "action_name", "")
+            or self.__class__.__name__.lower().replace("action", "")
+        )
         self.action_description = getattr(self.__class__, "action_description", self.__doc__ or "Action组件")
         self.action_parameters = getattr(self.__class__, "action_parameters", {}).copy()
         self.action_require = getattr(self.__class__, "action_require", []).copy()
@@ -206,7 +209,11 @@ class BaseAction(ABC):
         storage_message: bool = True,
     ) -> bool:
         """发送命令消息"""
-        warnings.warn("BaseAction.send_command() 已弃用，请使用 self.ctx.send.command()", DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "BaseAction.send_command() 已弃用，请使用 self.ctx.send.command()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         from maibot_sdk.compat.apis import send_api
         stream_id = self.chat_id or self._stream_id
         if not stream_id:

@@ -142,7 +142,11 @@ class BaseCommand(ABC):
         storage_message: bool = True,
     ) -> bool:
         """发送命令消息"""
-        warnings.warn("BaseCommand.send_command() 已弃用，请使用 self.ctx.send.command()", DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "BaseCommand.send_command() 已弃用，请使用 self.ctx.send.command()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         from maibot_sdk.compat.apis import send_api
         stream_id = self._get_stream_id()
         if not stream_id:

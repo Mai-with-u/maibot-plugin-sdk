@@ -40,7 +40,11 @@ async def async_get_person_id(platform: str, user_id: Any) -> str:
 
 async def get_person_value(person_id: str, field_name: str, default: Any = None) -> Any:
     """获取用户信息字段"""
-    warnings.warn("person_api.get_person_value() 已弃用，请使用 self.ctx.person.get_value()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "person_api.get_person_value() 已弃用，请使用 self.ctx.person.get_value()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     person = _get_person()
     if person is None:
         return default

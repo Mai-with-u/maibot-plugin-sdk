@@ -30,7 +30,11 @@ def get_global_config(key: str, default: Any = None) -> Any:
         key: 嵌套键名，如 "section.subsection.key"
         default: 默认值
     """
-    warnings.warn("config_api.get_global_config() 已弃用，请使用 self.ctx.config.get()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        "config_api.get_global_config() 已弃用，请使用 self.ctx.config.get()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _nested_get(_global_config_cache, key, default)
 
 
