@@ -46,12 +46,12 @@ class BaseAction(ABC):
 
     def __init__(
         self,
-        action_data: dict | None = None,
+        action_data: dict[str, Any] | None = None,
         action_reasoning: str = "",
-        cycle_timers: dict | None = None,
+        cycle_timers: dict[str, Any] | None = None,
         thinking_id: str = "",
         chat_stream: Any = None,
-        plugin_config: dict | None = None,
+        plugin_config: dict[str, Any] | None = None,
         action_message: Any = None,
         **kwargs: Any,
     ):
@@ -213,7 +213,7 @@ class BaseAction(ABC):
     async def send_command(
         self,
         command_name: str,
-        args: dict | None = None,
+        args: dict[str, Any] | None = None,
         display_message: str = "",
         storage_message: bool = True,
     ) -> bool:

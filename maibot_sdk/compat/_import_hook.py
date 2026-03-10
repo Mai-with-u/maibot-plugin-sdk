@@ -106,7 +106,7 @@ class _LegacyPluginSystemFinder(MetaPathFinder):
             if fullname in sys.modules:
                 return ModuleSpec(fullname, _AliasLoader(sys.modules[fullname]), is_package=True)
             placeholder = ModuleType(fullname)
-            placeholder.__path__ = []  # type: ignore[attr-defined]
+            placeholder.__path__ = []
             placeholder.__package__ = fullname
             sys.modules[fullname] = placeholder
             return ModuleSpec(fullname, _AliasLoader(placeholder), is_package=True)
@@ -177,14 +177,14 @@ def _ensure_parent_modules(fullname: str) -> None:
                 except ImportError:
                     # 创建空的包占位，防止 ImportError
                     placeholder = ModuleType(parent)
-                    placeholder.__path__ = []  # type: ignore[attr-defined]
+                    placeholder.__path__ = []
                     placeholder.__package__ = parent
                     sys.modules[parent] = placeholder
             else:
                 # 对于 'src' 本身，如果尚不存在就创建占位
                 if parent not in sys.modules:
                     placeholder = ModuleType(parent)
-                    placeholder.__path__ = []  # type: ignore[attr-defined]
+                    placeholder.__path__ = []
                     placeholder.__package__ = parent
                     sys.modules[parent] = placeholder
 

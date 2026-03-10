@@ -1,0 +1,437 @@
+"""兼容层集成测试
+
+验证 import hook、基类、API 模块等所有兼容层组件能正常工作。
+"""
+
+from __future__ import annotations
+
+import importlib
+import logging
+import sys
+import warnings
+
+import pytest
+
+from maibot_sdk.compat._import_hook import install_hook
+
+# ── 全局前置：安装 import hook ──────────────────────────────────────
+
+install_hook()
+
+
+# ── 旧版导入路径列表 ───────────────────────────────────────────────
+
+OLD_IMPORTS = [
+    "src.plugin_system",
+    "src.plugin_system.base",
+    "src.plugin_system.base.base_action",
+    "src.plugin_system.base.base_command",
+    "src.plugin_system.base.base_events_handler",
+    "src.plugin_system.base.base_tool",
+    "src.plugin_system.base.base_plugin",
+    "src.plugin_system.base.component_types",
+    "src.plugin_system.base.config_types",
+    "src.plugin_system.base.service_types",
+    "src.plugin_system.base.workflow_types",
+    "src.plugin_system.base.workflow_errors",
+    "src.plugin_system.apis",
+    "src.plugin_system.apis.send_api",
+    "src.plugin_system.apis.database_api",
+    "src.plugin_system.apis.config_api",
+    "src.plugin_system.apis.message_api",
+    "src.plugin_system.apis.llm_api",
+    "src.plugin_system.apis.emoji_api",
+    "src.plugin_system.apis.person_api",
+    "src.plugin_system.apis.chat_api",
+    "src.plugin_system.apis.tool_api",
+    "src.plugin_system.apis.frequency_api",
+    "src.plugin_system.apis.generator_api",
+    "src.plugin_system.apis.component_manage_api",
+    "src.plugin_system.apis.plugin_manage_api",
+    "src.plugin_system.apis.plugin_service_api",
+    "src.plugin_system.apis.workflow_api",
+    "src.plugin_system.apis.constants",
+    "src.plugin_system.apis.logging_api",
+    "src.plugin_system.apis.plugin_register_api",
+    "src.plugin_system.core",
+    "src.plugin_system.utils",
+]
+
+
+# ── 静默导入旧版模块供后续测试使用 ─────────────────────────────────
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from src.plugin_system import (  # type: ignore[import-untyped]
+        ActionActivationType,
+        BaseAction,
+        BaseCommand,
+        BaseEventHandler,
+        BasePlugin,
+        BaseTool,
+        EventType,
+        ToolParamType,
+        chat_api,
+        component_manage_api,
+        config_api,
+        database_api,
+        emoji_api,
+        frequency_api,
+        generator_api,
+        get_logger,
+        llm_api,
+        message_api,
+        person_api,
+        plugin_manage_api,
+        plugin_service_api,
+        register_plugin,
+        send_api,
+        tool_api,
+        workflow_api,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  1. Import hook
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestImportHook:
+    @pytest.mark.parametrize("mod_path", OLD_IMPORTS)
+    def test_old_import_path_available(self, mod_path: str):
+        """每个旧版导入路径都能成功 import 并注册到 sys.modules"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            importlib.import_module(mod_path)
+        assert mod_path in sys.modules
+
+    def test_from_import_style(self):
+        """from src.plugin_system import ... 风格导入正常"""
+        assert BaseAction is not None
+        assert BaseCommand is not None
+        assert BaseEventHandler is not None
+        assert BaseTool is not None
+        assert BasePlugin is not None
+        assert callable(register_plugin)
+        assert callable(get_logger)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  2. 基类签名
+# ═══════════════════════════════════════════════════════════════════
+
+
+class _StubAction(BaseAction):
+    action_name = "test_action"
+    action_description = "A test action"
+    activation_type = ActionActivationType.KEYWORD
+    activation_keywords = ["hello"]
+    action_parameters = {"param1": "desc1"}
+
+    async def execute(self):
+        return True, "ok"
+
+
+class _StubCommand(BaseCommand):
+    command_name = "test_cmd"
+    command_description = "A test command"
+    command_pattern = r"/test (?P<arg>\w+)"
+
+    async def execute(self):
+        return True, "ok", 0
+
+
+class _StubHandler(BaseEventHandler):
+    event_type = EventType.ON_MESSAGE
+    handler_name = "test_handler"
+    handler_description = "A test handler"
+    weight = 10
+    intercept_message = False
+
+    async def execute(self, message):
+        return True, False, None, None, None
+
+
+class _StubTool(BaseTool):
+    name = "test_tool"
+    description = "A test tool"
+    parameters = [
+        ("query", ToolParamType.STRING, "Search query", True, None),
+        ("limit", ToolParamType.INTEGER, "Max results", False, None),
+    ]
+
+    async def execute(self, function_args):
+        return {"name": self.name, "content": "result"}
+
+
+class TestBaseAction:
+    def test_init_signature(self):
+        action = _StubAction(
+            action_data={"key": "val"},
+            action_reasoning="test reason",
+            cycle_timers={},
+            thinking_id="tid-123",
+            chat_stream=None,
+            plugin_config={"section": {"key": "value"}},
+            action_message=None,
+        )
+        assert action.action_data == {"key": "val"}
+        assert action.action_reasoning == "test reason"
+        assert action.thinking_id == "tid-123"
+        assert action.plugin_config == {"section": {"key": "value"}}
+
+    def test_get_config(self):
+        action = _StubAction(plugin_config={"section": {"key": "value"}})
+        assert action.get_config("section.key") == "value"
+        assert action.get_config("missing.key", "default") == "default"
+
+    def test_get_action_info(self):
+        info = _StubAction.get_action_info()
+        assert info.name == "test_action"
+        assert info.activation_type == ActionActivationType.KEYWORD
+        assert info.activation_keywords == ["hello"]
+
+
+class TestBaseCommand:
+    def test_init_and_config(self):
+        cmd = _StubCommand(message=None, plugin_config={"a": {"b": 1}})
+        assert cmd.plugin_config == {"a": {"b": 1}}
+        assert cmd.get_config("a.b") == 1
+
+    def test_set_matched_groups(self):
+        cmd = _StubCommand()
+        cmd.set_matched_groups({"arg": "hello"})
+        assert cmd.matched_groups == {"arg": "hello"}
+
+    def test_get_command_info(self):
+        info = _StubCommand.get_command_info()
+        assert info.name == "test_cmd"
+        assert info.command_pattern == r"/test (?P<arg>\w+)"
+
+
+class TestBaseEventHandler:
+    def test_init_and_injection(self):
+        handler = _StubHandler()
+        handler.set_plugin_config({"x": 1})
+        handler.set_plugin_name("my_plugin")
+        assert handler.plugin_config == {"x": 1}
+        assert handler.plugin_name == "my_plugin"
+        assert handler.get_config("x") == 1
+
+    def test_get_handler_info(self):
+        info = _StubHandler.get_handler_info()
+        assert info.name == "test_handler"
+        assert info.weight == 10
+
+
+class TestBaseTool:
+    def test_init_and_config(self):
+        tool = _StubTool(plugin_config={"p": 1}, chat_stream=None)
+        assert tool.plugin_config == {"p": 1}
+        assert tool.get_config("p") == 1
+
+    def test_get_tool_definition(self):
+        defn = _StubTool.get_tool_definition()
+        func = defn["function"]
+        assert func["name"] == "test_tool"
+        assert "query" in func["parameters"]["properties"]
+        assert "query" in func["parameters"]["required"]
+        assert "limit" not in func["parameters"]["required"]
+
+    def test_get_tool_info(self):
+        info = _StubTool.get_tool_info()
+        assert info.name == "test_tool"
+        assert len(info.tool_parameters) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  3. API 模块签名
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestApiModules:
+    def test_send_api(self):
+        for fn in (
+            "text_to_stream",
+            "emoji_to_stream",
+            "image_to_stream",
+            "command_to_stream",
+            "custom_to_stream",
+            "custom_reply_set_to_stream",
+            "custom_message",
+        ):
+            assert callable(getattr(send_api, fn)), f"send_api.{fn} 不可调用"
+
+    def test_config_api(self):
+        for fn in ("get_global_config", "get_plugin_config", "set_config_cache"):
+            assert callable(getattr(config_api, fn))
+
+    def test_message_api(self):
+        for fn in ("count_new_messages", "get_messages_by_time", "async_get_messages_by_time"):
+            assert callable(getattr(message_api, fn))
+
+    def test_database_api(self):
+        for fn in ("db_query", "store_action_info"):
+            assert callable(getattr(database_api, fn))
+
+    def test_llm_api(self):
+        for fn in ("get_available_models", "generate_with_model"):
+            assert callable(getattr(llm_api, fn))
+
+    def test_emoji_api(self):
+        for fn in ("get_by_description", "get_random", "get_count"):
+            assert callable(getattr(emoji_api, fn))
+
+    def test_person_api(self):
+        for fn in ("get_person_id", "get_person_value"):
+            assert callable(getattr(person_api, fn))
+
+    def test_chat_api(self):
+        assert hasattr(chat_api, "ChatManager")
+
+    def test_tool_api(self):
+        for fn in ("get_tool_instance", "get_llm_available_tool_definitions"):
+            assert callable(getattr(tool_api, fn))
+
+    def test_frequency_api(self):
+        for fn in ("get_current_talk_value", "set_talk_frequency_adjust"):
+            assert callable(getattr(frequency_api, fn))
+
+    def test_generator_api(self):
+        for fn in ("get_replyer", "generate_reply"):
+            assert callable(getattr(generator_api, fn))
+
+    def test_component_manage_api(self):
+        for fn in ("get_all_plugin_info", "get_plugin_info"):
+            assert callable(getattr(component_manage_api, fn))
+
+    def test_plugin_manage_api(self):
+        for fn in ("list_loaded_plugins", "reload_plugin"):
+            assert callable(getattr(plugin_manage_api, fn))
+
+    def test_plugin_service_api(self):
+        for fn in ("register_service", "call_service"):
+            assert callable(getattr(plugin_service_api, fn))
+
+    def test_workflow_api(self):
+        for fn in ("register_workflow_step", "publish_event"):
+            assert callable(getattr(workflow_api, fn))
+
+    def test_constants(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from src.plugin_system.apis.constants import PROJECT_ROOT  # type: ignore[import-untyped]
+        assert PROJECT_ROOT is not None
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  4. config_api 同步调用
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestConfigApiSync:
+    def test_set_and_get(self):
+        config_api.set_config_cache(
+            global_cfg={"bot": {"name": "MaiBot", "admin_id": "12345"}},
+            plugin_cfg={"section": {"key": "value"}},
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert config_api.get_global_config("bot.name") == "MaiBot"
+            assert config_api.get_global_config("bot.admin_id") == "12345"
+            assert config_api.get_global_config("missing", "fallback") == "fallback"
+            assert (
+                config_api.get_plugin_config(
+                    {"section": {"key": "value"}},
+                    "section.key",
+                )
+                == "value"
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  5. LegacyPluginAdapter
+# ═══════════════════════════════════════════════════════════════════
+
+
+class _StubPlugin(BasePlugin):
+    def get_plugin_components(self):
+        return [
+            (_StubAction.get_action_info(), _StubAction),
+            (_StubCommand.get_command_info(), _StubCommand),
+            (_StubHandler.get_handler_info(), _StubHandler),
+            (_StubTool.get_tool_info(), _StubTool),
+        ]
+
+
+class TestLegacyPluginAdapter:
+    def test_get_components(self):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(_StubPlugin())
+
+        components = adapter.get_components()
+        assert len(components) == 4
+        types_found = {c["type"] for c in components}
+        assert types_found == {"action", "command", "event_handler", "tool"}
+
+    def test_set_plugin_config(self):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(_StubPlugin())
+
+        adapter.set_plugin_config({"test_key": "test_val"})
+        assert adapter._plugin_config == {"test_key": "test_val"}
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  6. register_plugin 装饰器
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestRegisterPlugin:
+    def test_with_kwargs(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+
+            @register_plugin(
+                name="test_compat_plugin",
+                description="测试兼容性",
+                version="1.0.0",
+                author="test",
+            )
+            class _Registered(BasePlugin):
+                def get_plugin_components(self):
+                    return []
+
+        assert hasattr(_Registered, "_plugin_meta")
+        assert _Registered._plugin_meta["name"] == "test_compat_plugin"
+
+    def test_bare_decorator(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+
+            @register_plugin
+            class _Registered(BasePlugin):
+                def get_plugin_components(self):
+                    return []
+
+        assert hasattr(_Registered, "_is_legacy_registered")
+        assert _Registered._is_legacy_registered is True
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  7. get_logger
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestGetLogger:
+    def test_returns_logger(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            logger = get_logger("test_plugin")
+        assert isinstance(logger, logging.Logger)

@@ -5,13 +5,14 @@
 
 import logging
 import warnings
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
 logger = logging.getLogger("legacy_plugin.plugin_manage_api")
 
 
-def _get_component():
+def _get_component() -> Any:
     ctx = get_context()
     return ctx.component if ctx else None
 

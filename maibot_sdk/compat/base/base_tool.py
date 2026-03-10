@@ -30,7 +30,7 @@ class BaseTool(ABC):
 
     def __init__(
         self,
-        plugin_config: dict | None = None,
+        plugin_config: dict[str, Any] | None = None,
         chat_stream: Any = None,
         **kwargs: Any,
     ):

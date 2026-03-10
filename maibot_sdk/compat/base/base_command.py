@@ -24,7 +24,7 @@ class BaseCommand(ABC):
     command_description: str = ""
     command_pattern: str = r""
 
-    def __init__(self, message: Any = None, plugin_config: dict | None = None, **kwargs: Any):
+    def __init__(self, message: Any = None, plugin_config: dict[str, Any] | None = None, **kwargs: Any):
         """初始化 Command 组件
 
         Args:
@@ -74,7 +74,7 @@ class BaseCommand(ABC):
         if self._stream_id:
             return self._stream_id
         if self.message and hasattr(self.message, "session_id"):
-            return self.message.session_id
+            return str(self.message.session_id)
         return ""
 
     async def send_text(
@@ -146,7 +146,7 @@ class BaseCommand(ABC):
     async def send_command(
         self,
         command_name: str,
-        args: dict | None = None,
+        args: dict[str, Any] | None = None,
         display_message: str = "",
         storage_message: bool = True,
     ) -> bool:

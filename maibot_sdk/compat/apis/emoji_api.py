@@ -5,13 +5,14 @@
 
 import logging
 import warnings
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
 logger = logging.getLogger("legacy_plugin.emoji_api")
 
 
-def _get_emoji():
+def _get_emoji() -> Any:
     ctx = get_context()
     return ctx.emoji if ctx else None
 

@@ -12,7 +12,7 @@ import warnings
 from typing import Any
 
 
-def register_plugin(cls: type | None = None, **kwargs: Any):
+def register_plugin(cls: type | None = None, **kwargs: Any) -> Any:
     """标记一个类为旧版插件入口
 
     支持无参 ``@register_plugin`` 和带参 ``@register_plugin(name=..., ...)`` 两种形式。

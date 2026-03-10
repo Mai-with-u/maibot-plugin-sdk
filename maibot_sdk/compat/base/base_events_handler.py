@@ -29,11 +29,11 @@ class BaseEventHandler(ABC):
     intercept_message: bool = False
 
     def __init__(self) -> None:
-        self.plugin_config: dict = {}
+        self.plugin_config: dict[str, Any] = {}
         self.plugin_name: str = ""
         self.log_prefix: str = "[EventHandler]"
 
-    def set_plugin_config(self, config: dict) -> None:
+    def set_plugin_config(self, config: dict[str, Any]) -> None:
         """由框架注入插件配置"""
         self.plugin_config = config or {}
 
@@ -161,7 +161,7 @@ class BaseEventHandler(ABC):
         self,
         stream_id: str,
         command_name: str,
-        args: dict | None = None,
+        args: dict[str, Any] | None = None,
         display_message: str = "",
         storage_message: bool = True,
     ) -> bool:

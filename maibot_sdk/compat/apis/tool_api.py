@@ -12,7 +12,7 @@ from maibot_sdk.compat._context_holder import get_context
 logger = logging.getLogger("legacy_plugin.tool_api")
 
 
-def _get_tool():
+def _get_tool() -> Any:
     ctx = get_context()
     return ctx.tool if ctx else None
 

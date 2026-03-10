@@ -5,16 +5,17 @@ component_registry 和 plugin_manager 在新架构中不再由插件直接使用
 """
 
 import warnings
+from typing import Any
 
 
 class _StubComponentRegistry:
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         warnings.warn("ComponentRegistry 已弃用，新版 SDK 自动管理组件注册", DeprecationWarning, stacklevel=2)
         return lambda *a, **kw: None
 
 
 class _StubPluginManager:
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         warnings.warn("PluginManager 已弃用，请使用新版 PluginLoader", DeprecationWarning, stacklevel=2)
         return lambda *a, **kw: None
 

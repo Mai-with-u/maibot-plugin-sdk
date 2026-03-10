@@ -14,7 +14,7 @@ from maibot_sdk.compat._context_holder import get_context
 logger = logging.getLogger("legacy_plugin.chat_api")
 
 
-def _get_chat():
+def _get_chat() -> Any:
     ctx = get_context()
     return ctx.chat if ctx else None
 

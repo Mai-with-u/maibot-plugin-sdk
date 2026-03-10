@@ -61,6 +61,11 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+module = "maibot_sdk.compat.*"
+warn_return_any = false
+disallow_untyped_defs = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

@@ -12,7 +12,7 @@ from maibot_sdk.compat._context_holder import get_context
 logger = logging.getLogger("legacy_plugin.frequency_api")
 
 
-def _get_frequency():
+def _get_frequency() -> Any:
     ctx = get_context()
     return ctx.frequency if ctx else None
 

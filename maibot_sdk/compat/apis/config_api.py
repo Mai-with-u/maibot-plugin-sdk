@@ -16,11 +16,16 @@ _global_config_cache: dict[str, Any] = {}
 _plugin_config_cache: dict[str, Any] = {}
 
 
-def set_config_cache(global_cfg: dict[str, Any], plugin_cfg: dict[str, Any]) -> None:
+def set_config_cache(
+    global_cfg: dict[str, Any] | None = None,
+    plugin_cfg: dict[str, Any] | None = None,
+) -> None:
     """由适配器调用，注入配置缓存 (内部使用)"""
     global _global_config_cache, _plugin_config_cache
-    _global_config_cache = global_cfg
-    _plugin_config_cache = plugin_cfg
+    if global_cfg is not None:
+        _global_config_cache = global_cfg
+    if plugin_cfg is not None:
+        _plugin_config_cache = plugin_cfg
 
 
 def get_global_config(key: str, default: Any = None) -> Any:
@@ -38,7 +43,7 @@ def get_global_config(key: str, default: Any = None) -> Any:
     return _nested_get(_global_config_cache, key, default)
 
 
-def get_plugin_config(plugin_config: dict, key: str, default: Any = None) -> Any:
+def get_plugin_config(plugin_config: dict[str, Any], key: str, default: Any = None) -> Any:
     """从插件配置字典中获取值 (同步)
 
     Args:
