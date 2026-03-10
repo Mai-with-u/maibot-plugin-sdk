@@ -6,26 +6,26 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
 
-_current_ctx: Optional["PluginContext"] = None
+_current_ctx: PluginContext | None = None
 
 
-def set_context(ctx: "PluginContext") -> None:
+def set_context(ctx: PluginContext) -> None:
     """由 LegacyPluginAdapter 在收到上下文注入时调用"""
     global _current_ctx
     _current_ctx = ctx
 
 
-def get_context() -> Optional["PluginContext"]:
+def get_context() -> PluginContext | None:
     """获取当前上下文（可能为 None）"""
     return _current_ctx
 
 
-def require_context() -> "PluginContext":
+def require_context() -> PluginContext:
     """获取当前上下文，不存在时抛出 RuntimeError"""
     if _current_ctx is None:
         raise RuntimeError(

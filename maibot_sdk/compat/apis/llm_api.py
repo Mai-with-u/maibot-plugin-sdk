@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -17,7 +17,7 @@ def _get_llm():
     return ctx.llm if ctx else None
 
 
-def get_available_models() -> Dict[str, Any]:
+def get_available_models() -> dict[str, Any]:
     """获取可用模型配置 (同步，兼容层下功能受限)"""
     warnings.warn(
         "llm_api.get_available_models() 已弃用，请使用 await self.ctx.llm.get_available_models()",
@@ -30,9 +30,9 @@ async def generate_with_model(
     prompt: str,
     model_config: Any = None,
     request_type: str = "plugin.generate",
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-) -> Tuple[bool, str, str, str]:
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+) -> tuple[bool, str, str, str]:
     """使用指定模型生成内容
 
     Returns:
@@ -65,11 +65,11 @@ async def generate_with_model(
 
 async def generate_with_tools(
     prompt: str,
-    tools: List[Any] = None,
+    tools: list[Any] = None,
     model_config: Any = None,
     request_type: str = "plugin.tool_use",
     **kwargs: Any,
-) -> Tuple[bool, str, str, str, List[Any]]:
+) -> tuple[bool, str, str, str, list[Any]]:
     """使用工具调用生成
 
     Returns:

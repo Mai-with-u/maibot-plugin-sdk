@@ -8,6 +8,36 @@
 """
 
 # ── 基类 ───────────────────────────────────────────────────────
+# ── API 占位 ──────────────────────────────────────────────────
+from maibot_sdk.compat.apis import (
+    chat_api,
+    component_manage_api,
+    config_api,
+    database_api,
+    emoji_api,
+    frequency_api,
+    generator_api,
+    get_logger,
+    llm_api,
+    message_api,
+    person_api,
+    plugin_manage_api,
+    plugin_service_api,
+    send_api,
+    tool_api,
+    workflow_api,
+)
+from maibot_sdk.compat.apis.constants import (
+    BOT_CONFIG_PATH,
+    CONFIG_DIR,
+    INTERNAL_PLUGINS_DIR,
+    MODEL_CONFIG_PATH,
+    PLUGINS_DIR,
+    PROJECT_ROOT,
+)
+
+# ── 注册装饰器 ────────────────────────────────────────────────
+from maibot_sdk.compat.apis.plugin_register_api import register_plugin
 from maibot_sdk.compat.base.base_action import BaseAction
 from maibot_sdk.compat.base.base_command import BaseCommand
 from maibot_sdk.compat.base.base_events_handler import BaseEventHandler
@@ -57,37 +87,6 @@ from maibot_sdk.compat.base.workflow_types import (
     WorkflowStepInfo,
     WorkflowStepResult,
 )
-
-# ── API 占位 ──────────────────────────────────────────────────
-from maibot_sdk.compat.apis import (
-    chat_api,
-    component_manage_api,
-    config_api,
-    database_api,
-    emoji_api,
-    frequency_api,
-    generator_api,
-    get_logger,
-    llm_api,
-    message_api,
-    person_api,
-    plugin_manage_api,
-    plugin_service_api,
-    send_api,
-    tool_api,
-    workflow_api,
-)
-from maibot_sdk.compat.apis.constants import (
-    BOT_CONFIG_PATH,
-    CONFIG_DIR,
-    INTERNAL_PLUGINS_DIR,
-    MODEL_CONFIG_PATH,
-    PLUGINS_DIR,
-    PROJECT_ROOT,
-)
-
-# ── 注册装饰器 ────────────────────────────────────────────────
-from maibot_sdk.compat.apis.plugin_register_api import register_plugin
 
 __all__ = [
     # 基类

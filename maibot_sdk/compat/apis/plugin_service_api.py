@@ -6,13 +6,14 @@
 
 import logging
 import warnings
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("legacy_plugin.plugin_service_api")
 
 # 本地注册表 (仅同一进程内有效)
-_local_services: Dict[str, Any] = {}
-_local_handlers: Dict[str, Callable[..., Any]] = {}
+_local_services: dict[str, Any] = {}
+_local_handlers: dict[str, Callable[..., Any]] = {}
 
 
 def register_service(service_info: Any, service_handler: Callable[..., Any]) -> bool:
@@ -24,35 +25,35 @@ def register_service(service_info: Any, service_handler: Callable[..., Any]) -> 
     return True
 
 
-def get_service(service_name: str, plugin_name: Optional[str] = None) -> Any:
+def get_service(service_name: str, plugin_name: str | None = None) -> Any:
     """获取服务元信息"""
     warnings.warn("plugin_service_api.get_service() 已弃用", DeprecationWarning, stacklevel=2)
     return _local_services.get(service_name)
 
 
-def get_service_handler(service_name: str, plugin_name: Optional[str] = None) -> Optional[Callable[..., Any]]:
+def get_service_handler(service_name: str, plugin_name: str | None = None) -> Callable[..., Any] | None:
     """获取服务处理函数"""
     warnings.warn("plugin_service_api.get_service_handler() 已弃用", DeprecationWarning, stacklevel=2)
     return _local_handlers.get(service_name)
 
 
-def list_services(plugin_name: Optional[str] = None, enabled_only: bool = False) -> Dict[str, Any]:
+def list_services(plugin_name: str | None = None, enabled_only: bool = False) -> dict[str, Any]:
     """列出服务"""
     warnings.warn("plugin_service_api.list_services() 已弃用", DeprecationWarning, stacklevel=2)
     return dict(_local_services)
 
 
-def enable_service(service_name: str, plugin_name: Optional[str] = None) -> bool:
+def enable_service(service_name: str, plugin_name: str | None = None) -> bool:
     warnings.warn("plugin_service_api.enable_service() 已弃用", DeprecationWarning, stacklevel=2)
     return service_name in _local_services
 
 
-def disable_service(service_name: str, plugin_name: Optional[str] = None) -> bool:
+def disable_service(service_name: str, plugin_name: str | None = None) -> bool:
     warnings.warn("plugin_service_api.disable_service() 已弃用", DeprecationWarning, stacklevel=2)
     return service_name in _local_services
 
 
-def unregister_service(service_name: str, plugin_name: Optional[str] = None) -> bool:
+def unregister_service(service_name: str, plugin_name: str | None = None) -> bool:
     warnings.warn("plugin_service_api.unregister_service() 已弃用", DeprecationWarning, stacklevel=2)
     return _local_services.pop(service_name, None) is not None
 
@@ -60,8 +61,8 @@ def unregister_service(service_name: str, plugin_name: Optional[str] = None) -> 
 async def call_service(
     service_name: str,
     *args: Any,
-    plugin_name: Optional[str] = None,
-    caller_plugin: Optional[str] = None,
+    plugin_name: str | None = None,
+    caller_plugin: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """调用插件服务 (仅进程内)"""

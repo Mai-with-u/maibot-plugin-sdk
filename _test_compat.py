@@ -71,26 +71,36 @@ print(f"[PASS] 全部 {len(old_imports)} 个旧版导入路径可用")
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
 
-    from src.plugin_system import BaseAction, BaseCommand, BaseEventHandler, BaseTool, BasePlugin
-    from src.plugin_system import send_api, config_api, database_api, message_api
-    from src.plugin_system import llm_api, emoji_api, person_api, chat_api, tool_api
-    from src.plugin_system import frequency_api, generator_api, component_manage_api
-    from src.plugin_system import plugin_manage_api, plugin_service_api, workflow_api
-    from src.plugin_system import get_logger, register_plugin
     from src.plugin_system import (
-        ComponentType, ActionActivationType, EventType, ToolParamType,
-        ActionInfo, CommandInfo, ToolInfo, EventHandlerInfo, PluginInfo,
-        MaiMessages, ReplyContent, ReplySetModel,
+        PROJECT_ROOT,
+        ActionActivationType,
+        BaseAction,
+        BaseCommand,
+        BaseEventHandler,
+        BasePlugin,
+        BaseTool,
+        EventType,
+        ToolParamType,
+        chat_api,
+        component_manage_api,
+        config_api,
+        database_api,
+        emoji_api,
+        frequency_api,
+        generator_api,
+        get_logger,
+        llm_api,
+        message_api,
+        person_api,
+        plugin_manage_api,
+        plugin_service_api,
+        register_plugin,
+        send_api,
+        tool_api,
+        workflow_api,
     )
-    from src.plugin_system import ConfigField, ConfigSection, ConfigTab, ConfigLayout
-    from src.plugin_system import PluginServiceInfo, WorkflowStage, WorkflowStepInfo
-    from src.plugin_system import PROJECT_ROOT, CONFIG_DIR, BOT_CONFIG_PATH
 
     # 直接从子模块 import
-    from src.plugin_system.apis.send_api import text_to_stream, emoji_to_stream
-    from src.plugin_system.apis.config_api import get_global_config, get_plugin_config
-    from src.plugin_system.apis.constants import PLUGINS_DIR
-    from src.plugin_system.base.component_types import ChatMode, ModifyFlag
 
 print("[PASS] from ... import ... 风格全部通过")
 
@@ -286,7 +296,8 @@ assert callable(workflow_api.publish_event)
 print("[PASS] workflow_api 函数签名完整")
 
 # constants
-from src.plugin_system.apis.constants import PROJECT_ROOT, CONFIG_DIR, PLUGINS_DIR
+from src.plugin_system.apis.constants import PROJECT_ROOT
+
 assert isinstance(PROJECT_ROOT, str) or PROJECT_ROOT is not None
 print("[PASS] constants 完整")
 
@@ -307,6 +318,7 @@ print("[PASS] config_api 同步调用正确")
 # 7. 验证 LegacyPluginAdapter 基本流程
 # ==================================================================
 from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
 
 class _TestPlugin(BasePlugin):
     def get_plugin_components(self):

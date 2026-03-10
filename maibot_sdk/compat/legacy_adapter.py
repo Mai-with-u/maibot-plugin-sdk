@@ -4,10 +4,9 @@
 使 Runner 可以统一管理新旧插件。
 """
 
-from typing import Any
-
 import logging
 import warnings
+from typing import Any
 
 from maibot_sdk.compat import _context_holder
 from maibot_sdk.compat.base.base_plugin import BasePlugin

@@ -8,7 +8,7 @@
 
 import logging
 import warnings
-from typing import Any, List, Optional
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -30,7 +30,7 @@ def get_messages_by_time(
     limit: int = 0,
     limit_mode: str = "latest",
     filter_mai: bool = False,
-) -> List[Any]:
+) -> list[Any]:
     """获取时间范围内的消息 (同步，兼容层下返回空列表)"""
     warnings.warn(
         "message_api.get_messages_by_time() 已弃用且在新架构下为异步，请使用 await self.ctx.message.get_by_time()",
@@ -47,8 +47,8 @@ def get_messages_by_time_in_chat(
     limit_mode: str = "latest",
     filter_mai: bool = False,
     filter_command: bool = False,
-    filter_intercept_message_level: Optional[int] = None,
-) -> List[Any]:
+    filter_intercept_message_level: int | None = None,
+) -> list[Any]:
     """获取指定聊天中时间范围内的消息"""
     warnings.warn(
         "message_api.get_messages_by_time_in_chat() 已弃用，请使用 await self.ctx.message.get_by_time_in_chat()",
@@ -72,19 +72,19 @@ def build_readable_messages(messages: Any, **kwargs: Any) -> str:
     return ""
 
 
-def build_readable_messages_with_list(messages: Any, **kwargs: Any) -> List[str]:
+def build_readable_messages_with_list(messages: Any, **kwargs: Any) -> list[str]:
     """将消息列表构建为可读文本列表"""
     warnings.warn("message_api.build_readable_messages_with_list() 已弃用", DeprecationWarning, stacklevel=2)
     return []
 
 
-def get_person_id_list(chat_id: str, **kwargs: Any) -> List[str]:
+def get_person_id_list(chat_id: str, **kwargs: Any) -> list[str]:
     """获取聊天中的用户 ID 列表"""
     warnings.warn("message_api.get_person_id_list() 已弃用", DeprecationWarning, stacklevel=2)
     return []
 
 
-def filter_mai_messages(messages: List[Any]) -> List[Any]:
+def filter_mai_messages(messages: list[Any]) -> list[Any]:
     """过滤掉机器人自身消息"""
     warnings.warn("message_api.filter_mai_messages() 已弃用", DeprecationWarning, stacklevel=2)
     return messages
@@ -96,7 +96,7 @@ def filter_mai_messages(messages: List[Any]) -> List[Any]:
 
 async def async_get_messages_by_time(
     start_time: float, end_time: float, **kwargs: Any
-) -> List[Any]:
+) -> list[Any]:
     """异步版获取时间范围内的消息"""
     msg = _get_message()
     if msg is None:
@@ -112,7 +112,7 @@ async def async_get_messages_by_time(
 
 async def async_get_messages_by_time_in_chat(
     chat_id: str, start_time: float, end_time: float, **kwargs: Any
-) -> List[Any]:
+) -> list[Any]:
     """异步版获取指定聊天中的消息"""
     msg = _get_message()
     if msg is None:

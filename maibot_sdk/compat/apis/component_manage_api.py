@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -17,7 +17,7 @@ def _get_component():
     return ctx.component if ctx else None
 
 
-def get_all_plugin_info() -> Dict[str, Any]:
+def get_all_plugin_info() -> dict[str, Any]:
     """获取所有插件信息 (同步，兼容层下返回空)"""
     warnings.warn("component_manage_api.get_all_plugin_info() 已弃用", DeprecationWarning, stacklevel=2)
     return {}
@@ -35,13 +35,13 @@ def get_component_info(component_name: str, component_type: Any) -> Any:
     return None
 
 
-def get_components_info_by_type(component_type: Any) -> Dict[str, Any]:
+def get_components_info_by_type(component_type: Any) -> dict[str, Any]:
     """获取指定类型所有组件信息"""
     warnings.warn("component_manage_api.get_components_info_by_type() 已弃用", DeprecationWarning, stacklevel=2)
     return {}
 
 
-def get_enabled_components_info_by_type(component_type: Any) -> Dict[str, Any]:
+def get_enabled_components_info_by_type(component_type: Any) -> dict[str, Any]:
     """获取指定类型所有启用的组件信息"""
     warnings.warn("component_manage_api.get_enabled_components_info_by_type() 已弃用", DeprecationWarning, stacklevel=2)
     return {}

@@ -5,10 +5,9 @@
 会由 LegacyPluginAdapter 桥接到新版 SDK。
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Type
-
 import warnings
+from abc import ABC, abstractmethod
+from typing import Any
 
 from maibot_sdk.compat.base.component_types import ComponentInfo
 
@@ -21,11 +20,11 @@ class BasePlugin(ABC):
 
     plugin_name: str = ""
     enable_plugin: bool = True
-    dependencies: List[str] = []
-    python_dependencies: List[str] = []
+    dependencies: list[str] = []
+    python_dependencies: list[str] = []
     config_file_name: str = "config.toml"
-    config_schema: Dict[str, Any] = {}
-    config_section_descriptions: Dict[str, Any] = {}
+    config_schema: dict[str, Any] = {}
+    config_section_descriptions: dict[str, Any] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -36,7 +35,7 @@ class BasePlugin(ABC):
         )
 
     @abstractmethod
-    def get_plugin_components(self) -> List[Tuple[ComponentInfo, Type]]:
+    def get_plugin_components(self) -> list[tuple[ComponentInfo, type]]:
         """声明插件包含的组件列表
 
         Returns:

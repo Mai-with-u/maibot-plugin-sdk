@@ -5,7 +5,6 @@
 
 import logging
 import warnings
-from typing import Any, List
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -17,13 +16,13 @@ def _get_component():
     return ctx.component if ctx else None
 
 
-def list_loaded_plugins() -> List[str]:
+def list_loaded_plugins() -> list[str]:
     """列出已加载的插件 (同步，兼容层下返回空)"""
     warnings.warn("plugin_manage_api.list_loaded_plugins() 已弃用", DeprecationWarning, stacklevel=2)
     return []
 
 
-def list_registered_plugins() -> List[str]:
+def list_registered_plugins() -> list[str]:
     """列出已注册的插件 (同步，兼容层下返回空)"""
     warnings.warn("plugin_manage_api.list_registered_plugins() 已弃用", DeprecationWarning, stacklevel=2)
     return []

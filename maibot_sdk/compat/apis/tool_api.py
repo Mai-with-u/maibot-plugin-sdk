@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -23,7 +23,7 @@ def get_tool_instance(tool_name: str, chat_stream: Any = None) -> Any:
     return None
 
 
-def get_llm_available_tool_definitions() -> List[Tuple[str, Any]]:
+def get_llm_available_tool_definitions() -> list[tuple[str, Any]]:
     """获取 LLM 可用的工具定义列表 (同步，兼容层下返回空)"""
     warnings.warn("tool_api.get_llm_available_tool_definitions() 已弃用", DeprecationWarning, stacklevel=2)
     return []

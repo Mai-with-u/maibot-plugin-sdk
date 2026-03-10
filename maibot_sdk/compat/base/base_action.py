@@ -8,7 +8,7 @@ import asyncio
 import time
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat.base.component_types import (
     ActionActivationType,
@@ -33,25 +33,25 @@ class BaseAction(ABC):
     # ── 类属性（子类可覆盖）──────────────────────────────────
     action_name: str = ""
     action_description: str = ""
-    action_parameters: Dict[str, str] = {}
-    action_require: List[str] = []
+    action_parameters: dict[str, str] = {}
+    action_require: list[str] = []
     activation_type: ActionActivationType = ActionActivationType.ALWAYS
     focus_activation_type: ActionActivationType = ActionActivationType.ALWAYS
     normal_activation_type: ActionActivationType = ActionActivationType.ALWAYS
     random_activation_probability: float = 0.0
-    activation_keywords: List[str] = []
+    activation_keywords: list[str] = []
     keyword_case_sensitive: bool = False
     parallel_action: bool = True
-    associated_types: List[str] = []
+    associated_types: list[str] = []
 
     def __init__(
         self,
-        action_data: Optional[dict] = None,
+        action_data: dict | None = None,
         action_reasoning: str = "",
-        cycle_timers: Optional[dict] = None,
+        cycle_timers: dict | None = None,
         thinking_id: str = "",
         chat_stream: Any = None,
-        plugin_config: Optional[dict] = None,
+        plugin_config: dict | None = None,
         action_message: Any = None,
         **kwargs: Any,
     ):
@@ -91,13 +91,13 @@ class BaseAction(ABC):
 
         # 便捷属性
         self.chat_id: str = ""
-        self.platform: Optional[str] = None
-        self.group_id: Optional[str] = None
-        self.group_name: Optional[str] = None
-        self.user_id: Optional[str] = None
-        self.user_nickname: Optional[str] = None
+        self.platform: str | None = None
+        self.group_id: str | None = None
+        self.group_name: str | None = None
+        self.user_id: str | None = None
+        self.user_nickname: str | None = None
         self.is_group: bool = False
-        self.target_id: Optional[str] = None
+        self.target_id: str | None = None
         self.log_prefix: str = "[Action]"
 
         # 运行时注入的 stream_id
@@ -130,7 +130,7 @@ class BaseAction(ABC):
                 self.log_prefix = f"[{self.user_nickname} 的 私聊]"
 
     @abstractmethod
-    async def execute(self) -> Tuple[bool, str]:
+    async def execute(self) -> tuple[bool, str]:
         """执行 Action 的抽象方法，子类必须实现
 
         Returns:
@@ -201,7 +201,7 @@ class BaseAction(ABC):
     async def send_command(
         self,
         command_name: str,
-        args: Optional[dict] = None,
+        args: dict | None = None,
         display_message: str = "",
         storage_message: bool = True,
     ) -> bool:
@@ -240,7 +240,7 @@ class BaseAction(ABC):
 
     async def send_forward(
         self,
-        messages_list: List[Any],
+        messages_list: list[Any],
         storage_message: bool = True,
     ) -> bool:
         """转发消息"""
@@ -290,7 +290,7 @@ class BaseAction(ABC):
 
     # ── 消息等待 ──────────────────────────────────────────────
 
-    async def wait_for_new_message(self, timeout: int = 1200) -> Tuple[bool, str]:
+    async def wait_for_new_message(self, timeout: int = 1200) -> tuple[bool, str]:
         """等待新消息或超时
 
         Args:

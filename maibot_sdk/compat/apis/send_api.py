@@ -6,7 +6,7 @@
 
 import logging
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 

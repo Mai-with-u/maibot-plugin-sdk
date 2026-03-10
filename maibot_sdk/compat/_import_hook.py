@@ -13,16 +13,15 @@
 之后所有 ``from src.plugin_system import X`` 的导入都会被重定向。
 """
 
-from importlib.abc import MetaPathFinder
-from importlib.machinery import ModuleSpec
-from types import ModuleType
-from typing import Optional, Sequence
-
 import importlib
 import importlib.abc
 import logging
 import sys
 import warnings
+from collections.abc import Sequence
+from importlib.abc import MetaPathFinder
+from importlib.machinery import ModuleSpec
+from types import ModuleType
 
 from maibot_sdk.compat._warnings import show_banner_once
 
@@ -98,9 +97,9 @@ class _LegacyPluginSystemFinder(MetaPathFinder):
     def find_spec(
         self,
         fullname: str,
-        path: Optional[Sequence[str]],
-        target: Optional[ModuleType] = None,
-    ) -> Optional[ModuleSpec]:
+        path: Sequence[str] | None,
+        target: ModuleType | None = None,
+    ) -> ModuleSpec | None:
         # 对 bare "src" 创建命名空间占位包
         if fullname == "src":
             if fullname in sys.modules:

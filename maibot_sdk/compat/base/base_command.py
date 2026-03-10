@@ -5,7 +5,7 @@
 
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat.base.component_types import CommandInfo, ComponentType
 
@@ -24,7 +24,7 @@ class BaseCommand(ABC):
     command_description: str = ""
     command_pattern: str = r""
 
-    def __init__(self, message: Any = None, plugin_config: Optional[dict] = None, **kwargs: Any):
+    def __init__(self, message: Any = None, plugin_config: dict | None = None, **kwargs: Any):
         """初始化 Command 组件
 
         Args:
@@ -32,19 +32,19 @@ class BaseCommand(ABC):
             plugin_config: 插件配置字典
         """
         self.message = message
-        self.matched_groups: Dict[str, str] = {}
+        self.matched_groups: dict[str, str] = {}
         self.plugin_config = plugin_config or {}
         self.log_prefix = "[Command]"
 
         # 运行时注入的 stream_id
         self._stream_id: str = ""
 
-    def set_matched_groups(self, groups: Dict[str, str]) -> None:
+    def set_matched_groups(self, groups: dict[str, str]) -> None:
         """设置正则表达式匹配的命名组"""
         self.matched_groups = groups
 
     @abstractmethod
-    async def execute(self) -> Tuple[bool, Optional[str], int]:
+    async def execute(self) -> tuple[bool, str | None, int]:
         """执行 Command 的抽象方法，子类必须实现
 
         Returns:
@@ -137,7 +137,7 @@ class BaseCommand(ABC):
     async def send_command(
         self,
         command_name: str,
-        args: Optional[dict] = None,
+        args: dict | None = None,
         display_message: str = "",
         storage_message: bool = True,
     ) -> bool:
@@ -167,7 +167,7 @@ class BaseCommand(ABC):
 
     async def send_hybrid(
         self,
-        message_tuple_list: List[Tuple[Any, str]],
+        message_tuple_list: list[tuple[Any, str]],
         typing: bool = False,
         set_reply: bool = False,
         reply_message: Any = None,
@@ -187,7 +187,7 @@ class BaseCommand(ABC):
 
     async def send_forward(
         self,
-        messages_list: List[Any],
+        messages_list: list[Any],
         storage_message: bool = True,
     ) -> bool:
         """转发消息"""

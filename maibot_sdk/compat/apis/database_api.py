@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -19,11 +19,11 @@ def _get_db():
 
 async def db_query(
     model_class: Any,
-    data: Optional[dict[str, Any]] = None,
+    data: dict[str, Any] | None = None,
     query_type: str = "get",
-    filters: Optional[dict[str, Any]] = None,
-    limit: Optional[int] = None,
-    order_by: Optional[list[str]] = None,
+    filters: dict[str, Any] | None = None,
+    limit: int | None = None,
+    order_by: list[str] | None = None,
     single_result: bool = False,
 ) -> Any:
     """通用数据库查询 (兼容层经由 ctx.db.query 转发)"""

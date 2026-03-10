@@ -8,11 +8,11 @@
     @register_plugin(name=..., ...)  # 带元数据用法
 """
 
-from typing import Any, Type
 import warnings
+from typing import Any
 
 
-def register_plugin(cls: Type | None = None, **kwargs: Any):
+def register_plugin(cls: type | None = None, **kwargs: Any):
     """标记一个类为旧版插件入口
 
     支持无参 ``@register_plugin`` 和带参 ``@register_plugin(name=..., ...)`` 两种形式。
@@ -20,7 +20,7 @@ def register_plugin(cls: Type | None = None, **kwargs: Any):
     供 LegacyPluginAdapter 发现。
     """
 
-    def _decorator(klass: Type) -> Type:
+    def _decorator(klass: type) -> type:
         warnings.warn(
             "@register_plugin 已弃用，请在模块中定义 create_plugin() 工厂函数",
             DeprecationWarning,

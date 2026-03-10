@@ -7,7 +7,7 @@
 import logging
 import warnings
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -32,34 +32,34 @@ class ChatManager:
     """
 
     @staticmethod
-    def get_all_streams(platform: Optional[str] = "qq") -> List[Any]:
+    def get_all_streams(platform: str | None = "qq") -> list[Any]:
         warnings.warn("chat_api.ChatManager.get_all_streams() 已弃用", DeprecationWarning, stacklevel=2)
         return []
 
     @staticmethod
-    def get_group_streams(platform: Optional[str] = "qq") -> List[Any]:
+    def get_group_streams(platform: str | None = "qq") -> list[Any]:
         warnings.warn("chat_api.ChatManager.get_group_streams() 已弃用", DeprecationWarning, stacklevel=2)
         return []
 
     @staticmethod
-    def get_private_streams(platform: Optional[str] = "qq") -> List[Any]:
+    def get_private_streams(platform: str | None = "qq") -> list[Any]:
         warnings.warn("chat_api.ChatManager.get_private_streams() 已弃用", DeprecationWarning, stacklevel=2)
         return []
 
 
 # 旧版模块级快捷函数
-def get_all_streams(platform: Optional[str] = "qq") -> List[Any]:
+def get_all_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_all_streams(platform)
 
-def get_group_streams(platform: Optional[str] = "qq") -> List[Any]:
+def get_group_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_group_streams(platform)
 
-def get_all_group_streams(platform: Optional[str] = "qq") -> List[Any]:
+def get_all_group_streams(platform: str | None = "qq") -> list[Any]:
     return ChatManager.get_group_streams(platform)
 
 
 # 异步版本
-async def async_get_all_streams() -> List[Any]:
+async def async_get_all_streams() -> list[Any]:
     """异步获取所有聊天流"""
     chat = _get_chat()
     if chat is None:
@@ -71,7 +71,7 @@ async def async_get_all_streams() -> List[Any]:
         return []
 
 
-async def async_get_group_streams() -> List[Any]:
+async def async_get_group_streams() -> list[Any]:
     """异步获取所有群聊流"""
     chat = _get_chat()
     if chat is None:

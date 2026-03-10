@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -19,7 +19,7 @@ def _get_llm():
 
 def get_replyer(
     chat_stream: Any = None,
-    chat_id: Optional[str] = None,
+    chat_id: str | None = None,
     request_type: str = "replyer",
 ) -> Any:
     """获取回复器对象 (同步，兼容层下返回 None)
@@ -38,7 +38,7 @@ async def generate_reply(
     action_data: Any = None,
     reasoning: str = "",
     **kwargs: Any,
-) -> Tuple[bool, Any, Any]:
+) -> tuple[bool, Any, Any]:
     """生成回复
 
     Returns:

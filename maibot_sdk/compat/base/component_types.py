@@ -6,8 +6,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ─── 枚举类型 ──────────────────────────────────────────────────────
 
@@ -91,19 +90,19 @@ class ComponentInfo:
     enabled: bool = True
     plugin_name: str = ""
     is_built_in: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ActionInfo(ComponentInfo):
-    action_parameters: Dict[str, str] = field(default_factory=dict)
-    action_require: List[str] = field(default_factory=list)
-    associated_types: List[str] = field(default_factory=list)
+    action_parameters: dict[str, str] = field(default_factory=dict)
+    action_require: list[str] = field(default_factory=list)
+    associated_types: list[str] = field(default_factory=list)
     focus_activation_type: ActionActivationType = ActionActivationType.ALWAYS
     normal_activation_type: ActionActivationType = ActionActivationType.ALWAYS
     activation_type: ActionActivationType = ActionActivationType.ALWAYS
     random_activation_probability: float = 0.0
-    activation_keywords: List[str] = field(default_factory=list)
+    activation_keywords: list[str] = field(default_factory=list)
     keyword_case_sensitive: bool = False
     parallel_action: bool = False
 
@@ -121,7 +120,7 @@ class CommandInfo(ComponentInfo):
 
 @dataclass
 class ToolInfo(ComponentInfo):
-    tool_parameters: List[Tuple[str, ToolParamType, str, bool, Optional[List[str]]]] = field(
+    tool_parameters: list[tuple[str, ToolParamType, str, bool, list[str] | None]] = field(
         default_factory=list
     )
     tool_description: str = ""
@@ -167,17 +166,17 @@ class PluginInfo:
     author: str = ""
     enabled: bool = True
     is_built_in: bool = False
-    components: List[ComponentInfo] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
-    python_dependencies: List[PythonDependency] = field(default_factory=list)
+    components: list[ComponentInfo] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    python_dependencies: list[PythonDependency] = field(default_factory=list)
     config_file: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    manifest_data: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    manifest_data: dict[str, Any] = field(default_factory=dict)
     license: str = ""
     homepage_url: str = ""
     repository_url: str = ""
-    keywords: List[str] = field(default_factory=list)
-    categories: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
     min_host_version: str = ""
     max_host_version: str = ""
 
@@ -194,7 +193,7 @@ class ModifyFlag:
 @dataclass
 class ToolCall:
     name: str = ""
-    arguments: Dict[str, Any] = field(default_factory=dict)
+    arguments: dict[str, Any] = field(default_factory=dict)
     id: str = ""
 
 
@@ -202,27 +201,27 @@ class ToolCall:
 class MaiMessages:
     """MaiM 插件消息 (兼容层)"""
 
-    message_segments: List[Any] = field(default_factory=list)
-    message_base_info: Dict[str, Any] = field(default_factory=dict)
+    message_segments: list[Any] = field(default_factory=list)
+    message_base_info: dict[str, Any] = field(default_factory=dict)
     plain_text: str = ""
-    raw_message: Optional[str] = None
+    raw_message: str | None = None
     is_group_message: bool = False
     is_private_message: bool = False
-    stream_id: Optional[str] = None
-    llm_prompt: Optional[str] = None
-    llm_response_content: Optional[str] = None
-    llm_response_reasoning: Optional[str] = None
-    llm_response_model: Optional[str] = None
-    llm_response_tool_call: Optional[List[ToolCall]] = None
-    action_usage: Optional[List[str]] = None
-    additional_data: Dict[Any, Any] = field(default_factory=dict)
+    stream_id: str | None = None
+    llm_prompt: str | None = None
+    llm_response_content: str | None = None
+    llm_response_reasoning: str | None = None
+    llm_response_model: str | None = None
+    llm_response_tool_call: list[ToolCall] | None = None
+    action_usage: list[str] | None = None
+    additional_data: dict[Any, Any] = field(default_factory=dict)
     _modify_flags: ModifyFlag = field(default_factory=ModifyFlag)
 
     def deepcopy(self) -> "MaiMessages":
         import copy
         return copy.deepcopy(self)
 
-    def modify_message_segments(self, new_segments: List[Any], suppress_warning: bool = False) -> None:
+    def modify_message_segments(self, new_segments: list[Any], suppress_warning: bool = False) -> None:
         self.message_segments = new_segments
         self._modify_flags.modify_message_segments = True
 
@@ -245,14 +244,14 @@ class MaiMessages:
 
 @dataclass
 class CustomEventHandlerResult:
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ReplyContent:
     content_type: ReplyContentType = ReplyContentType.TEXT
     content: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -265,5 +264,5 @@ class ForwardNode:
 
 @dataclass
 class ReplySetModel:
-    contents: List[ReplyContent] = field(default_factory=list)
-    forward_nodes: List[ForwardNode] = field(default_factory=list)
+    contents: list[ReplyContent] = field(default_factory=list)
+    forward_nodes: list[ForwardNode] = field(default_factory=list)

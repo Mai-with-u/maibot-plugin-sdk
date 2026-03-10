@@ -1,7 +1,7 @@
 """旧版服务类型定义 (兼容层)"""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -10,5 +10,5 @@ class PluginServiceInfo:
     service_description: str = ""
     service_version: str = "1.0.0"
     service_type: str = "generic"
-    endpoints: List[Dict[str, Any]] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    endpoints: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)

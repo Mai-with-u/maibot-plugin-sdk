@@ -3,8 +3,8 @@
 复刻旧版 src.plugin_system.apis.constants 的路径常量。
 """
 
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 # 从 SDK 包的位置反推项目根目录
 _SDK_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent

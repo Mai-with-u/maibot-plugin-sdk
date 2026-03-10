@@ -5,7 +5,6 @@
 
 import logging
 import warnings
-from typing import Any, List, Optional, Tuple
 
 from maibot_sdk.compat._context_holder import get_context
 
@@ -17,7 +16,7 @@ def _get_emoji():
     return ctx.emoji if ctx else None
 
 
-async def get_by_description(description: str) -> Optional[Tuple[str, str, str]]:
+async def get_by_description(description: str) -> tuple[str, str, str] | None:
     """根据描述获取表情包
 
     Returns:
@@ -37,7 +36,7 @@ async def get_by_description(description: str) -> Optional[Tuple[str, str, str]]
         return None
 
 
-async def get_random(count: Optional[int] = 1) -> List[Tuple[str, str, str]]:
+async def get_random(count: int | None = 1) -> list[tuple[str, str, str]]:
     """随机获取表情包"""
     warnings.warn("emoji_api.get_random() 已弃用，请使用 self.ctx.emoji.get_random()", DeprecationWarning, stacklevel=2)
     emoji = _get_emoji()

@@ -3,9 +3,8 @@
 完整复刻旧版 src.plugin_system.base.base_tool.BaseTool 的接口和行为。
 """
 
-import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from maibot_sdk.compat.base.component_types import ComponentType, ToolInfo, ToolParamType
 
@@ -27,11 +26,11 @@ class BaseTool(ABC):
     description: str = ""
     available_for_llm: bool = True
     # 参数列表: (name, type, description, required, default_values)
-    parameters: List[Tuple[str, ToolParamType, str, bool, Optional[List[str]]]] = []
+    parameters: list[tuple[str, ToolParamType, str, bool, list[str] | None]] = []
 
     def __init__(
         self,
-        plugin_config: Optional[dict] = None,
+        plugin_config: dict | None = None,
         chat_stream: Any = None,
         **kwargs: Any,
     ):
@@ -46,7 +45,7 @@ class BaseTool(ABC):
         self.log_prefix = "[Tool]"
 
     @abstractmethod
-    async def execute(self, function_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, function_args: dict[str, Any]) -> dict[str, Any]:
         """执行工具
 
         Args:
@@ -75,10 +74,10 @@ class BaseTool(ABC):
     # ── classmethod ───────────────────────────────────────────
 
     @classmethod
-    def get_tool_definition(cls) -> Dict[str, Any]:
+    def get_tool_definition(cls) -> dict[str, Any]:
         """生成 OpenAI function calling 格式的工具定义"""
-        properties: Dict[str, Any] = {}
-        required_list: List[str] = []
+        properties: dict[str, Any] = {}
+        required_list: list[str] = []
 
         for param in cls.parameters:
             param_name = param[0]
@@ -98,7 +97,7 @@ class BaseTool(ABC):
             }
             json_type = type_map.get(param_type, "string")
 
-            prop: Dict[str, Any] = {
+            prop: dict[str, Any] = {
                 "type": json_type,
                 "description": param_desc,
             }

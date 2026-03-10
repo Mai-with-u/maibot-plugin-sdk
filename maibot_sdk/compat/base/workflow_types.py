@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class WorkflowStage(Enum):
@@ -22,27 +22,27 @@ class WorkflowStepInfo:
     stage: WorkflowStage = WorkflowStage.PROCESS
     order: int = 0
     enabled: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class WorkflowStepResult:
     success: bool = True
-    data: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    data: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
     should_continue: bool = True
 
 
 @dataclass
 class WorkflowMessage:
     content: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class WorkflowContext:
     workflow_id: str = ""
     current_stage: WorkflowStage = WorkflowStage.PRE_PROCESS
-    data: Dict[str, Any] = field(default_factory=dict)
-    messages: List[WorkflowMessage] = field(default_factory=list)
-    results: List[WorkflowStepResult] = field(default_factory=list)
+    data: dict[str, Any] = field(default_factory=dict)
+    messages: list[WorkflowMessage] = field(default_factory=list)
+    results: list[WorkflowStepResult] = field(default_factory=list)
