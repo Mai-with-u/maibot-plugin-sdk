@@ -5,6 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.1] - 2026-03-12
+
+### 变更
+
+- **日志系统重写**：移除 `ctx.logging` 异步 API（`LoggingCapability`），改用标准 `logging` 模块作为唯一日志接口
+  - 新增 `ctx.logger` 属性，返回 `logging.Logger`（名称为 `plugin.<plugin_id>`）
+  - Runner 进程全局安装 `RunnerIPCLogHandler`，自动将所有 stdlib logging 日志（含第三方库）通过 IPC 批量传输到主进程
+  - 主进程通过 `RunnerLogBridge` 重放为真实 `LogRecord`，接入已有的 structlog Handler 链
+  - 插件无需 `await`，同步 `logger.info()` 即可使用，第三方库日志也能自动捕获
+- 兼容层 `get_logger()` 不再发出 `DeprecationWarning`，直接返回 `logging.Logger`
+
+### 文档
+
+- 更新 `docs/guide.md` 日志章节，文档化新的 `ctx.logger` 用法和迁移说明
+
 ## [1.2.0] - 2026-03-10
 
 ### 新增
