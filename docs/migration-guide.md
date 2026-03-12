@@ -168,7 +168,7 @@ from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
 | `from src.plugin_system.base.component_types import ComponentType` | **删除** — 内部使用（SDK 自动处理） |
 | `from src.plugin_system.base.component_types import EventType` | `from maibot_sdk.types import EventType` |
 | `from src.plugin_system.base.config_types import section_meta` | **删除** — 新系统无此概念 |
-| `from src.common.logger import get_logger` | `await self.ctx.logging.info(msg)` 或用标准 `print()` |
+| `from src.common.logger import get_logger` | `self.ctx.logger.info(msg)` 或用标准 `print()` |
 
 > **重要**：新系统中，插件**不得**导入任何 `src.*` 模块。这会被 Runner 的 sys.path 隔离机制阻止。
 
@@ -1015,12 +1015,12 @@ global_config = await self.ctx.config.get_all()
 |--------|--------|
 | 无（旧系统无知识库 API） | `await self.ctx.knowledge.search(query, limit)` |
 | `from src.plugin_system.apis import tool_api` | `await self.ctx.tool.get_definitions()` |
-| `from src.common.logger import get_logger` | `await self.ctx.logging.info("消息")` |
-| `logger.debug("msg")` | `await self.ctx.logging.debug("msg")` |
-| `logger.warning("msg")` | `await self.ctx.logging.warning("msg")` |
-| `logger.error("msg")` | `await self.ctx.logging.error("msg")` |
+| `from src.common.logger import get_logger` | `self.ctx.logger.info("消息")` |
+| `logger.debug("msg")` | `self.ctx.logger.debug("msg")` |
+| `logger.warning("msg")` | `self.ctx.logger.warning("msg")` |
+| `logger.error("msg")` | `self.ctx.logger.error("msg")` |
 
-> **注意**：新系统的日志 API 是**异步**的。如果你只是打印调试信息，也可以直接使用 `print()`。
+> **注意**：`self.ctx.logger` 是标准的 `logging.Logger` 实例，使用同步接口（`.info()` / `.debug()` 等）。日志会由 Runner 进程的 IPC 日志处理器自动转发到主进程。
 
 ---
 
@@ -1401,7 +1401,7 @@ msg.modify_plain_text("新文本")
 - `from src.plugin_system import ConfigField, ComponentInfo` → 删除
 - `from src.plugin_system.base.component_types import ...` → 删除
 - `from src.plugin_system.base.config_types import section_meta` → 删除
-- `from src.common.logger import get_logger` → 删除，使用 `await self.ctx.logging.info()` 或 `print()`
+- `from src.common.logger import get_logger` → 删除，使用 `self.ctx.logger.info()` 或 `print()`
 - **禁止**保留任何 `from src.*` 或 `import src.*` 的导入
 
 ### 2. 主类改写
@@ -1464,7 +1464,7 @@ msg.modify_plain_text("新文本")
 - `await self.send_image(b64)` → `await self.ctx.send.image(b64, stream_id)`
 - `await self.send_command(cmd)` → `await self.ctx.send.command(cmd, stream_id)`
 - `self.get_config(key, default)` → `await self.ctx.config.get(key)`（异步！）
-- `logger.info(msg)` → `await self.ctx.logging.info(msg)` 或 `print(msg)`
+- `logger.info(msg)` → `self.ctx.logger.info(msg)` 或 `print(msg)`
 
 ### 10. 类型导入
 - `from maibot_sdk.types import ActivationType, ChatMode, EventType, ToolParameterInfo, ToolParamType`
@@ -1543,7 +1543,7 @@ msg.modify_plain_text("新文本")
 | | `.enable_component(name, type)` | 启用组件 |
 | | `.disable_component(name, type)` | 禁用组件 |
 | | `.reload_plugin(name)` | 重载插件 |
-| `self.ctx.logging` | `.debug(msg)` | Debug 日志 |
+| `self.ctx.logger` | `.debug(msg)` | Debug 日志 |
 | | `.info(msg)` | Info 日志 |
 | | `.warning(msg)` | Warning 日志 |
 | | `.error(msg)` | Error 日志 |

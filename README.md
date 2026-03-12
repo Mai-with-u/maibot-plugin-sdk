@@ -51,7 +51,7 @@ def create_plugin():
 | `ctx.person` | 用户信息查询 |
 | `ctx.knowledge` | LPMM 知识库搜索 |
 | `ctx.tool` | LLM 工具定义查询 |
-| `ctx.logging` | 插件日志 |
+| `ctx.logger` | 插件日志（标准 logging.Logger） |
 
 ## 插件目录结构
 
