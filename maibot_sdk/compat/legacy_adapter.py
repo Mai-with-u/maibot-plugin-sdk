@@ -169,10 +169,22 @@ class LegacyPluginAdapter:
 
         使用 component_map 中记录的组件类型判断，不依赖 isinstance，
         因为 import hook 在 Python 3.13 中可能产生类标识不一致。
+        在执行期间激活当前插件的上下文，确保 API 桩获取正确的 PluginContext。
         """
         instance = self._component_instances.get(component_name)
         if instance is None:
             raise KeyError(f"未找到组件: {component_name}")
+
+        # 激活当前插件上下文，使 get_context() 在整个调用链中返回正确的上下文
+        plugin_id = self._ctx.plugin_id if self._ctx else ""
+        token = _context_holder.activate_plugin(plugin_id)
+        try:
+            return await self._invoke_component_inner(component_name, instance, **kwargs)
+        finally:
+            _context_holder.deactivate_plugin(token)
+
+    async def _invoke_component_inner(self, component_name: str, instance: Any, **kwargs: Any) -> Any:
+        """实际的组件调用逻辑。"""
 
         comp_desc = self._component_map.get(component_name, {})
         comp_type = comp_desc.get("type", "")
