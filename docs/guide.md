@@ -29,7 +29,7 @@
   - [Person -- 用户信息](#person----用户信息)
   - [Knowledge -- 知识库](#knowledge----知识库)
   - [Tool -- 工具定义](#tool----工具定义)
-  - [Logging -- 日志](#logging----日志)
+  - [Logger -- 日志](#logger----日志)
 - [消息模型](#消息模型)
 - [类型定义](#类型定义)
 - [生命周期](#生命周期)
@@ -739,28 +739,37 @@ tool = self.ctx.tool
 
 返回的列表中每个元素包含 `name` 和 `definition` 字段。
 
-### Logging -- 日志
+### Logger -- 日志
+
+插件通过标准 `logging` 模块记录日志——Runner 进程会自动将所有日志通过 IPC 批量传输到主进程显示，**无需 `await`，无需特殊 API**。
+
+#### 推荐写法
 
 ```python
-log = self.ctx.logging
+# 方式一：通过 ctx.logger（名称自动为 plugin.<plugin_id>）
+logger = self.ctx.logger
+logger.info("插件已启动")
+logger.error(f"请求失败: {err}", exc_info=True)
+
+# 方式二：直接用 stdlib logging（同样会被自动传输）
+import logging
+logger = logging.getLogger(__name__)
+logger.warning("配置缺失，使用默认值")
 ```
 
-| 方法 | 参数 | 说明 |
+#### ctx.logger
+
+| 属性 | 类型 | 说明 |
 |------|------|------|
-| `await log.log(message, level)` | `message: str`, `level: str = "info"` | 记录日志 |
-| `await log.debug(message)` | `message: str` | 记录 DEBUG 日志 |
-| `await log.info(message)` | `message: str` | 记录 INFO 日志 |
-| `await log.warning(message)` | `message: str` | 记录 WARNING 日志 |
-| `await log.error(message)` | `message: str` | 记录 ERROR 日志 |
+| `self.ctx.logger` | `logging.Logger` | 标准 Logger，名称为 `plugin.<plugin_id>` |
 
-日志会在主进程以 `plugin.<plugin_id>` 为 logger 名称输出。
+支持所有标准 `logging.Logger` 方法：`debug()`、`info()`、`warning()`、`error()`、`critical()`，以及 `exc_info=True` 参数。
 
-示例：
+#### 工作原理
 
-```python
-await self.ctx.logging.info("插件初始化完成")
-await self.ctx.logging.error(f"请求失败: {err}")
-```
+Runner 进程启动后会在 `logging.root` 上安装一个 IPC Handler，拦截进程内**所有** `logging` 调用（包括第三方库的日志），批量发送到主进程。主进程收到后以 `plugin.<plugin_id>` 为 Logger 名称重放，接入控制台、日志文件、Dashboard 等已有的 Handler 链。
+
+> **注意**：旧版的 `await self.ctx.logging.info(...)` 异步 API 已移除。请改用上述标准 `logging` 写法。
 
 ---
 
