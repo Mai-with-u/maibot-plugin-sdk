@@ -6,7 +6,7 @@ PluginContext 由 Runner SDK Runtime 在插件加载时注入。
 
 import logging as stdlib_logging
 from collections.abc import Awaitable, Callable
-from typing import Any, Optional
+from typing import Any
 
 from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
@@ -49,7 +49,7 @@ class PluginContext:
         """
         self._plugin_id: str = plugin_id
         self._rpc_call: RpcCallFn | None = rpc_call
-        self._logger: Optional[stdlib_logging.Logger] = None
+        self._logger: stdlib_logging.Logger | None = None
 
         # 能力代理
         self.send: SendCapability = SendCapability(self)
