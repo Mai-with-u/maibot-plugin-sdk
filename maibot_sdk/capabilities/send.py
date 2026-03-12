@@ -40,7 +40,7 @@ class SendCapability:
         """
         return await self._ctx.call_capability(
             "send.emoji",
-            emoji_data=emoji_data,
+            emoji_base64=emoji_data,
             stream_id=stream_id,
             **kwargs,
         )
@@ -54,7 +54,7 @@ class SendCapability:
         """
         return await self._ctx.call_capability(
             "send.image",
-            image_data=image_data,
+            image_base64=image_data,
             stream_id=stream_id,
             **kwargs,
         )

@@ -116,7 +116,7 @@ class LegacyPluginAdapter:
                 "name": comp_info.name,
                 "description": comp_info.description or getattr(instance, "command_description", ""),
                 "metadata": {
-                    "pattern": getattr(instance, "command_pattern", ""),
+                    "command_pattern": getattr(instance, "command_pattern", ""),
                     "legacy": True,
                 },
             }
