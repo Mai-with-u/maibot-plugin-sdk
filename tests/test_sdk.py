@@ -87,7 +87,7 @@ def test_context_raises_without_rpc():
 
 
 def test_context_has_all_capabilities():
-    """验证 PluginContext 暴露了全部 13 个能力代理"""
+    """验证 PluginContext 暴露了全部 12 个能力代理 + logger 属性"""
     from maibot_sdk.context import PluginContext
 
     ctx = PluginContext(plugin_id="__test__", rpc_call=None)
@@ -105,10 +105,15 @@ def test_context_has_all_capabilities():
         "person",
         "knowledge",
         "tool",
-        "logging",
+        "logger",
     ]
     for attr in expected:
         assert hasattr(ctx, attr), f"PluginContext 缺少能力代理: {attr}"
+
+    # logger 应返回标准 logging.Logger 实例
+    import logging
+    assert isinstance(ctx.logger, logging.Logger)
+    assert ctx.logger.name == "plugin.__test__"
 
 
 def test_capability_classes_importable():
@@ -121,11 +126,12 @@ def test_capability_classes_importable():
     from maibot_sdk.capabilities.frequency import FrequencyCapability
     from maibot_sdk.capabilities.knowledge import KnowledgeCapability
     from maibot_sdk.capabilities.llm import LLMCapability
-    from maibot_sdk.capabilities.logging import LoggingCapability
     from maibot_sdk.capabilities.message import MessageCapability
     from maibot_sdk.capabilities.person import PersonCapability
     from maibot_sdk.capabilities.send import SendCapability
     from maibot_sdk.capabilities.tool import ToolCapability
+
+    # LoggingCapability 已移除，logging.py 模块仍可 import 但不再导出类
 
     assert all(
         [
@@ -137,7 +143,6 @@ def test_capability_classes_importable():
             FrequencyCapability,
             KnowledgeCapability,
             LLMCapability,
-            LoggingCapability,
             MessageCapability,
             PersonCapability,
             SendCapability,
@@ -149,4 +154,4 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "1.1.0"
+    assert maibot_sdk.__version__ == "1.2.1"
