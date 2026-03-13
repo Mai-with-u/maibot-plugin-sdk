@@ -12,7 +12,7 @@ from maibot_sdk.components import Action, Command, EventHandler, Tool, WorkflowS
 from maibot_sdk.context import PluginContext
 from maibot_sdk.plugin import MaiBotPlugin
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 
 __all__ = [
     "MaiBotPlugin",

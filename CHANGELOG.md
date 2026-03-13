@@ -5,19 +5,30 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.2.4] - 2026-03-13
+
+### 新增
+
+- `chat.*` 查询接口支持显式传入 `platform` 参数，便于跨平台场景下精确查询聊天流
+- `llm.generate()` 与 `llm.generate_with_tools()` 兼容 `model` / `model_name` 两套字段命名，降低与不同 Host 版本联调时的摩擦
 
 ### 修复
 
-- `send.custom()` 文档与实现对齐，明确 SDK 会自动发送新旧两套字段别名以兼容不同版本的 Host
-- `db.count()` 文档与实现对齐，明确 SDK 返回值始终为 `int`
-- SDK 统一解包 Host 返回的单字段能力结果；`config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 以及兼容层异步 API 现在直接返回原始值、列表或字典，而不是 RPC 包装字典
-- 补充热重载安全切换说明，文档化“新 Runner 验证通过后再切换 generation”的行为
+- `send.custom()` 发送新旧两套字段别名，提升与不同版本 Host 的兼容性
+- `db.count()` 统一解包 Host 返回结果，确保始终返回 `int`
+- SDK 统一解包 Host 返回的单字段能力结果；`config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 直接返回原始值、列表或字典，而不是 RPC 包装字典
+- 兼容层 `database_api`、`llm_api`、`plugin_manage_api`、`send_api` 增强返回值处理和错误日志，减少旧插件迁移时的行为偏差
+- 增强旧版插件适配器在配置同步、插件加载和热重载场景下的兼容性
 
 ### 文档
 
 - README 中将“13 种能力代理”修正为“12 种能力代理 + logger 接口”
 - README、开发指南、迁移指南补充能力返回值归一化说明
+- 补充聊天流平台参数、LLM 模型字段兼容性以及热重载安全切换说明
+
+### 测试
+
+- 补充 `db.count()`、能力结果解包、平台参数透传与兼容层 API 的回归测试
 
 ## [1.2.3] - 2026-03-13
 

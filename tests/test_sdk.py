@@ -157,7 +157,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "1.2.3"
+    assert maibot_sdk.__version__ == "1.2.4"
 
 
 def test_database_count_unwraps_host_dict_result():
