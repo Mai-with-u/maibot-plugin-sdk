@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import logging
 import sys
@@ -12,11 +13,15 @@ import warnings
 
 import pytest
 
-from maibot_sdk.compat._import_hook import install_hook
+from maibot_sdk.compat._import_hook import install_hook, uninstall_hook
 
 # ── 全局前置：安装 import hook ──────────────────────────────────────
 
 install_hook()
+
+
+def teardown_module(module) -> None:
+    uninstall_hook()
 
 
 # ── 旧版导入路径列表 ───────────────────────────────────────────────
@@ -114,6 +119,11 @@ class TestImportHook:
         assert BasePlugin is not None
         assert callable(register_plugin)
         assert callable(get_logger)
+
+    def test_hook_does_not_shadow_real_src_package(self):
+        """安装兼容 hook 后，真实 src.* 模块仍应可导入。"""
+        module = importlib.import_module("src.plugin_runtime.protocol.envelope")
+        assert hasattr(module, "Envelope")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -322,6 +332,37 @@ class TestApiModules:
             warnings.simplefilter("ignore", DeprecationWarning)
             from src.plugin_system.apis.constants import PROJECT_ROOT  # type: ignore[import-untyped]
         assert PROJECT_ROOT is not None
+
+    def test_async_compat_apis_receive_normalized_results(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            capability = payload["capability"]
+            return {
+                "chat.get_all_streams": {"success": True, "streams": [{"session_id": "s1"}]},
+                "person.get_id": {"success": True, "person_id": "person-1"},
+                "frequency.get_current_talk_value": {"success": True, "value": 0.5},
+                "message.get_by_time": {"success": True, "messages": [{"id": 1}]},
+            }[capability]
+
+        async def main():
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            streams = await chat_api.async_get_all_streams()
+            person_id = await person_api.async_get_person_id("qq", "123")
+            talk_value = await frequency_api.async_get_current_talk_value("chat-1")
+            messages = await message_api.async_get_messages_by_time(1.0, 2.0)
+            return streams, person_id, talk_value, messages
+
+        streams, person_id, talk_value, messages = asyncio.run(main())
+
+        assert streams == [{"session_id": "s1"}]
+        assert person_id == "person-1"
+        assert talk_value == 0.5
+        assert messages == [{"id": 1}]
 
 
 # ═══════════════════════════════════════════════════════════════════

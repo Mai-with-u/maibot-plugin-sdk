@@ -24,6 +24,55 @@ from maibot_sdk.capabilities.tool import ToolCapability
 # RPC 调用函数类型: async (method, plugin_id, payload) -> result
 RpcCallFn = Callable[..., Awaitable[Any]]
 
+_CAPABILITY_RESULT_KEYS: dict[str, str] = {
+    "chat.get_all_streams": "streams",
+    "chat.get_group_streams": "streams",
+    "chat.get_private_streams": "streams",
+    "chat.get_stream_by_group_id": "stream",
+    "chat.get_stream_by_user_id": "stream",
+    "component.get_all_plugins": "plugins",
+    "component.get_plugin_info": "plugin",
+    "component.list_loaded_plugins": "plugins",
+    "component.list_registered_plugins": "plugins",
+    "config.get": "value",
+    "config.get_all": "value",
+    "config.get_plugin": "value",
+    "database.count": "count",
+    "database.delete": "result",
+    "database.get": "result",
+    "database.query": "result",
+    "database.save": "result",
+    "emoji.get_all": "emojis",
+    "emoji.get_by_description": "emoji",
+    "emoji.get_count": "count",
+    "emoji.get_emotions": "emotions",
+    "emoji.get_info": "info",
+    "emoji.get_random": "emojis",
+    "frequency.get_adjust": "value",
+    "frequency.get_current_talk_value": "value",
+    "llm.get_available_models": "models",
+    "message.build_readable": "text",
+    "message.count_new": "count",
+    "message.get_by_time": "messages",
+    "message.get_by_time_in_chat": "messages",
+    "message.get_recent": "messages",
+    "person.get_id": "person_id",
+    "person.get_id_by_name": "person_id",
+    "person.get_value": "value",
+    "tool.get_definitions": "tools",
+}
+
+_BOOLEAN_SUCCESS_CAPABILITIES = {
+    "frequency.set_adjust",
+    "send.command",
+    "send.custom",
+    "send.emoji",
+    "send.forward",
+    "send.hybrid",
+    "send.image",
+    "send.text",
+}
+
 
 class PluginContext:
     """插件运行时上下文
@@ -99,7 +148,7 @@ class PluginContext:
         if self._rpc_call is None:
             raise RuntimeError("PluginContext 尚未初始化 RPC 连接")
 
-        return await self._rpc_call(
+        result = await self._rpc_call(
             method="cap.request",
             plugin_id=self._plugin_id,
             payload={
@@ -107,3 +156,20 @@ class PluginContext:
                 "args": kwargs,
             },
         )
+        return self._normalize_capability_result(capability, result)
+
+    @staticmethod
+    def _normalize_capability_result(capability: str, result: Any) -> Any:
+        """将 Host 侧 RPC 包装结果还原成插件更直观的返回值。"""
+        if not isinstance(result, dict) or "success" not in result:
+            return result
+
+        if capability in _CAPABILITY_RESULT_KEYS:
+            result_key = _CAPABILITY_RESULT_KEYS[capability]
+            if result_key in result:
+                return result[result_key]
+
+        if capability in _BOOLEAN_SUCCESS_CAPABILITIES:
+            return bool(result.get("success"))
+
+        return result

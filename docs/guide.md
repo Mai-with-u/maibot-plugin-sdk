@@ -487,6 +487,8 @@ db = self.ctx.db
 
 `db.count()` 的返回值始终是 `int`。即使 Host 侧 RPC 返回的是带 `count` 字段的对象，SDK 也会自动解包。
 
+能力返回值兼容说明：对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 这类本来就应返回单个值或列表的接口，SDK 会自动把 Host 侧 `{"success": true, "value": ...}`、`{"success": true, "streams": ...}` 这类 RPC 包装结果还原成插件更直观的返回值。插件代码通常不需要再手动读取 `value`、`messages`、`streams` 等字段。
+
 示例：
 
 ```python
@@ -599,6 +601,8 @@ config = self.ctx.config
 
 配置来源为插件目录下的 `config.toml`。
 
+`config.get()`、`config.get_plugin()` 和 `config.get_all()` 都会直接返回配置值或配置字典，不需要手动从 RPC 结果中读取 `value` 字段。
+
 示例：
 
 ```python
@@ -671,6 +675,8 @@ readable = await self.ctx.message.build_readable(
 
 可选关键字参数：`replace_bot_name`（默认 `True`）、`timestamp_mode`（默认 `"relative"`）、`truncate`（默认 `False`）。
 
+`message.get_by_time()`、`message.get_by_time_in_chat()` 和 `message.get_recent()` 会直接返回消息列表；`message.count_new()` 直接返回数量；`message.build_readable()` 直接返回字符串。
+
 ### Frequency -- 频率控制
 
 ```python
@@ -682,6 +688,8 @@ frequency = self.ctx.frequency
 | `await frequency.get_current_talk_value(chat_id)` | 获取当前 talk value |
 | `await frequency.set_adjust(chat_id, value)` | 设置频率调整值 |
 | `await frequency.get_adjust(chat_id)` | 获取频率调整值 |
+
+两个 `get_*` 方法都会直接返回数值；`set_adjust()` 返回布尔值表示是否设置成功。
 
 ### Component -- 组件管理
 
@@ -719,6 +727,8 @@ chat = self.ctx.chat
 | `await chat.get_stream_by_group_id(group_id, platform)` | `group_id: str` | 按群 ID 查找聊天流 |
 | `await chat.get_stream_by_user_id(user_id, platform)` | `user_id: str` | 按用户 ID 查找私聊流 |
 
+`chat.get_all_streams()`、`chat.get_group_streams()`、`chat.get_private_streams()` 会直接返回聊天流列表；两个 `get_stream_by_*()` 方法会直接返回单个聊天流字典或 `None`。
+
 示例：
 
 ```python
@@ -742,6 +752,8 @@ person = self.ctx.person
 | `await person.get_id(platform, user_id)` | `platform: str`, `user_id: str` | 获取 person_id |
 | `await person.get_value(person_id, field_name, default)` | `person_id: str`, `field_name: str` | 获取用户字段值 |
 | `await person.get_id_by_name(person_name)` | `person_name: str` | 根据用户名获取 person_id |
+
+`person.get_id()` / `person.get_id_by_name()` 直接返回 `person_id` 字符串；`person.get_value()` 直接返回对应字段值。
 
 示例：
 
@@ -782,6 +794,8 @@ tool = self.ctx.tool
 | `await tool.get_definitions()` | 获取 LLM 可用的工具定义列表 |
 
 返回的列表中每个元素包含 `name` 和 `definition` 字段。
+
+`tool.get_definitions()` 会直接返回工具定义列表，不需要再从 RPC 结果里手动读取 `tools` 字段。
 
 ### Logger -- 日志
 

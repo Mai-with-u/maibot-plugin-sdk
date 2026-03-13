@@ -237,3 +237,43 @@ def test_llm_result_normalizes_model_alias():
     result = asyncio.run(main())
     assert result["model"] == "gpt-like"
     assert result["model_name"] == "gpt-like"
+
+
+def test_capabilities_unwrap_host_wrapper_results():
+    from maibot_sdk.context import PluginContext
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        capability = payload["capability"]
+        return {
+            "config.get": {"success": True, "value": 42},
+            "chat.get_all_streams": {"success": True, "streams": [{"session_id": "s1"}]},
+            "message.get_by_time": {"success": True, "messages": [{"id": 1}]},
+            "person.get_id": {"success": True, "person_id": "person-1"},
+            "frequency.get_current_talk_value": {"success": True, "value": 0.75},
+            "tool.get_definitions": {"success": True, "tools": [{"name": "demo"}]},
+            "send.text": {"success": True},
+        }[capability]
+
+    async def main() -> dict[str, object]:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return {
+            "config": await ctx.config.get("answer"),
+            "streams": await ctx.chat.get_all_streams(),
+            "messages": await ctx.message.get_by_time("1", "2"),
+            "person_id": await ctx.person.get_id("qq", "123"),
+            "talk_value": await ctx.frequency.get_current_talk_value("chat-1"),
+            "tools": await ctx.tool.get_definitions(),
+            "send_ok": await ctx.send.text("hello", "stream-1"),
+        }
+
+    result = asyncio.run(main())
+
+    assert result["config"] == 42
+    assert result["streams"] == [{"session_id": "s1"}]
+    assert result["messages"] == [{"id": 1}]
+    assert result["person_id"] == "person-1"
+    assert result["talk_value"] == 0.75
+    assert result["tools"] == [{"name": "demo"}]
+    assert result["send_ok"] is True

@@ -940,6 +940,8 @@ global_config = await self.ctx.config.get_all()
 
 > **兼容说明**：`ctx.send.custom()` 会自动同时发送 `custom_type/data` 和 `message_type/content` 字段，插件作者无需区分 Host 版本。
 
+> **返回值说明**：新版 SDK 与兼容层异步 API 会自动解包 Host 的单字段 RPC 包装结果。像 `await self.ctx.config.get(...)`、`await self.ctx.chat.get_all_streams()`、`await self.ctx.message.get_recent(...)`、`await self.ctx.person.get_id(...)`、`await self.ctx.frequency.get_current_talk_value(...)` 这类调用，都会直接返回配置值、列表、字符串或数值，而不是带 `success/value/messages/streams` 的外层字典。
+
 ### 配置
 
 | 旧系统 | 新系统 |

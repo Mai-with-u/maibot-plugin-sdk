@@ -20,7 +20,7 @@ import sys
 import warnings
 from collections.abc import Sequence
 from importlib.abc import MetaPathFinder
-from importlib.machinery import ModuleSpec
+from importlib.machinery import ModuleSpec, PathFinder
 from types import ModuleType
 
 from maibot_sdk.compat._warnings import show_banner_once
@@ -103,11 +103,14 @@ class _LegacyPluginSystemFinder(MetaPathFinder):
     ) -> ModuleSpec | None:
         # 对 bare "src" 创建命名空间占位包
         if fullname == "src":
+            if _find_real_src_spec() is not None:
+                return None
             if fullname in sys.modules:
                 return ModuleSpec(fullname, _AliasLoader(sys.modules[fullname]), is_package=True)
             placeholder = ModuleType(fullname)
             placeholder.__path__ = []
             placeholder.__package__ = fullname
+            placeholder.__maibot_compat_placeholder__ = True
             sys.modules[fullname] = placeholder
             return ModuleSpec(fullname, _AliasLoader(placeholder), is_package=True)
 
@@ -170,7 +173,16 @@ def _ensure_parent_modules(fullname: str) -> None:
     parts = fullname.split(".")
     for i in range(1, len(parts)):
         parent = ".".join(parts[:i])
-        if parent not in sys.modules:
+        parent_module = sys.modules.get(parent)
+        if parent == "src" and _find_real_src_spec() is not None:
+            if _is_placeholder_module(parent_module):
+                sys.modules.pop(parent, None)
+                parent_module = None
+            if parent_module is None:
+                sys.modules[parent] = importlib.import_module(parent)
+            continue
+
+        if parent_module is None:
             if target := _MODULE_MAP.get(parent):
                 try:
                     sys.modules[parent] = sys.modules.get(target) or importlib.import_module(target)
@@ -179,6 +191,7 @@ def _ensure_parent_modules(fullname: str) -> None:
                     placeholder = ModuleType(parent)
                     placeholder.__path__ = []
                     placeholder.__package__ = parent
+                    placeholder.__maibot_compat_placeholder__ = True
                     sys.modules[parent] = placeholder
             else:
                 # 对于 'src' 本身，如果尚不存在就创建占位
@@ -186,11 +199,20 @@ def _ensure_parent_modules(fullname: str) -> None:
                     placeholder = ModuleType(parent)
                     placeholder.__path__ = []
                     placeholder.__package__ = parent
+                    placeholder.__maibot_compat_placeholder__ = True
                     sys.modules[parent] = placeholder
 
 
 def _is_package(module: ModuleType) -> bool:
     return hasattr(module, "__path__")
+
+
+def _find_real_src_spec() -> ModuleSpec | None:
+    return PathFinder.find_spec("src")
+
+
+def _is_placeholder_module(module: ModuleType | None) -> bool:
+    return bool(module is not None and getattr(module, "__maibot_compat_placeholder__", False))
 
 
 def install_hook() -> None:
@@ -214,3 +236,6 @@ def uninstall_hook() -> None:
     to_remove = [k for k in sys.modules if k.startswith("src.plugin_system")]
     for k in to_remove:
         del sys.modules[k]
+
+    if _is_placeholder_module(sys.modules.get("src")):
+        del sys.modules["src"]
