@@ -312,6 +312,19 @@ async def filter_spam(self, **kwargs):
     return None
 ```
 
+**EventHandler 返回值**：
+
+返回 `None` 表示不干预。返回 `dict` 时，支持以下字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `blocked` | `bool` | `True` 则阻止消息继续传播（等价于 `continue_processing=False`） |
+| `continue_processing` | `bool` | 是否允许消息继续传播，默认 `True` |
+| `modified_message` | `Any` | 替换后续处理中使用的消息内容（可选） |
+| `custom_result` | `Any` | 自定义返回数据（可选） |
+
+> 推荐使用 `{"blocked": True}` 来拦截消息，语义更清晰。
+
 **参数列表**：
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -515,7 +528,7 @@ llm = self.ctx.llm
 |------|------|
 | `await llm.generate(prompt, model, temperature, max_tokens)` | 文本生成 |
 | `await llm.generate_with_tools(prompt, tools, ...)` | 带工具调用的生成 |
-| `await llm.get_available_models()` | 获取可用模型列表 |
+| `await llm.get_available_models()` | 获取可用模型列表，返回 `list[str]` |
 
 **generate 返回值**：
 
@@ -624,10 +637,28 @@ message = self.ctx.message
 | 方法 | 说明 |
 |------|------|
 | `await message.get_recent(chat_id, limit)` | 获取最近消息 |
-| `await message.build_readable(messages)` | 将消息列表格式化为可读字符串 |
+| `await message.build_readable(messages, **kwargs)` | 将消息列表格式化为可读字符串 |
 | `await message.get_by_time(start_time, end_time)` | 按时间范围查询（全局） |
 | `await message.get_by_time_in_chat(chat_id, start_time, end_time)` | 按时间范围查询指定聊天 |
-| `await message.count_new(chat_id, since)` | 统计新消息数 |
+| `await message.count_new(chat_id, since)` | 统计新消息数（`since` 为 UNIX 时间戳字符串） |
+
+`build_readable` 支持两种调用方式：
+
+```python
+# 方式 1：传入已查询的消息列表
+msgs = await self.ctx.message.get_recent(chat_id, limit=20)
+readable = await self.ctx.message.build_readable(msgs)
+
+# 方式 2：通过关键字参数传入 chat_id + 时间范围，由 Host 端查询
+readable = await self.ctx.message.build_readable(
+    messages=None,
+    chat_id=chat_id,
+    start_time=start_ts,
+    end_time=end_ts,
+)
+```
+
+可选关键字参数：`replace_bot_name`（默认 `True`）、`timestamp_mode`（默认 `"relative"`）、`truncate`（默认 `False`）。
 
 ### Frequency -- 频率控制
 
@@ -649,17 +680,19 @@ component = self.ctx.component
 
 | 方法 | 说明 |
 |------|------|
-| `await component.get_all_plugins()` | 获取所有插件信息 |
+| `await component.get_all_plugins()` | 获取所有插件信息（含各插件注册的组件列表） |
 | `await component.get_plugin_info(plugin_name)` | 获取指定插件信息 |
 | `await component.list_loaded_plugins()` | 列出已加载插件 |
 | `await component.list_registered_plugins()` | 列出已注册插件 |
-| `await component.enable_component(name, type, scope, stream_id)` | 启用组件 |
-| `await component.disable_component(name, type, scope, stream_id)` | 禁用组件 |
-| `await component.load_plugin(plugin_name)` | 加载插件 |
+| `await component.enable_component(name, type, scope, stream_id)` | 启用组件（`name` 支持 `plugin_id.comp_name` 全名或短名） |
+| `await component.disable_component(name, type, scope, stream_id)` | 禁用组件（`name` 支持 `plugin_id.comp_name` 全名或短名） |
+| `await component.load_plugin(plugin_name)` | 加载插件（会校验插件是否存在并路由到对应 Supervisor） |
 | `await component.unload_plugin(plugin_name)` | 卸载插件 |
 | `await component.reload_plugin(plugin_name)` | 重新加载插件 |
 
 `scope` 支持 `"global"` 和 `"stream"`，`stream` 级别需传入 `stream_id`。
+
+> **注意**：`enable_component` / `disable_component` 的 `name` 参数既可以传完整名称 `"my_plugin.my_command"`，也可以只传短名 `"my_command"`（Host 会自动按 `component_type` 匹配）。当使用短名且存在同名组件时，优先匹配指定 `type` 的组件。
 
 ### Chat -- 聊天流
 

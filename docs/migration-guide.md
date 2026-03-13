@@ -579,7 +579,7 @@ class MessageHandler(BaseEventHandler):
 @EventHandler("my_startup", description="启动处理", event_type=EventType.ON_START)
 async def handle_start(self, **kwargs):
     # 初始化逻辑
-    return True, True, None, None, None
+    return None  # 返回 None 表示不干预
 
 
 @EventHandler(
@@ -593,7 +593,20 @@ async def handle_message(self, message=None, **kwargs):
     if message:
         raw = message.get("raw_message", "") if isinstance(message, dict) else str(message)
         print(f"收到: {raw}")
-    return True, True, "消息已打印", None, None
+    return None  # 不拦截，继续传播
+
+
+@EventHandler(
+    "spam_filter",
+    description="过滤垃圾消息",
+    event_type=EventType.ON_MESSAGE_PRE_PROCESS,
+    intercept_message=True,
+    weight=200,
+)
+async def filter_spam(self, plain_text="", **kwargs):
+    if "spam" in plain_text:
+        return {"blocked": True}  # 拦截消息
+    return None
 ```
 
 ### EventHandler 迁移对照表
@@ -607,7 +620,7 @@ async def handle_message(self, message=None, **kwargs):
 | `weight = 100` | `@EventHandler(..., weight=100)` |
 | `intercept_message = True` | `@EventHandler(..., intercept_message=True)` |
 | `async def execute(self, message)` | `async def handle_xxx(self, message=None, **kwargs)` |
-| 返回 5 元组 `(bool, bool, str, None, None)` | 返回 5 元组 `(bool, bool, str, None, None)` **(一致)** |
+| 返回 5 元组 `(bool, bool, str, None, None)` | 返回 `dict`（如 `{"blocked": True}`）或 `None`（不干预） |
 
 ### EventType 枚举（完全一致）
 
@@ -971,7 +984,7 @@ global_config = await self.ctx.config.get_all()
 | — | `await self.ctx.message.get_by_time(start, end)` |
 | — | `await self.ctx.message.get_by_time_in_chat(chat_id, start, end)` |
 | — | `await self.ctx.message.count_new(chat_id, since)` |
-| — | `await self.ctx.message.build_readable(messages)` |
+| — | `await self.ctx.message.build_readable(messages, **kwargs)` — 也可传 `chat_id + start_time + end_time` 由 Host 查询 |
 
 ### 聊天流
 
@@ -1005,8 +1018,8 @@ global_config = await self.ctx.config.get_all()
 |--------|--------|
 | `from src.plugin_system.apis import component_manage_api` / `plugin_manage_api` | `await self.ctx.component.get_all_plugins()` |
 | — | `await self.ctx.component.get_plugin_info(name)` |
-| — | `await self.ctx.component.enable_component(name, type)` |
-| — | `await self.ctx.component.disable_component(name, type)` |
+| — | `await self.ctx.component.enable_component(name, type)` — `name` 支持全名或短名 |
+| — | `await self.ctx.component.disable_component(name, type)` — `name` 支持全名或短名 |
 | — | `await self.ctx.component.reload_plugin(name)` |
 
 ### 知识库、工具内省、日志

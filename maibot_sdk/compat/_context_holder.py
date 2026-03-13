@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import contextvars
 import threading
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
@@ -19,13 +19,11 @@ if TYPE_CHECKING:
 # 按 plugin_id 存储的上下文映射
 _contexts: dict[str, PluginContext] = {}
 # 最近设置的上下文（兜底，兼容只有单插件的场景和不传 plugin_id 的 API 调用）
-_current_ctx: Optional[PluginContext] = None
+_current_ctx: PluginContext | None = None
 _lock = threading.Lock()
 
 # 追踪当前正在执行的旧版插件 ID（asyncio Task 级隔离）
-_active_plugin_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "_active_plugin_id", default=""
-)
+_active_plugin_id: contextvars.ContextVar[str] = contextvars.ContextVar("_active_plugin_id", default="")
 
 
 def set_context(ctx: PluginContext) -> None:
@@ -53,7 +51,7 @@ def deactivate_plugin(token: contextvars.Token[str]) -> None:
     _active_plugin_id.reset(token)
 
 
-def get_context(plugin_id: str = "") -> Optional[PluginContext]:
+def get_context(plugin_id: str = "") -> PluginContext | None:
     """获取指定插件的上下文。
 
     优先级：

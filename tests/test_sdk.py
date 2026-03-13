@@ -112,6 +112,7 @@ def test_context_has_all_capabilities():
 
     # logger 应返回标准 logging.Logger 实例
     import logging
+
     assert isinstance(ctx.logger, logging.Logger)
     assert ctx.logger.name == "plugin.__test__"
 
