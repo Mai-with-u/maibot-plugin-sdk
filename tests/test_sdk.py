@@ -197,3 +197,43 @@ def test_send_custom_sends_compat_field_aliases():
     assert captured["data"] == {"x": 1}
     assert captured["message_type"] == "notice"
     assert captured["content"] == {"x": 1}
+
+
+def test_chat_capability_passes_platform_argument():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True, "streams": []}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.chat.get_group_streams(platform="discord")
+
+    asyncio.run(main())
+    assert captured["platform"] == "discord"
+
+
+def test_llm_result_normalizes_model_alias():
+    from maibot_sdk.context import PluginContext
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        return {
+            "success": True,
+            "response": "ok",
+            "reasoning": "",
+            "model_name": "gpt-like",
+        }
+
+    async def main() -> dict[str, object]:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return await ctx.llm.generate("hello")
+
+    result = asyncio.run(main())
+    assert result["model"] == "gpt-like"
+    assert result["model_name"] == "gpt-like"

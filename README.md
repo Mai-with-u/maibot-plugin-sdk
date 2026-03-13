@@ -57,6 +57,8 @@ def create_plugin():
 
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
 - `ctx.db.count(table, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
+- `ctx.chat.*` 查询接口支持显式传入 `platform`，不再被固定到默认平台。
+- `ctx.llm.generate*()` 会同时兼容 `model` 和 `model_name` 字段；插件侧优先读取 `model` 即可。
 - 插件热重载采用“验证通过后切换”的安全策略。正常插件开发无需感知 generation 细节，但在 reload 失败时，旧插件实例会继续提供服务。
 
 ## 插件目录结构

@@ -11,6 +11,12 @@ if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
 
 
+def _normalize_llm_result(result: dict[str, Any]) -> dict[str, Any]:
+    if "model" not in result and "model_name" in result:
+        result["model"] = result["model_name"]
+    return result
+
+
 class LLMCapability:
     """LLM 调用能力"""
 
@@ -45,7 +51,7 @@ class LLMCapability:
             **kwargs,
         )
         if isinstance(result, dict):
-            return result
+            return _normalize_llm_result(result)
         return {"success": False, "response": "", "reasoning": "", "model": ""}
 
     async def generate_with_tools(
@@ -79,7 +85,7 @@ class LLMCapability:
             **kwargs,
         )
         if isinstance(result, dict):
-            return result
+            return _normalize_llm_result(result)
         return {"success": False, "response": "", "reasoning": "", "model": "", "tool_calls": []}
 
     async def get_available_models(self) -> list[str]:

@@ -541,9 +541,12 @@ llm = self.ctx.llm
     "success": True,
     "response": "生成的文本",
     "reasoning": "推理内容（如有）",
-    "model": "实际使用的模型名"
+    "model": "实际使用的模型名",
+    "model_name": "实际使用的模型名"
 }
 ```
+
+说明：SDK 会始终补齐 `model` 字段；若 Host 仍返回旧字段名 `model_name`，SDK 会自动兼容。
 
 示例：
 
@@ -608,6 +611,10 @@ all_config = await self.ctx.config.get_all()
 ```
 
 配置热更新时 `on_config_update` 会被调用：
+
+- 修改总配置热重载后，Host 会向已加载插件推送一次配置更新通知。
+- 修改插件目录下的 `config.toml` 时，插件运行时会复用现有文件监听体系推送 `on_config_update`。
+- 修改 `plugin.py`、`_manifest.json` 或插件源码文件时，会触发所属 Supervisor 的安全热重载。
 
 ```python
 class MyPlugin(MaiBotPlugin):
