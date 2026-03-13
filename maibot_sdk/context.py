@@ -50,6 +50,7 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "emoji.get_random": "emojis",
     "frequency.get_adjust": "value",
     "frequency.get_current_talk_value": "value",
+    "knowledge.search": "content",
     "llm.get_available_models": "models",
     "message.build_readable": "text",
     "message.count_new": "count",
