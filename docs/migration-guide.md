@@ -39,6 +39,8 @@
 | **热重载** | 需要重启 | 支持运行时热重载（新 Runner 验证通过后再切换 generation） |
 | **安全模型** | 无隔离，插件可访问一切 | 能力令牌 + 策略引擎控制权限 |
 
+补充说明：新版运行时会在 `on_load()` 之前完成 `PluginContext` 注入和 capability bootstrap，因此迁移后的插件可以在 `on_load()` 中直接调用 `self.ctx.*` 能力；热重载失败时 Host 会回滚到旧 Runner，`reload_plugin()` 将返回失败而不是误报成功。
+
 ---
 
 ## 架构差异总览

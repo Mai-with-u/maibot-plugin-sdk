@@ -60,7 +60,11 @@ class LegacyPluginAdapter:
             await self._legacy.on_unload()
 
     async def on_config_update(self, new_config: dict[str, Any], version: str) -> None:
-        pass
+        self.set_plugin_config(new_config)
+        if hasattr(self._legacy, "on_config_update"):
+            ret = self._legacy.on_config_update(new_config, version)
+            if hasattr(ret, "__await__"):
+                await ret
 
     def get_components(self) -> list[dict[str, Any]]:
         """将 get_plugin_components() 的结果转换为新版组件描述格式"""

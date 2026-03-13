@@ -712,6 +712,8 @@ component = self.ctx.component
 `scope` 支持 `"global"` 和 `"stream"`，`stream` 级别需传入 `stream_id`。
 
 > **注意**：`enable_component` / `disable_component` 的 `name` 参数既可以传完整名称 `"my_plugin.my_command"`，也可以只传短名 `"my_command"`（Host 会自动按 `component_type` 匹配）。当使用短名且存在同名组件时，优先匹配指定 `type` 的组件。
+>
+> `load_plugin()` / `reload_plugin()` 返回 `True` 仅表示新 Runner 已完成初始化并成功切换；如果预热失败且 Host 回滚到旧 Runner，这两个接口会返回 `False`。
 
 ### Chat -- 聊天流
 
@@ -933,16 +935,30 @@ from maibot_sdk.types import (
 1. Runner 发现 plugins/my_plugin/plugin.py
 2. Runner 调用 create_plugin() 获取插件实例
 3. Runner 注入 PluginContext (self._ctx)
-4. Runner 调用 get_components() 收集组件声明
-5. Runner 将组件声明发送给 Host 注册
-6. Runner 调用 on_load()
+4. Runner 向 Host bootstrap capability 令牌
+5. Runner 调用 on_load()
+6. Runner 调用 get_components() 收集组件声明
+7. Runner 将组件声明发送给 Host 注册
+8. Runner 向 Host 发送 ready 信号
    ---- 插件进入运行状态 ----
-7. Host 根据事件/消息调度组件执行
-8. 配置变更时 Host 通知 Runner 调用 on_config_update()
+9. Host 根据事件/消息调度组件执行
+10. 配置变更时 Host 通知 Runner 调用 on_config_update()
    ---- 插件卸载 ----
-9. Runner 调用 on_unload()
-10. 组件从 Host 注销
+11. Runner 调用 on_unload()
+12. 组件从 Host 注销
 ```
+
+### on_load 阶段可做什么
+
+`PluginContext` 在 `on_load()` 之前已经完成注入，且 Host 已为当前插件签发 capability 令牌。因此以下操作在 `on_load()` 中是安全的：
+
+- 调用 `self.ctx.send.*`、`self.ctx.db.*`、`self.ctx.config.*` 等能力
+- 创建需要依赖配置内容的内存缓存
+- 执行一次性初始化检查或探测
+
+更具体地说，`on_load()` 不需要等待“组件注册完成”后再调用 capability。对插件作者来说，`on_load()` 可以视为“上下文已可用，但组件尚未开始对外接流量”的初始化阶段。
+
+建议避免在 `on_load()` 中执行特别耗时的网络操作；如果初始化时间过长，会延后整个 Runner 的 ready 信号与热重载切换。
 
 ---
 
@@ -950,13 +966,20 @@ from maibot_sdk.types import (
 
 ### 热重载与切换语义
 
-新版运行时在插件热重载时，会先拉起新的 Runner 并完成握手、组件注册与健康检查；只有验证成功后，才会切换到新 generation。
+新版运行时在插件热重载时，会先拉起新的 Runner，完成握手、插件初始化、组件注册和 ready/health 校验；只有全部验证成功后，才会切换到新 generation。
 
 这意味着：
 
 - reload 成功前，旧插件实例会继续对外提供服务。
 - reload 失败时，会回滚到旧 generation，不会因为新 Runner 预热失败而立刻丢失服务。
+- 只有在新 Runner 发出 ready 信号后，Host 才会把它视为“可接流量”的实例。
 - 插件代码通常不需要处理 generation；只要避免在模块级保存不可重建的全局状态即可。
+
+### 对插件开发的实际影响
+
+- 可以在 `on_load()` 中安全调用 capability，因为 bootstrap 发生在 `on_load()` 之前。
+- 不要假设 `reload_plugin()` 返回后一定切到新实例；应始终检查返回值，失败意味着 Host 已保留旧实例继续服务。
+- 如果你在 `on_load()` 中维护外部资源，请确保同一份初始化逻辑可以被重复执行，因为热重载会创建全新的 Runner 进程。
 
 MaiBot 采用双子进程架构：
 
