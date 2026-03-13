@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.3] - 2026-03-13
+
+### 修复
+
+- 同步 SDK 包版本元数据到 1.2.3，修复因发布版本号未更新导致的 PyPI 上传冲突
+
 ## [1.2.2] - 2026-03-13
 
 ### 新增
