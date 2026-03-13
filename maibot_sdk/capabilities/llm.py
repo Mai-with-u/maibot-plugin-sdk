@@ -87,4 +87,8 @@ class LLMCapability:
         result = await self._ctx.call_capability("llm.get_available_models")
         if isinstance(result, list):
             return result
+        if isinstance(result, dict):
+            models = result.get("models")
+            if isinstance(models, list):
+                return models
         return []
