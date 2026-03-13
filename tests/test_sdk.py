@@ -176,6 +176,74 @@ def test_database_count_unwraps_host_dict_result():
     assert asyncio.run(main()) == 3
 
 
+def test_database_query_uses_model_name_signature():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True, "result": []}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.db.query(
+            model_name="ChatHistory",
+            query_type="update",
+            data={"summary": "ok"},
+            filters={"session_id": "s-1"},
+            order_by=["-start_timestamp"],
+            limit=5,
+            single_result=False,
+        )
+
+    asyncio.run(main())
+
+    assert captured == {
+        "model_name": "ChatHistory",
+        "query_type": "update",
+        "data": {"summary": "ok"},
+        "filters": {"session_id": "s-1"},
+        "order_by": ["-start_timestamp"],
+        "limit": 5,
+        "single_result": False,
+    }
+
+
+def test_database_get_uses_filters_signature():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True, "result": None}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.db.get(
+            model_name="ActionRecord",
+            filters={"action_id": "a-1"},
+            limit=1,
+            order_by="-timestamp",
+            single_result=True,
+        )
+
+    asyncio.run(main())
+
+    assert captured == {
+        "model_name": "ActionRecord",
+        "filters": {"action_id": "a-1"},
+        "limit": 1,
+        "order_by": "-timestamp",
+        "single_result": True,
+    }
+
+
 def test_send_custom_sends_compat_field_aliases():
     from maibot_sdk.context import PluginContext
 

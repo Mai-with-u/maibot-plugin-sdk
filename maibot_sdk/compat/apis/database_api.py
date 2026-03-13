@@ -32,31 +32,28 @@ async def db_query(
     if db is None:
         return None if single_result else []
     try:
-        table = model_class if isinstance(model_class, str) else getattr(model_class, "__name__", str(model_class))
+        model_name = model_class if isinstance(model_class, str) else getattr(model_class, "__name__", str(model_class))
 
         if query_type == "get":
             result = await db.query(
-                table=table,
+                model_name=model_name,
+                query_type="get",
                 filters=filters or data or {},
                 order_by=order_by,
                 limit=1 if single_result and limit is None else limit,
-                offset=None,
+                single_result=single_result,
             )
-            if single_result:
-                if isinstance(result, list):
-                    return result[0] if result else None
-                return result
             return result
 
         if query_type == "count":
             return await db.count(
-                table=table,
+                model_name=model_name,
                 filters=filters or data or {},
             )
 
         if query_type == "delete":
             return await db.delete(
-                table=table,
+                model_name=model_name,
                 filters=filters or data or {},
             )
 
@@ -65,12 +62,14 @@ async def db_query(
             if not isinstance(payload, dict):
                 logger.error("database_api.db_query 失败: save/update 查询要求 data 为 dict")
                 return None if single_result else []
-            return await db.save(
-                table=table,
-                data=payload,
-                key_field="id",
-                key_value=(filters or {}).get("id") if isinstance(filters, dict) else None,
-            )
+            if query_type == "update":
+                return await db.query(
+                    model_name=model_name,
+                    query_type="update",
+                    data=payload,
+                    filters=filters or {},
+                )
+            return await db.save(model_name=model_name, data=payload)
 
         logger.error(f"database_api.db_query 失败: 不支持的 query_type={query_type}")
         return None if single_result else []
@@ -97,15 +96,15 @@ async def store_action_info(
         return
     try:
         await db.save(
-            table="action_info",
+            model_name="ActionRecord",
             data={
-                "action_build_into_prompt": action_build_into_prompt,
-                "action_prompt_display": action_prompt_display,
-                "action_done": action_done,
-                "thinking_id": thinking_id,
-                "action_data": action_data,
+                "action_id": thinking_id,
+                "session_id": getattr(chat_stream, "session_id", ""),
+                "action_data": action_data if isinstance(action_data, str) else str(action_data),
                 "action_name": action_name,
                 "action_reasoning": action_reasoning,
+                "action_builtin_prompt": str(action_build_into_prompt),
+                "action_display_prompt": action_prompt_display,
                 **kwargs,
             },
         )

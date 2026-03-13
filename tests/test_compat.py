@@ -627,11 +627,13 @@ class TestCompatRuntimeContracts:
         assert result == {"id": 1, "value": "ok"}
         assert captured["capability"] == "database.query"
         assert captured["args"] == {
-            "table": "DemoTable",
+            "model_name": "DemoTable",
+            "query_type": "get",
+            "data": None,
             "filters": {"id": 1},
             "order_by": [],
             "limit": 1,
-            "offset": None,
+            "single_result": True,
         }
 
     def test_emoji_api_returns_normalized_dict_payloads(self):

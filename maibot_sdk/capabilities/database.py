@@ -19,33 +19,39 @@ class DatabaseCapability:
 
     async def query(
         self,
-        table: str,
+        model_name: str,
+        query_type: str = "get",
+        data: dict[str, Any] | None = None,
         filters: dict[str, Any] | None = None,
         order_by: list[str] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        single_result: bool = False,
     ) -> Any:
         """查询数据
 
         Args:
-            table: 表名
+            model_name: 模型名，对应 Host 侧 database_model 中的类名
+            query_type: 查询类型，可选 get/create/update/delete/count
+            data: create/update 时写入的数据
             filters: 过滤条件
             order_by: 排序字段
             limit: 返回条数限制
-            offset: 偏移量
+            single_result: 是否只取一条结果
         """
         return await self._ctx.call_capability(
             "database.query",
-            table=table,
+            model_name=model_name,
+            query_type=query_type,
+            data=data,
             filters=filters or {},
             order_by=order_by or [],
             limit=limit,
-            offset=offset,
+            single_result=single_result,
         )
 
     async def save(
         self,
-        table: str,
+        model_name: str,
         data: dict[str, Any],
         key_field: str = "id",
         key_value: Any = None,
@@ -53,14 +59,14 @@ class DatabaseCapability:
         """保存数据（插入或更新）
 
         Args:
-            table: 表名
+            model_name: 模型名，对应 Host 侧 database_model 中的类名
             data: 要保存的数据
-            key_field: 主键字段名
-            key_value: 主键值（为 None 时表示插入）
+            key_field: 用于查找已有记录的字段名
+            key_value: 用于查找已有记录的字段值（为 None 时表示插入）
         """
         return await self._ctx.call_capability(
             "database.save",
-            table=table,
+            model_name=model_name,
             data=data,
             key_field=key_field,
             key_value=key_value,
@@ -68,55 +74,61 @@ class DatabaseCapability:
 
     async def get(
         self,
-        table: str,
-        key_field: str = "id",
-        key_value: Any = None,
+        model_name: str,
+        filters: dict[str, Any] | None = None,
+        limit: int | None = None,
+        order_by: str | list[str] | None = None,
+        single_result: bool = False,
     ) -> Any:
-        """按主键获取单条数据
+        """按条件获取数据
 
         Args:
-            table: 表名
-            key_field: 主键字段名
-            key_value: 主键值
+            model_name: 模型名，对应 Host 侧 database_model 中的类名
+            filters: 过滤条件
+            limit: 返回条数限制
+            order_by: 排序字段，支持字符串或字符串列表
+            single_result: 是否只取一条结果
         """
         return await self._ctx.call_capability(
             "database.get",
-            table=table,
-            key_field=key_field,
-            key_value=key_value,
+            model_name=model_name,
+            filters=filters or {},
+            limit=limit,
+            order_by=order_by,
+            single_result=single_result,
         )
 
     async def delete(
         self,
-        table: str,
+        model_name: str,
         filters: dict[str, Any],
     ) -> Any:
         """删除数据
 
         Args:
-            table: 表名
+            model_name: 模型名，对应 Host 侧 database_model 中的类名
             filters: 过滤条件
         """
         return await self._ctx.call_capability(
             "database.delete",
-            table=table,
+            model_name=model_name,
             filters=filters,
         )
 
     async def count(
         self,
-        table: str,
+        model_name: str,
         filters: dict[str, Any] | None = None,
     ) -> int:
         """计数
 
         Args:
-            table: 表名
+            model_name: 模型名，对应 Host 侧 database_model 中的类名
             filters: 过滤条件
         """
         result = await self._ctx.call_capability(
             "database.count",
-            table=table,
+            model_name=model_name,
             filters=filters or {},
         )
         if isinstance(result, dict):

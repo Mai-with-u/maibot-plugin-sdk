@@ -479,13 +479,15 @@ db = self.ctx.db
 
 | 方法 | 说明 |
 |------|------|
-| `await db.query(table, filters, order_by, limit, offset)` | 查询数据 |
-| `await db.save(table, data, key_field, key_value)` | 插入或更新 |
-| `await db.get(table, key_field, key_value)` | 获取单条记录 |
-| `await db.delete(table, filters)` | 删除数据 |
-| `await db.count(table, filters)` | 计数 |
+| `await db.query(model_name, query_type="get", data=None, filters=None, order_by=None, limit=None, single_result=False)` | 通用数据库操作 |
+| `await db.save(model_name, data, key_field="id", key_value=None)` | 插入或按字段更新 |
+| `await db.get(model_name, filters=None, limit=None, order_by=None, single_result=False)` | 按条件获取记录 |
+| `await db.delete(model_name, filters)` | 删除数据 |
+| `await db.count(model_name, filters)` | 计数 |
 
 `db.count()` 的返回值始终是 `int`。即使 Host 侧 RPC 返回的是带 `count` 字段的对象，SDK 也会自动解包。
+
+注意：这里的 `model_name` 必须是 Host 侧 `src.common.database.database_model` 中存在的模型类名，例如 `"ChatHistory"`、`"ActionRecord"`。旧版 `table` 参数名和 `db.get(key_field, key_value)` 形式已经废弃。
 
 能力返回值兼容说明：对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 这类本来就应返回单个值或列表的接口，SDK 会自动把 Host 侧 `{"success": true, "value": ...}`、`{"success": true, "streams": ...}` 这类 RPC 包装结果还原成插件更直观的返回值。插件代码通常不需要再手动读取 `value`、`messages`、`streams` 等字段。
 
@@ -494,34 +496,42 @@ db = self.ctx.db
 ```python
 # 查询
 results = await self.ctx.db.query(
-    table="my_data",
-    filters={"user_id": "12345"},
-    order_by=["created_at"],
+    model_name="ChatHistory",
+    query_type="get",
+    filters={"session_id": "session-123"},
+    order_by=["-start_timestamp"],
     limit=10,
+)
+
+# 获取单条记录
+record = await self.ctx.db.get(
+    model_name="ActionRecord",
+    filters={"action_id": "a-1"},
+    single_result=True,
 )
 
 # 插入
 await self.ctx.db.save(
-    table="my_data",
-    data={"user_id": "12345", "content": "hello"},
+    model_name="ActionRecord",
+    data={"action_id": "a-1", "session_id": "session-123", "action_name": "reply"},
 )
 
 # 更新
-await self.ctx.db.save(
-    table="my_data",
-    data={"content": "updated"},
-    key_field="user_id",
-    key_value="12345",
+updated = await self.ctx.db.query(
+    model_name="ChatHistory",
+    query_type="update",
+    data={"summary": "updated"},
+    filters={"session_id": "session-123"},
 )
 
 # 删除
 await self.ctx.db.delete(
-    table="my_data",
-    filters={"user_id": "12345"},
+    model_name="ChatHistory",
+    filters={"session_id": "session-123"},
 )
 
 # 计数
-count = await self.ctx.db.count("my_data", {"user_id": "12345"})
+count = await self.ctx.db.count("ChatHistory", {"session_id": "session-123"})
 ```
 
 ### LLM -- 大语言模型
