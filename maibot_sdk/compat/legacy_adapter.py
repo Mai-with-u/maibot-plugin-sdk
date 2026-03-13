@@ -14,6 +14,19 @@ from maibot_sdk.compat.base.base_plugin import BasePlugin
 logger = logging.getLogger("maibot_sdk.compat.legacy_adapter")
 
 
+def _load_global_config_snapshot() -> dict[str, Any] | None:
+    """尽力读取当前主程序全局配置的 dict 快照。"""
+    try:
+        from src.config.config import global_config
+
+        dumped = global_config.model_dump()
+        if isinstance(dumped, dict):
+            return dumped
+    except Exception:
+        return None
+    return None
+
+
 class LegacyPluginAdapter:
     """将旧版 BasePlugin 包装为类 MaiBotPlugin 接口
 
@@ -38,19 +51,34 @@ class LegacyPluginAdapter:
         self._ctx = ctx
         # 将上下文注入到全局持有者，使旧版基类方法和 API 桩能访问
         _context_holder.set_context(ctx)
+        self._sync_config_cache()
+
+    def _sync_config_cache(self) -> None:
+        """同步旧版 config_api 所需的全局/插件配置缓存。"""
+        try:
+            from maibot_sdk.compat.apis import config_api
+
+            config_api.set_config_cache(
+                global_cfg=_load_global_config_snapshot(),
+                plugin_cfg=self._plugin_config,
+            )
+        except Exception:
+            pass
 
     def set_plugin_config(self, config: dict[str, Any]) -> None:
         """由 Runner 设置插件配置，并同步到 config_api 缓存"""
         self._plugin_config = config or {}
-        try:
-            from maibot_sdk.compat.apis import config_api
-
-            config_api.set_config_cache(plugin_cfg=self._plugin_config)
-        except Exception:
-            pass
+        self._sync_config_cache()
 
     async def on_load(self) -> None:
         """调用旧版插件的 on_load"""
+        try:
+            from maibot_sdk.compat.apis import component_manage_api
+
+            await component_manage_api.async_get_all_plugins()
+        except Exception:
+            pass
+
         if hasattr(self._legacy, "on_load"):
             await self._legacy.on_load()
 

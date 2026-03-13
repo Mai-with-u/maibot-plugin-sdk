@@ -19,11 +19,13 @@
 - SDK 统一解包 Host 返回的单字段能力结果；`config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 直接返回原始值、列表或字典，而不是 RPC 包装字典
 - 兼容层 `database_api`、`llm_api`、`plugin_manage_api`、`send_api` 增强返回值处理和错误日志，减少旧插件迁移时的行为偏差
 - 增强旧版插件适配器在配置同步、插件加载和热重载场景下的兼容性
+- 兼容层 `config_api` 现在会同步主程序全局配置缓存；同步 `component_manage_api` / `plugin_manage_api` 查询接口改为返回最近一次运行时快照
 
 ### 文档
 
 - README 中将“13 种能力代理”修正为“12 种能力代理 + logger 接口”
 - README、开发指南、迁移指南补充能力返回值归一化说明
+- README、迁移指南与 compat emoji API 说明统一为字典化表情返回结构，并补充同步管理 API 的快照语义
 - 补充聊天流平台参数、LLM 模型字段兼容性以及热重载安全切换说明
 
 ### 测试

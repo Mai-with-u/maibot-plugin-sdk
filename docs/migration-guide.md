@@ -985,6 +985,8 @@ global_config = await self.ctx.config.get_all()
 | — | `await self.ctx.emoji.register_emoji(base64)` |
 | — | `await self.ctx.emoji.delete_emoji(hash)` |
 
+> **兼容层说明**：旧版 `emoji_api.get_random()` / `emoji_api.get_by_description()` 在 IPC 运行时下会直接返回新版 SDK 的归一化字典结果（如 `{"base64": ..., "description": ..., "emotion": ...}`），而不是旧系统里常见的 tuple 结构。迁移时不要再按位置解包。
+
 ### 消息查询
 
 | 旧系统 | 新系统 |
@@ -1030,6 +1032,8 @@ global_config = await self.ctx.config.get_all()
 | — | `await self.ctx.component.enable_component(name, type)` — `name` 支持全名或短名 |
 | — | `await self.ctx.component.disable_component(name, type)` — `name` 支持全名或短名 |
 | — | `await self.ctx.component.reload_plugin(name)` |
+
+> **兼容层说明**：旧版同步 `component_manage_api` / `plugin_manage_api` 查询函数现在返回最近一次运行时拉取到的快照；若你需要实时状态，优先迁移到新的异步 `self.ctx.component.*` 接口。
 
 ### 知识库、工具内省、日志
 

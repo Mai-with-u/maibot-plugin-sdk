@@ -59,8 +59,10 @@ def create_plugin():
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
 - `ctx.db.count(table, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
 - 对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 等接口，SDK 会自动把 Host 返回的单字段包装结果解包为插件更直观的值、列表或字典；兼容层异步 API 也保持相同语义。
+- 兼容层 `emoji_api.get_random()` / `emoji_api.get_by_description()` 会返回归一化后的字典结果，而不是旧版 tuple 结构；迁移旧插件时请按字段读取。
 - `ctx.chat.*` 查询接口支持显式传入 `platform`，不再被固定到默认平台。
 - `ctx.llm.generate*()` 会同时兼容 `model` 和 `model_name` 字段；插件侧优先读取 `model` 即可。
+- 旧版同步 `component_manage_api` / `plugin_manage_api` 查询函数会返回最近一次运行时同步到本地的插件快照；如果需要实时状态，优先使用新的异步 `ctx.component.*` 能力。
 - 插件热重载采用“验证通过后切换”的安全策略。正常插件开发无需感知 generation 细节，但在 reload 失败时，旧插件实例会继续提供服务。
 - `ctx.component.load_plugin()` / `ctx.component.reload_plugin()` 在新运行时里只会在切换成功后返回成功；如果新 Runner 预热失败并回滚，SDK 会收到失败结果，而不是“已回滚但仍返回成功”的假阳性。
 

@@ -17,11 +17,12 @@ def _get_emoji() -> Any:
     return ctx.emoji if ctx else None
 
 
-async def get_by_description(description: str) -> tuple[str, str, str] | None:
+async def get_by_description(description: str) -> dict[str, Any] | None:
     """根据描述获取表情包
 
     Returns:
-        (base64编码, 描述, 情感标签) 或 None
+        归一化后的表情包字典或 None。
+        典型字段包括 ``base64``、``description``、``emotion``。
     """
     warnings.warn(
         "emoji_api.get_by_description() 已弃用，请使用 self.ctx.emoji.get_by_description()",
@@ -41,8 +42,12 @@ async def get_by_description(description: str) -> tuple[str, str, str] | None:
         return None
 
 
-async def get_random(count: int | None = 1) -> list[tuple[str, str, str]]:
-    """随机获取表情包"""
+async def get_random(count: int | None = 1) -> list[dict[str, Any]]:
+    """随机获取表情包。
+
+    Returns:
+        归一化后的表情包字典列表。
+    """
     warnings.warn("emoji_api.get_random() 已弃用，请使用 self.ctx.emoji.get_random()", DeprecationWarning, stacklevel=2)
     emoji = _get_emoji()
     if emoji is None:

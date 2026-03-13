@@ -458,6 +458,23 @@ class TestLegacyPluginAdapter:
         adapter.set_plugin_config({"test_key": "test_val"})
         assert adapter._plugin_config == {"test_key": "test_val"}
 
+    def test_set_plugin_config_seeds_global_config_cache(self, monkeypatch):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+        from src.config import config as runtime_config
+
+        class _DummyGlobalConfig:
+            def model_dump(self) -> dict[str, object]:
+                return {"bot": {"name": "MaiBot", "admin_id": "12345"}}
+
+        monkeypatch.setattr(runtime_config, "global_config", _DummyGlobalConfig())
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(_StubPlugin())
+            adapter.set_plugin_config({"section": {"key": "value"}})
+            assert config_api.get_global_config("bot.name") == "MaiBot"
+            assert config_api.get_global_config("bot.admin_id") == "12345"
+
 
 # ═══════════════════════════════════════════════════════════════════
 #  6. register_plugin 装饰器
@@ -616,3 +633,88 @@ class TestCompatRuntimeContracts:
             "limit": 1,
             "offset": None,
         }
+
+    def test_emoji_api_returns_normalized_dict_payloads(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            capability = payload["capability"]
+            return {
+                "emoji.get_random": {
+                    "success": True,
+                    "emojis": [{"base64": "img-1", "description": "smile", "emotion": "happy"}],
+                },
+                "emoji.get_by_description": {
+                    "success": True,
+                    "emoji": {"base64": "img-2", "description": "wink", "emotion": "playful"},
+                },
+            }[capability]
+
+        async def main():
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            random_result = await emoji_api.get_random(1)
+            search_result = await emoji_api.get_by_description("wink")
+            return random_result, search_result
+
+        random_result, search_result = asyncio.run(main())
+
+        assert random_result == [{"base64": "img-1", "description": "smile", "emotion": "happy"}]
+        assert search_result == {"base64": "img-2", "description": "wink", "emotion": "playful"}
+
+    def test_sync_manage_apis_return_cached_runtime_snapshot(self):
+        from maibot_sdk.context import PluginContext
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        plugins_snapshot = {
+            "demo_plugin": {
+                "name": "demo_plugin",
+                "version": "1.0.0",
+                "enabled": True,
+                "components": [
+                    {
+                        "name": "demo_action",
+                        "full_name": "demo_plugin.demo_action",
+                        "type": "action",
+                        "enabled": True,
+                        "metadata": {"legacy": True},
+                    }
+                ],
+            }
+        }
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            capability = payload["capability"]
+            return {
+                "component.get_all_plugins": {"success": True, "plugins": plugins_snapshot},
+            }[capability]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(_StubPlugin())
+
+        adapter._set_context(PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call))
+        asyncio.run(adapter.on_load())
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            all_plugins = component_manage_api.get_all_plugin_info()
+            plugin_info = component_manage_api.get_plugin_info("demo_plugin")
+            component_info = component_manage_api.get_component_info("demo_action", "action")
+            components_by_type = component_manage_api.get_components_info_by_type("action")
+            enabled_components = component_manage_api.get_enabled_components_info_by_type("action")
+            loaded_plugins = plugin_manage_api.list_loaded_plugins()
+            registered_plugins = plugin_manage_api.list_registered_plugins()
+
+        assert all_plugins == plugins_snapshot
+        assert plugin_info == plugins_snapshot["demo_plugin"]
+        assert component_info == plugins_snapshot["demo_plugin"]["components"][0]
+        assert components_by_type == {"demo_plugin.demo_action": plugins_snapshot["demo_plugin"]["components"][0]}
+        assert enabled_components == {"demo_plugin.demo_action": plugins_snapshot["demo_plugin"]["components"][0]}
+        assert loaded_plugins == ["demo_plugin"]
+        assert registered_plugins == ["demo_plugin"]

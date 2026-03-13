@@ -18,15 +18,25 @@ def _get_component() -> Any:
 
 
 def list_loaded_plugins() -> list[str]:
-    """列出已加载的插件 (同步，兼容层下返回空)"""
+    """列出已加载的插件 (同步，返回最近一次拉取到的运行时快照)。"""
     warnings.warn("plugin_manage_api.list_loaded_plugins() 已弃用", DeprecationWarning, stacklevel=2)
-    return []
+    try:
+        from maibot_sdk.compat.apis import component_manage_api
+
+        return list(component_manage_api.get_all_plugin_info().keys())
+    except Exception:
+        return []
 
 
 def list_registered_plugins() -> list[str]:
-    """列出已注册的插件 (同步，兼容层下返回空)"""
+    """列出已注册的插件 (同步，返回最近一次拉取到的运行时快照)。"""
     warnings.warn("plugin_manage_api.list_registered_plugins() 已弃用", DeprecationWarning, stacklevel=2)
-    return []
+    try:
+        from maibot_sdk.compat.apis import component_manage_api
+
+        return list(component_manage_api.get_all_plugin_info().keys())
+    except Exception:
+        return []
 
 
 def get_plugin_path(plugin_name: str) -> str:
