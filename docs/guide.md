@@ -450,6 +450,8 @@ send = self.ctx.send
 | `await send.hybrid(segments, stream_id)` | `segments: list[dict]` | 发送图文混合消息 |
 | `await send.custom(custom_type, data, stream_id)` | `custom_type: str`, `data: Any` | 发送自定义类型消息 |
 
+说明：`send.custom()` 会同时携带 `custom_type/data` 和 `message_type/content` 两套字段名，用于兼容不同版本的 Host 实现。插件侧只需要继续传 `custom_type` 与 `data`。
+
 示例：
 
 ```python
@@ -482,6 +484,8 @@ db = self.ctx.db
 | `await db.get(table, key_field, key_value)` | 获取单条记录 |
 | `await db.delete(table, filters)` | 删除数据 |
 | `await db.count(table, filters)` | 计数 |
+
+`db.count()` 的返回值始终是 `int`。即使 Host 侧 RPC 返回的是带 `count` 字段的对象，SDK 也会自动解包。
 
 示例：
 
@@ -922,6 +926,16 @@ from maibot_sdk.types import (
 ---
 
 ## 运行机制
+
+### 热重载与切换语义
+
+新版运行时在插件热重载时，会先拉起新的 Runner 并完成握手、组件注册与健康检查；只有验证成功后，才会切换到新 generation。
+
+这意味着：
+
+- reload 成功前，旧插件实例会继续对外提供服务。
+- reload 失败时，会回滚到旧 generation，不会因为新 Runner 预热失败而立刻丢失服务。
+- 插件代码通常不需要处理 generation；只要避免在模块级保存不可重建的全局状态即可。
 
 MaiBot 采用双子进程架构：
 

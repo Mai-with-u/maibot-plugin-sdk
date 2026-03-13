@@ -36,7 +36,7 @@
 | **依赖隔离** | 插件直接导入 `src.*`，版本冲突风险 | 只依赖 `maibot-plugin-sdk`，完全隔离 |
 | **组件声明** | 继承基类 + 手动注册（`get_plugin_components`） | 装饰器声明，自动收集 |
 | **API 访问** | 直接调用内部模块 | 通过 `self.ctx` 能力代理（RPC 透传） |
-| **热重载** | 需要重启 | 支持运行时热重载（基于 generation 的无缝切换） |
+| **热重载** | 需要重启 | 支持运行时热重载（新 Runner 验证通过后再切换 generation） |
 | **安全模型** | 无隔离，插件可访问一切 | 能力令牌 + 策略引擎控制权限 |
 
 ---
@@ -934,8 +934,11 @@ global_config = await self.ctx.config.get_all()
 | `await self.send_command(cmd, args)` | `await self.ctx.send.command(cmd, stream_id)` |
 | — | `await self.ctx.send.forward(messages, stream_id)` **(新增)** |
 | — | `await self.ctx.send.hybrid(segments, stream_id)` **(新增)** |
+| `await self.send_type(custom_type, data)` | `await self.ctx.send.custom(custom_type, data, stream_id)` |
 
 > **重要变化**：旧系统中 `send_text()` 等方法不需要传 `stream_id`（基类自动携带上下文），新系统必须**显式传入 `stream_id`**。
+
+> **兼容说明**：`ctx.send.custom()` 会自动同时发送 `custom_type/data` 和 `message_type/content` 字段，插件作者无需区分 Host 版本。
 
 ### 配置
 
@@ -955,6 +958,8 @@ global_config = await self.ctx.config.get_all()
 | — | `await self.ctx.db.get(table, key_field, key_value)` |
 | — | `await self.ctx.db.delete(table, filters)` |
 | — | `await self.ctx.db.count(table)` |
+
+> **返回值说明**：`await self.ctx.db.count(...)` 直接返回 `int`，不需要再从字典中手动读取 `count` 字段。
 
 ### LLM
 

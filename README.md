@@ -2,7 +2,7 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖全部 13 种能力代理、5 种组件装饰器、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 12 种能力代理、日志接口、5 种组件装饰器、消息模型、生命周期、调试与发布。
 
 ## 安装
 
@@ -52,6 +52,12 @@ def create_plugin():
 | `ctx.knowledge` | LPMM 知识库搜索 |
 | `ctx.tool` | LLM 工具定义查询 |
 | `ctx.logger` | 插件日志（标准 logging.Logger） |
+
+## 兼容说明
+
+- `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
+- `ctx.db.count(table, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
+- 插件热重载采用“验证通过后切换”的安全策略。正常插件开发无需感知 generation 细节，但在 reload 失败时，旧插件实例会继续提供服务。
 
 ## 插件目录结构
 

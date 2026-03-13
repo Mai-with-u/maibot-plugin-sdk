@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 修复
+
+- `send.custom()` 文档与实现对齐，明确 SDK 会自动发送新旧两套字段别名以兼容不同版本的 Host
+- `db.count()` 文档与实现对齐，明确 SDK 返回值始终为 `int`
+- 补充热重载安全切换说明，文档化“新 Runner 验证通过后再切换 generation”的行为
+
+### 文档
+
+- README 中将“13 种能力代理”修正为“12 种能力代理 + logger 接口”
+
 ## [1.2.3] - 2026-03-13
 
 ### 修复
