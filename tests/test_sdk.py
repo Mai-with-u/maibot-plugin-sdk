@@ -1,5 +1,7 @@
 """maibot-plugin-sdk 基础测试"""
 
+import asyncio
+
 from maibot_sdk import Action, Command, EventHandler, MaiBotPlugin, Tool
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
@@ -156,3 +158,42 @@ def test_version():
     import maibot_sdk
 
     assert maibot_sdk.__version__ == "1.2.3"
+
+
+def test_database_count_unwraps_host_dict_result():
+    from maibot_sdk.context import PluginContext
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        assert payload["capability"] == "database.count"
+        return {"success": True, "count": 3}
+
+    async def main() -> int:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return await ctx.db.count("SomeTable")
+
+    assert asyncio.run(main()) == 3
+
+
+def test_send_custom_sends_compat_field_aliases():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        captured.update(payload["args"])
+        return payload
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.send.custom("notice", {"x": 1}, "stream-1")
+
+    asyncio.run(main())
+
+    assert captured["custom_type"] == "notice"
+    assert captured["data"] == {"x": 1}
+    assert captured["message_type"] == "notice"
+    assert captured["content"] == {"x": 1}

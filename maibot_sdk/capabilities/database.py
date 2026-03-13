@@ -119,4 +119,6 @@ class DatabaseCapability:
             table=table,
             filters=filters or {},
         )
+        if isinstance(result, dict):
+            result = result.get("count")
         return int(result) if result is not None else 0

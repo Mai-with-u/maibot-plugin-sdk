@@ -111,6 +111,8 @@ class SendCapability:
         """
         return await self._ctx.call_capability(
             "send.custom",
+            message_type=custom_type,
+            content=data,
             custom_type=custom_type,
             data=data,
             stream_id=stream_id,
