@@ -5,6 +5,26 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.2] - 2026-03-13
+
+### 新增
+
+- **兼容层上下文管理**：为旧版插件兼容层补充上下文进入与清理逻辑，确保插件调用期间能够稳定获取当前 `PluginContext`
+
+### 修复
+
+- 修复 `llm` 能力获取可用模型列表的逻辑，兼容从字典结果中提取模型列表
+- 修复兼容层上下文持有者的类型注解，提升类型兼容性
+
+### 文档
+
+- 更新 `README.md` 和 `docs/migration-guide.md` 中对 `ctx.logger` 的描述，统一日志接口说明
+- 更新 `docs/guide.md` 和 `docs/migration-guide.md`，补充 `EventHandler` 返回值约定与参数列表细节
+
+### 测试
+
+- 增加 `ctx.logger` 实例类型检查，确保返回标准 `logging.Logger`
+
 ## [1.2.1] - 2026-03-12
 
 ### 变更
