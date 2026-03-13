@@ -42,7 +42,10 @@ async def remove_plugin(plugin_name: str) -> bool:
     if comp is None:
         return False
     try:
-        return await comp.unload_plugin(plugin_name=plugin_name)
+        result = await comp.unload_plugin(plugin_name=plugin_name)
+        if isinstance(result, dict):
+            return bool(result.get("success"))
+        return bool(result)
     except Exception as e:
         logger.error(f"plugin_manage_api.remove_plugin 失败: {e}")
         return False
@@ -55,7 +58,10 @@ async def reload_plugin(plugin_name: str) -> bool:
     if comp is None:
         return False
     try:
-        return await comp.reload_plugin(plugin_name=plugin_name)
+        result = await comp.reload_plugin(plugin_name=plugin_name)
+        if isinstance(result, dict):
+            return bool(result.get("success"))
+        return bool(result)
     except Exception as e:
         logger.error(f"plugin_manage_api.reload_plugin 失败: {e}")
         return False

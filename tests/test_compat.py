@@ -476,3 +476,113 @@ class TestGetLogger:
             warnings.simplefilter("ignore", DeprecationWarning)
             logger = get_logger("test_plugin")
         assert isinstance(logger, logging.Logger)
+
+
+class TestCompatRuntimeContracts:
+    def test_send_api_propagates_false_result(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            assert payload["capability"] == "send.text"
+            return {"success": False, "error": "denied"}
+
+        async def main() -> bool:
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            return await send_api.text_to_stream("hello", "stream-1")
+
+        assert asyncio.run(main()) is False
+
+    def test_llm_api_reads_response_field(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            capability = payload["capability"]
+            return {
+                "llm.generate": {
+                    "success": True,
+                    "response": "hello",
+                    "reasoning": "chain",
+                    "model_name": "model-a",
+                },
+                "llm.generate_with_tools": {
+                    "success": True,
+                    "response": "tool-result",
+                    "reasoning": "tool-chain",
+                    "model_name": "model-b",
+                    "tool_calls": [{"id": "call-1"}],
+                },
+            }[capability]
+
+        async def main():
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            plain = await llm_api.generate_with_model("prompt")
+            with_tools = await llm_api.generate_with_tools("prompt")
+            return plain, with_tools
+
+        plain, with_tools = asyncio.run(main())
+
+        assert plain == (True, "hello", "chain", "model-a")
+        assert with_tools == (True, "tool-result", "tool-chain", "model-b", [{"id": "call-1"}])
+
+    def test_plugin_manage_api_normalizes_success_flag(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            capability = payload["capability"]
+            return {
+                "component.reload_plugin": {"success": False, "error": "missing"},
+                "component.unload_plugin": {"success": False, "error": "unsupported"},
+            }[capability]
+
+        async def main():
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            reloaded = await plugin_manage_api.reload_plugin("missing")
+            removed = await plugin_manage_api.remove_plugin("missing")
+            return reloaded, removed
+
+        reloaded, removed = asyncio.run(main())
+
+        assert reloaded is False
+        assert removed is False
+
+    def test_database_api_maps_to_new_sdk_signature(self):
+        from maibot_sdk.compat._context_holder import set_context
+        from maibot_sdk.context import PluginContext
+
+        captured: dict[str, object] = {}
+
+        async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+            assert method == "cap.request"
+            assert payload is not None
+            captured["capability"] = payload["capability"]
+            captured["args"] = payload["args"]
+            return {"success": True, "result": [{"id": 1, "value": "ok"}]}
+
+        async def main():
+            ctx = PluginContext(plugin_id="legacy-demo", rpc_call=fake_rpc_call)
+            set_context(ctx)
+            return await database_api.db_query("DemoTable", filters={"id": 1}, single_result=True)
+
+        result = asyncio.run(main())
+
+        assert result == {"id": 1, "value": "ok"}
+        assert captured["capability"] == "database.query"
+        assert captured["args"] == {
+            "table": "DemoTable",
+            "filters": {"id": 1},
+            "order_by": [],
+            "limit": 1,
+            "offset": None,
+        }

@@ -41,7 +41,8 @@ async def text_to_stream(
         logger.warning("send_api: PluginContext 未注入，无法发送消息")
         return False
     try:
-        await send.text(
+        return bool(
+            await send.text(
             text=text,
             stream_id=stream_id,
             set_reply=set_reply,
@@ -49,8 +50,8 @@ async def text_to_stream(
             typing=typing,
             storage_message=storage_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.text_to_stream 失败: {e}")
         return False
@@ -87,15 +88,16 @@ async def emoji_to_stream(
     if send is None:
         return False
     try:
-        await send.emoji(
+        return bool(
+            await send.emoji(
             emoji_data=emoji_base64,
             stream_id=stream_id,
             set_reply=set_reply,
             reply_message=reply_message,
             storage_message=storage_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.emoji_to_stream 失败: {e}")
         return False
@@ -120,15 +122,16 @@ async def image_to_stream(
     if send is None:
         return False
     try:
-        await send.image(
+        return bool(
+            await send.image(
             image_data=image_base64,
             stream_id=stream_id,
             set_reply=set_reply,
             reply_message=reply_message,
             storage_message=storage_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.image_to_stream 失败: {e}")
         return False
@@ -158,14 +161,15 @@ async def command_to_stream(
     try:
         # 旧版 command 可能是 dict，新版接收 str
         cmd_str = command if isinstance(command, str) else str(command)
-        await send.command(
+        return bool(
+            await send.command(
             command=cmd_str,
             stream_id=stream_id,
             storage_message=storage_message,
             display_message=display_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.command_to_stream 失败: {e}")
         return False
@@ -193,7 +197,8 @@ async def custom_to_stream(
     if send is None:
         return False
     try:
-        await send.custom(
+        return bool(
+            await send.custom(
             custom_type=message_type,
             data=content,
             stream_id=stream_id,
@@ -203,8 +208,8 @@ async def custom_to_stream(
             reply_message=reply_message,
             storage_message=storage_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.custom_to_stream 失败: {e}")
         return False
@@ -232,7 +237,8 @@ async def custom_reply_set_to_stream(
     try:
         # 将 ReplySetModel 转为可序列化的 dict
         data = reply_set.to_dict() if hasattr(reply_set, "to_dict") else str(reply_set)
-        await send.custom(
+        return bool(
+            await send.custom(
             custom_type="reply_set",
             data=data,
             stream_id=stream_id,
@@ -241,8 +247,8 @@ async def custom_reply_set_to_stream(
             reply_message=reply_message,
             storage_message=storage_message,
             **kwargs,
+            )
         )
-        return True
     except Exception as e:
         logger.error(f"send_api.custom_reply_set_to_stream 失败: {e}")
         return False

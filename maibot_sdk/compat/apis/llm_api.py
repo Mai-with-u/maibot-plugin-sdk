@@ -58,9 +58,9 @@ async def generate_with_model(
         if isinstance(result, dict):
             return (
                 result.get("success", True),
-                result.get("content", ""),
+                result.get("response", result.get("content", "")),
                 result.get("reasoning", ""),
-                result.get("model_name", ""),
+                result.get("model", result.get("model_name", "")),
             )
         return True, str(result), "", ""
     except Exception as e:
@@ -94,9 +94,9 @@ async def generate_with_tools(
         if isinstance(result, dict):
             return (
                 result.get("success", True),
-                result.get("content", ""),
+                result.get("response", result.get("content", "")),
                 result.get("reasoning", ""),
-                result.get("model_name", ""),
+                result.get("model", result.get("model_name", "")),
                 result.get("tool_calls", []),
             )
         return True, str(result), "", "", []

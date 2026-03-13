@@ -32,15 +32,48 @@ async def db_query(
     if db is None:
         return None if single_result else []
     try:
-        return await db.query(
-            model=str(model_class) if not isinstance(model_class, str) else model_class,
-            query_type=query_type,
-            data=data,
-            filters=filters,
-            limit=limit,
-            order_by=order_by,
-            single_result=single_result,
-        )
+        table = model_class if isinstance(model_class, str) else getattr(model_class, "__name__", str(model_class))
+
+        if query_type == "get":
+            result = await db.query(
+                table=table,
+                filters=filters or data or {},
+                order_by=order_by,
+                limit=1 if single_result and limit is None else limit,
+                offset=None,
+            )
+            if single_result:
+                if isinstance(result, list):
+                    return result[0] if result else None
+                return result
+            return result
+
+        if query_type == "count":
+            return await db.count(
+                table=table,
+                filters=filters or data or {},
+            )
+
+        if query_type == "delete":
+            return await db.delete(
+                table=table,
+                filters=filters or data or {},
+            )
+
+        if query_type in {"save", "insert", "update"}:
+            payload = data or {}
+            if not isinstance(payload, dict):
+                logger.error("database_api.db_query 失败: save/update 查询要求 data 为 dict")
+                return None if single_result else []
+            return await db.save(
+                table=table,
+                data=payload,
+                key_field="id",
+                key_value=(filters or {}).get("id") if isinstance(filters, dict) else None,
+            )
+
+        logger.error(f"database_api.db_query 失败: 不支持的 query_type={query_type}")
+        return None if single_result else []
     except Exception as e:
         logger.error(f"database_api.db_query 失败: {e}")
         return None if single_result else []
