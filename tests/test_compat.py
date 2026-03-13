@@ -10,6 +10,7 @@ import importlib
 import logging
 import sys
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -120,10 +121,39 @@ class TestImportHook:
         assert callable(register_plugin)
         assert callable(get_logger)
 
-    def test_hook_does_not_shadow_real_src_package(self):
+    def test_hook_does_not_shadow_real_src_package(self, tmp_path: Path) -> None:
         """安装兼容 hook 后，真实 src.* 模块仍应可导入。"""
-        module = importlib.import_module("src.plugin_runtime.protocol.envelope")
-        assert hasattr(module, "Envelope")
+        src_root = tmp_path / "src"
+        protocol_root = src_root / "plugin_runtime" / "protocol"
+        protocol_root.mkdir(parents=True)
+
+        for package_dir in (src_root, src_root / "plugin_runtime", protocol_root):
+            (package_dir / "__init__.py").write_text("", encoding="utf-8")
+
+        (protocol_root / "envelope.py").write_text("class Envelope:\n    pass\n", encoding="utf-8")
+
+        module_names = [
+            "src",
+            "src.plugin_runtime",
+            "src.plugin_runtime.protocol",
+            "src.plugin_runtime.protocol.envelope",
+        ]
+        original_modules = {name: sys.modules.pop(name, None) for name in module_names}
+
+        sys.path.insert(0, str(tmp_path))
+        importlib.invalidate_caches()
+        try:
+            module = importlib.import_module("src.plugin_runtime.protocol.envelope")
+            assert hasattr(module, "Envelope")
+            assert module.Envelope.__module__ == "src.plugin_runtime.protocol.envelope"
+        finally:
+            sys.path.remove(str(tmp_path))
+            importlib.invalidate_caches()
+            for name in module_names:
+                sys.modules.pop(name, None)
+            for name, module in original_modules.items():
+                if module is not None:
+                    sys.modules[name] = module
 
 
 # ═══════════════════════════════════════════════════════════════════
