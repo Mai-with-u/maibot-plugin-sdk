@@ -110,7 +110,7 @@ class _LegacyPluginSystemFinder(MetaPathFinder):
             placeholder = ModuleType(fullname)
             placeholder.__path__ = []
             placeholder.__package__ = fullname
-            placeholder.__maibot_compat_placeholder__ = True
+            placeholder.__dict__["__maibot_compat_placeholder__"] = True
             sys.modules[fullname] = placeholder
             return ModuleSpec(fullname, _AliasLoader(placeholder), is_package=True)
 
@@ -191,7 +191,7 @@ def _ensure_parent_modules(fullname: str) -> None:
                     placeholder = ModuleType(parent)
                     placeholder.__path__ = []
                     placeholder.__package__ = parent
-                    placeholder.__maibot_compat_placeholder__ = True
+                    placeholder.__dict__["__maibot_compat_placeholder__"] = True
                     sys.modules[parent] = placeholder
             else:
                 # 对于 'src' 本身，如果尚不存在就创建占位
@@ -199,7 +199,7 @@ def _ensure_parent_modules(fullname: str) -> None:
                     placeholder = ModuleType(parent)
                     placeholder.__path__ = []
                     placeholder.__package__ = parent
-                    placeholder.__maibot_compat_placeholder__ = True
+                    placeholder.__dict__["__maibot_compat_placeholder__"] = True
                     sys.modules[parent] = placeholder
 
 

@@ -12,6 +12,18 @@ from maibot_sdk.compat._context_holder import get_context
 logger = logging.getLogger("legacy_plugin.llm_api")
 
 
+def _coerce_bool(value: Any, default: bool = True) -> bool:
+    return default if value is None else bool(value)
+
+
+def _coerce_str(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+def _coerce_tool_calls(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _get_llm() -> Any:
     ctx = get_context()
     return ctx.llm if ctx else None
@@ -57,10 +69,10 @@ async def generate_with_model(
         # 新版返回格式可能不同，尝试适配
         if isinstance(result, dict):
             return (
-                result.get("success", True),
-                result.get("response", result.get("content", "")),
-                result.get("reasoning", ""),
-                result.get("model", result.get("model_name", "")),
+                _coerce_bool(result.get("success"), True),
+                _coerce_str(result.get("response", result.get("content", ""))),
+                _coerce_str(result.get("reasoning", "")),
+                _coerce_str(result.get("model", result.get("model_name", ""))),
             )
         return True, str(result), "", ""
     except Exception as e:
@@ -93,11 +105,11 @@ async def generate_with_tools(
         )
         if isinstance(result, dict):
             return (
-                result.get("success", True),
-                result.get("response", result.get("content", "")),
-                result.get("reasoning", ""),
-                result.get("model", result.get("model_name", "")),
-                result.get("tool_calls", []),
+                _coerce_bool(result.get("success"), True),
+                _coerce_str(result.get("response", result.get("content", ""))),
+                _coerce_str(result.get("reasoning", "")),
+                _coerce_str(result.get("model", result.get("model_name", ""))),
+                _coerce_tool_calls(result.get("tool_calls", [])),
             )
         return True, str(result), "", "", []
     except Exception as e:

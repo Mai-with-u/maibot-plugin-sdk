@@ -60,11 +60,17 @@ python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+exclude = ["^tests/"]
 
 [[tool.mypy.overrides]]
 module = "maibot_sdk.compat.*"
 warn_return_any = false
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disable_error_code = ["import-not-found", "misc", "no-any-return", "no-untyped-call", "type-arg", "unused-ignore"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

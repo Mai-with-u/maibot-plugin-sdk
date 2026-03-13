@@ -43,13 +43,13 @@ async def text_to_stream(
     try:
         return bool(
             await send.text(
-            text=text,
-            stream_id=stream_id,
-            set_reply=set_reply,
-            reply_message=reply_message,
-            typing=typing,
-            storage_message=storage_message,
-            **kwargs,
+                text=text,
+                stream_id=stream_id,
+                set_reply=set_reply,
+                reply_message=reply_message,
+                typing=typing,
+                storage_message=storage_message,
+                **kwargs,
             )
         )
     except Exception as e:
@@ -90,12 +90,12 @@ async def emoji_to_stream(
     try:
         return bool(
             await send.emoji(
-            emoji_data=emoji_base64,
-            stream_id=stream_id,
-            set_reply=set_reply,
-            reply_message=reply_message,
-            storage_message=storage_message,
-            **kwargs,
+                emoji_data=emoji_base64,
+                stream_id=stream_id,
+                set_reply=set_reply,
+                reply_message=reply_message,
+                storage_message=storage_message,
+                **kwargs,
             )
         )
     except Exception as e:
@@ -124,12 +124,12 @@ async def image_to_stream(
     try:
         return bool(
             await send.image(
-            image_data=image_base64,
-            stream_id=stream_id,
-            set_reply=set_reply,
-            reply_message=reply_message,
-            storage_message=storage_message,
-            **kwargs,
+                image_data=image_base64,
+                stream_id=stream_id,
+                set_reply=set_reply,
+                reply_message=reply_message,
+                storage_message=storage_message,
+                **kwargs,
             )
         )
     except Exception as e:
@@ -163,11 +163,11 @@ async def command_to_stream(
         cmd_str = command if isinstance(command, str) else str(command)
         return bool(
             await send.command(
-            command=cmd_str,
-            stream_id=stream_id,
-            storage_message=storage_message,
-            display_message=display_message,
-            **kwargs,
+                command=cmd_str,
+                stream_id=stream_id,
+                storage_message=storage_message,
+                display_message=display_message,
+                **kwargs,
             )
         )
     except Exception as e:
@@ -199,15 +199,15 @@ async def custom_to_stream(
     try:
         return bool(
             await send.custom(
-            custom_type=message_type,
-            data=content,
-            stream_id=stream_id,
-            display_message=display_message,
-            typing=typing,
-            set_reply=set_reply,
-            reply_message=reply_message,
-            storage_message=storage_message,
-            **kwargs,
+                custom_type=message_type,
+                data=content,
+                stream_id=stream_id,
+                display_message=display_message,
+                typing=typing,
+                set_reply=set_reply,
+                reply_message=reply_message,
+                storage_message=storage_message,
+                **kwargs,
             )
         )
     except Exception as e:
@@ -239,14 +239,14 @@ async def custom_reply_set_to_stream(
         data = reply_set.to_dict() if hasattr(reply_set, "to_dict") else str(reply_set)
         return bool(
             await send.custom(
-            custom_type="reply_set",
-            data=data,
-            stream_id=stream_id,
-            typing=typing,
-            set_reply=set_reply,
-            reply_message=reply_message,
-            storage_message=storage_message,
-            **kwargs,
+                custom_type="reply_set",
+                data=data,
+                stream_id=stream_id,
+                typing=typing,
+                set_reply=set_reply,
+                reply_message=reply_message,
+                storage_message=storage_message,
+                **kwargs,
             )
         )
     except Exception as e:
