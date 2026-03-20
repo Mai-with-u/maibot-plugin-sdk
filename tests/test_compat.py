@@ -9,6 +9,7 @@ import asyncio
 import importlib
 import logging
 import sys
+import types
 import warnings
 from pathlib import Path
 
@@ -446,7 +447,7 @@ class TestLegacyPluginAdapter:
         components = adapter.get_components()
         assert len(components) == 4
         types_found = {c["type"] for c in components}
-        assert types_found == {"action", "command", "event_handler", "tool"}
+        assert types_found == {"ACTION", "COMMAND", "EVENT_HANDLER", "TOOL"}
 
     def test_set_plugin_config(self):
         from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
@@ -460,13 +461,19 @@ class TestLegacyPluginAdapter:
 
     def test_set_plugin_config_seeds_global_config_cache(self, monkeypatch):
         from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
-        from src.config import config as runtime_config
 
         class _DummyGlobalConfig:
             def model_dump(self) -> dict[str, object]:
                 return {"bot": {"name": "MaiBot", "admin_id": "12345"}}
 
-        monkeypatch.setattr(runtime_config, "global_config", _DummyGlobalConfig())
+        src_module = types.ModuleType("src")
+        config_package = types.ModuleType("src.config")
+        runtime_config = types.ModuleType("src.config.config")
+        runtime_config.global_config = _DummyGlobalConfig()
+
+        monkeypatch.setitem(sys.modules, "src", src_module)
+        monkeypatch.setitem(sys.modules, "src.config", config_package)
+        monkeypatch.setitem(sys.modules, "src.config.config", runtime_config)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
@@ -668,8 +675,8 @@ class TestCompatRuntimeContracts:
         assert search_result == {"base64": "img-2", "description": "wink", "emotion": "playful"}
 
     def test_sync_manage_apis_return_cached_runtime_snapshot(self):
-        from maibot_sdk.context import PluginContext
         from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+        from maibot_sdk.context import PluginContext
 
         plugins_snapshot = {
             "demo_plugin": {

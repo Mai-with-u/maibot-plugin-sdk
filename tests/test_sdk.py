@@ -2,15 +2,19 @@
 
 import asyncio
 
-from maibot_sdk import Action, Command, EventHandler, MaiBotPlugin, Tool
+import pytest
+
+from maibot_sdk import Action, Command, EventHandler, HookHandler, MaiBotPlugin, Tool, WorkflowStep
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
     ComponentType,
     EventType,
+    HookResult,
     ModifyFlag,
     ToolParameterInfo,
     ToolParamType,
+    WorkflowStage,
 )
 
 
@@ -31,6 +35,10 @@ class SamplePlugin(MaiBotPlugin):
     async def handle_event(self, **kwargs):
         pass
 
+    @HookHandler("test_hook", stage=WorkflowStage.INGRESS)
+    async def handle_hook(self, **kwargs):
+        return {"hook_result": HookResult.CONTINUE}
+
 
 def test_plugin_instantiation():
     plugin = SamplePlugin()
@@ -45,6 +53,7 @@ def test_collect_components():
     assert "test_cmd" in names
     assert "test_tool" in names
     assert "test_event" in names
+    assert "test_hook" in names
 
 
 def test_component_types():
@@ -55,6 +64,12 @@ def test_component_types():
     assert type_map["test_cmd"] == ComponentType.COMMAND.value
     assert type_map["test_tool"] == ComponentType.TOOL.value
     assert type_map["test_event"] == ComponentType.EVENT_HANDLER.value
+    assert type_map["test_hook"] == ComponentType.HOOK_HANDLER.value
+
+
+def test_workflow_step_is_a_breaking_change():
+    with pytest.raises(RuntimeError, match="HookHandler"):
+        WorkflowStep("legacy_hook", stage=WorkflowStage.INGRESS)
 
 
 def test_messages_modify():
@@ -157,7 +172,41 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "1.2.4"
+    assert maibot_sdk.__version__ == "2.0.0"
+
+
+def test_component_capability_normalizes_lowercase_component_type():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.request"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.component.enable_component("demo.test", "event_handler")
+
+    asyncio.run(main())
+
+    assert captured["component_type"] == "EVENT_HANDLER"
+
+
+def test_component_capability_rejects_workflow_step_name():
+    from maibot_sdk.context import PluginContext
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        raise AssertionError("workflow_step 不应继续发起 RPC")
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        with pytest.raises(ValueError, match="HookHandler"):
+            await ctx.component.disable_component("demo.legacy", "workflow_step")
+
+    asyncio.run(main())
 
 
 def test_database_count_unwraps_host_dict_result():

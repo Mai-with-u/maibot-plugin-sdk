@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from maibot_sdk.types import normalize_component_type_name
+
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
 
@@ -41,7 +43,7 @@ class ComponentCapability:
         return await self._ctx.call_capability(
             "component.enable",
             name=name,
-            component_type=component_type,
+            component_type=normalize_component_type_name(component_type),
             scope=scope,
             stream_id=stream_id,
         )
@@ -53,7 +55,7 @@ class ComponentCapability:
         return await self._ctx.call_capability(
             "component.disable",
             name=name,
-            component_type=component_type,
+            component_type=normalize_component_type_name(component_type),
             scope=scope,
             stream_id=stream_id,
         )

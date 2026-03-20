@@ -43,6 +43,8 @@ async def db_query(
                 limit=1 if single_result and limit is None else limit,
                 single_result=single_result,
             )
+            if single_result and isinstance(result, list):
+                return result[0] if result else None
             return result
 
         if query_type == "count":

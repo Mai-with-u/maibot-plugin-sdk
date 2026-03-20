@@ -3,6 +3,8 @@
 MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
 
 > **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 12 种能力代理、日志接口、5 种组件装饰器、消息模型、生命周期、调试与发布。
+>
+> **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。
 
 ## 安装
 

@@ -1,6 +1,6 @@
 """组件声明装饰器
 
-用于在插件类中声明 Action/Command/Tool/EventHandler/WorkflowStep 组件。
+用于在插件类中声明 Action/Command/Tool/EventHandler/HookHandler 组件。
 装饰器将组件元数据附加到方法上，Runner 在加载时收集。
 """
 
@@ -15,10 +15,10 @@ from maibot_sdk.types import (
     ErrorPolicy,
     EventHandlerComponentInfo,
     EventType,
+    HookHandlerComponentInfo,
     ToolComponentInfo,
     ToolParameterInfo,
     WorkflowStage,
-    WorkflowStepComponentInfo,
 )
 
 # 装饰器签名: 接受函数返回函数
@@ -183,7 +183,7 @@ def EventHandler(
     return decorator
 
 
-def WorkflowStep(
+def HookHandler(
     name: str,
     stage: WorkflowStage,
     description: str = "",
@@ -194,7 +194,7 @@ def WorkflowStep(
     filter: dict[str, Any] | None = None,
     **metadata: Any,
 ) -> _Decorator:
-    """WorkflowStep 组件装饰器
+    """HookHandler 组件装饰器
 
     Args:
         name: 组件名称
@@ -206,18 +206,18 @@ def WorkflowStep(
         filter: 前置过滤条件 dict，Host 端预过滤不满足条件的调用
 
     用法：
-        @WorkflowStep("my_ingress", stage=WorkflowStage.INGRESS, priority=10)
+        @HookHandler("my_ingress", stage=WorkflowStage.INGRESS, priority=10)
         async def handle_ingress(self, context, message, **kwargs):
             return {"hook_result": "continue", "modified_message": {...}}
 
-        @WorkflowStep("observer", stage=WorkflowStage.PRE_PROCESS, blocking=False)
+        @HookHandler("observer", stage=WorkflowStage.PRE_PROCESS, blocking=False)
         async def observe(self, context, message, **kwargs):
             # 只读观察者，并发执行
             ...
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        info = WorkflowStepComponentInfo(
+        info = HookHandlerComponentInfo(
             name=name,
             stage=stage,
             description=description,
@@ -232,6 +232,16 @@ def WorkflowStep(
         return func
 
     return decorator
+
+
+def WorkflowStep(*args: Any, **kwargs: Any) -> _Decorator:
+    """已移除的旧装饰器入口。
+
+    `WorkflowStep` 在 SDK 2.0 中被 `HookHandler` 取代。这里保留同名入口，
+    仅用于在旧代码仍尝试使用时给出明确错误信息，而不是静默兼容。
+    """
+
+    raise RuntimeError("`WorkflowStep` 已移除，请改用 `HookHandler`。这是一个不向后兼容更改。")
 
 
 def collect_components(instance: object) -> list[dict[str, Any]]:

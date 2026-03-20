@@ -15,7 +15,7 @@
   - [Command](#command)
   - [Tool](#tool)
   - [EventHandler](#eventhandler)
-  - [WorkflowStep](#workflowstep)
+  - [HookHandler](#hookhandler)
 - [能力代理](#能力代理)
   - [Send -- 消息发送](#send----消息发送)
   - [Database -- 数据库](#database----数据库)
@@ -51,7 +51,7 @@ pip install maibot-plugin-sdk
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler, WorkflowStep
+from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler, HookHandler
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
@@ -350,16 +350,16 @@ async def filter_spam(self, **kwargs):
 | `POST_SEND` | 消息发送后 |
 | `AFTER_SEND` | 发送后处理完成 |
 
-### WorkflowStep
+### HookHandler
 
-WorkflowStep 参与消息处理管线（Pipeline）。管线按阶段顺序执行，每个阶段内按优先级排序。
+`HookHandler` 参与消息处理管线（Pipeline）。管线按阶段顺序执行，每个阶段内按优先级排序。
 
 ```python
-from maibot_sdk import WorkflowStep
+from maibot_sdk import HookHandler
 from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
 
 # 串行步骤（可修改消息）
-@WorkflowStep(
+@HookHandler(
     "keyword_filter",
     stage=WorkflowStage.INGRESS,
     priority=10,
@@ -374,7 +374,7 @@ async def filter_keywords(self, context, message, **kwargs):
     return {"hook_result": HookResult.CONTINUE, "modified_message": message}
 
 # 并发只读步骤
-@WorkflowStep(
+@HookHandler(
     "analytics",
     stage=WorkflowStage.PRE_PROCESS,
     blocking=False,
@@ -845,7 +845,7 @@ Runner 进程启动后会在 `logging.root` 上安装一个 IPC Handler，拦截
 
 ## 消息模型
 
-`MaiMessages` 是跨组件传递的统一消息格式，用于 EventHandler、WorkflowStep、Action 之间共享消息数据。
+`MaiMessages` 是跨组件传递的统一消息格式，用于 EventHandler、HookHandler、Action 之间共享消息数据。
 
 ```python
 from maibot_sdk.messages import MaiMessages, MessageSegment
@@ -915,7 +915,7 @@ from maibot_sdk.types import (
     # 枚举
     ActivationType,      # Action 激活方式
     ChatMode,            # 聊天模式 (FOCUS/NORMAL/PRIORITY/ALL)
-    ComponentType,       # 组件类型 (ACTION/COMMAND/TOOL/EVENT_HANDLER/WORKFLOW_STEP)
+    ComponentType,       # 组件类型 (ACTION/COMMAND/TOOL/EVENT_HANDLER/HOOK_HANDLER/MESSAGE_GATEWAY)
     ErrorPolicy,         # 异常策略 (ABORT/SKIP/LOG)
     EventType,           # 事件类型
     HookResult,          # Workflow 返回值 (CONTINUE/SKIP_STAGE/ABORT)
@@ -930,7 +930,7 @@ from maibot_sdk.types import (
     CommandComponentInfo,# Command 组件信息
     ToolComponentInfo,   # Tool 组件信息
     EventHandlerComponentInfo,  # EventHandler 组件信息
-    WorkflowStepComponentInfo,  # WorkflowStep 组件信息
+    HookHandlerComponentInfo,   # HookHandler 组件信息
     CapabilityResult,    # 能力调用结果
 )
 ```
@@ -1094,7 +1094,7 @@ my-maibot-plugin/
 
 **Q: 插件抛出异常会怎样？**
 
-不会影响主进程。Runner 进程会捕获异常并上报给 Host，Host 会记录日志。WorkflowStep 的行为取决于 `error_policy` 设置。
+不会影响主进程。Runner 进程会捕获异常并上报给 Host，Host 会记录日志。`HookHandler` 的行为取决于 `error_policy` 设置。
 
 **Q: 如何正确处理插件的额外依赖？**
 

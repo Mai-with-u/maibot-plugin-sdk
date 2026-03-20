@@ -15,7 +15,7 @@
 - [第四步：迁移 Command 组件](#第四步迁移-command-组件)
 - [第五步：迁移 Tool 组件](#第五步迁移-tool-组件)
 - [第六步：迁移 EventHandler 组件](#第六步迁移-eventhandler-组件)
-- [第七步：新增 - WorkflowStep 组件](#第七步新增---workflowstep-组件)
+- [第七步：新增 - HookHandler 组件](#第七步新增---hookhandler-组件)
 - [第八步：迁移配置系统](#第八步迁移配置系统)
   - [WebUI 配置可视化](#webui-配置可视化)
 - [第九步：迁移 API 调用](#第九步迁移-api-调用)
@@ -74,7 +74,7 @@ Runner 子进程（独立进程）
 │   ├── @Command 装饰器
 │   ├── @Tool 装饰器
 │   ├── @EventHandler 装饰器
-│   └── @WorkflowStep 装饰器（新增）
+│   └── @HookHandler 装饰器（新增）
 ├── self.ctx（能力代理，通过 RPC 与 Host 通信）
 └── create_plugin() 工厂函数
 ```
@@ -148,8 +148,8 @@ from maibot_sdk.types import (
     ToolParameterInfo,    # 替代旧版 tuple 参数声明
     ToolParamType,        # 保持不变
 )
-# 如果使用 WorkflowStep（新增功能）：
-from maibot_sdk import WorkflowStep
+# 如果使用 HookHandler（新增功能）：
+from maibot_sdk import HookHandler
 from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
 ```
 
@@ -643,11 +643,13 @@ async def filter_spam(self, plain_text="", **kwargs):
 
 ---
 
-## 第七步：新增 - WorkflowStep 组件
+## 第七步：新增 - HookHandler 组件
 
-> 旧系统的 `BasePlugin` 已有 `get_workflow_steps()` 方法支持 workflow 注册，但采用回调函数 + `WorkflowStepInfo` 的方式，使用较少。新系统通过 `@WorkflowStep` 装饰器大幅简化了声明方式。如果你的旧插件没有用到 workflow 可跳过本节。
+> SDK 2.0 起，`WorkflowStep` 已移除并更名为 `HookHandler`。这是一次不向后兼容更改。
+>
+> 旧系统的 `BasePlugin` 已有 `get_workflow_steps()` 方法支持 workflow 注册，但采用回调函数 + `WorkflowStepInfo` 的方式，使用较少。新系统通过 `@HookHandler` 装饰器大幅简化了声明方式。如果你的旧插件没有用到 workflow 可跳过本节。
 
-WorkflowStep 允许插件参与 MaiBot 的 6 阶段消息处理流水线：
+`HookHandler` 允许插件参与 MaiBot 的 6 阶段消息处理流水线：
 
 ```
 INGRESS → PRE_PROCESS → PLAN → TOOL_EXECUTE → POST_PROCESS → EGRESS
@@ -656,10 +658,10 @@ INGRESS → PRE_PROCESS → PLAN → TOOL_EXECUTE → POST_PROCESS → EGRESS
 ### 使用示例
 
 ```python
-from maibot_sdk import WorkflowStep
+from maibot_sdk import HookHandler
 from maibot_sdk.types import WorkflowStage, HookResult
 
-@WorkflowStep(
+@HookHandler(
     "content_filter",
     stage=WorkflowStage.INGRESS,
     description="内容过滤",
@@ -681,7 +683,7 @@ async def filter_content(self, context, message, **kwargs):
     }
 ```
 
-### WorkflowStep 参数说明
+### HookHandler 参数说明
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
@@ -1392,7 +1394,7 @@ async def handle_start(self, **kwargs):
 ```python
 from maibot_sdk.messages import MaiMessages, MessageSegment
 
-# 在 WorkflowStep 或 EventHandler 中
+# 在 HookHandler 或 EventHandler 中
 msg = MaiMessages.from_rpc_dict(message)
 print(msg.plain_text)
 print(msg.stream_id)
@@ -1494,7 +1496,7 @@ msg.modify_plain_text("新文本")
 
 ### 10. 类型导入
 - `from maibot_sdk.types import ActivationType, ChatMode, EventType, ToolParameterInfo, ToolParamType`
-- 如需 WorkflowStep：`from maibot_sdk import WorkflowStep` + `from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy`
+- 如需 HookHandler：`from maibot_sdk import HookHandler` + `from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy`
 - 如需消息模型：`from maibot_sdk.messages import MaiMessages, MessageSegment`
 
 ## 输出要求

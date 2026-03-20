@@ -8,17 +8,62 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+_COMPONENT_TYPE_ALIASES: dict[str, str] = {
+    "ACTION": "ACTION",
+    "COMMAND": "COMMAND",
+    "EVENT_HANDLER": "EVENT_HANDLER",
+    "HOOK_HANDLER": "HOOK_HANDLER",
+    "MESSAGE_GATEWAY": "MESSAGE_GATEWAY",
+    "TOOL": "TOOL",
+    "action": "ACTION",
+    "command": "COMMAND",
+    "event_handler": "EVENT_HANDLER",
+    "hook_handler": "HOOK_HANDLER",
+    "message_gateway": "MESSAGE_GATEWAY",
+    "tool": "TOOL",
+}
+_REMOVED_COMPONENT_TYPE_ALIASES = {"WORKFLOW_STEP", "workflow_step"}
+
+
+def normalize_component_type_name(component_type: Any) -> str:
+    """将组件类型归一化为协议层使用的大写字符串。
+
+    SDK 2.0 起，组件协议值统一为大写。为降低迁移成本，仍接受大小写不同但
+    语义相同的写法，例如 ``action`` / ``ACTION``。
+
+    `WorkflowStep` 已被 `HookHandler` 替代，属于明确的 breaking change，
+    因此这里不会再把 ``workflow_step`` 静默映射为 ``HOOK_HANDLER``。
+    """
+
+    value = getattr(component_type, "value", component_type)
+    normalized_value = str(value or "").strip()
+    if not normalized_value:
+        raise ValueError("组件类型不能为空")
+    if normalized_value in _REMOVED_COMPONENT_TYPE_ALIASES:
+        raise ValueError("`WorkflowStep` 已移除，请改用 `HookHandler` / `HOOK_HANDLER`。")
+    normalized_name = _COMPONENT_TYPE_ALIASES.get(normalized_value)
+    if normalized_name is None:
+        raise ValueError(f"不支持的组件类型: {normalized_value}")
+    return normalized_name
+
 # ─── 枚举类型 ──────────────────────────────────────────────────────
 
 
 class ComponentType(str, Enum):
     """组件类型"""
 
-    ACTION = "action"
-    COMMAND = "command"
-    TOOL = "tool"
-    EVENT_HANDLER = "event_handler"
-    WORKFLOW_STEP = "workflow_step"
+    ACTION = "ACTION"
+    COMMAND = "COMMAND"
+    TOOL = "TOOL"
+    EVENT_HANDLER = "EVENT_HANDLER"
+    HOOK_HANDLER = "HOOK_HANDLER"
+    MESSAGE_GATEWAY = "MESSAGE_GATEWAY"
+
+    @classmethod
+    def from_value(cls, component_type: Any) -> "ComponentType":
+        """从大小写兼容的输入值恢复为 SDK 组件类型枚举。"""
+
+        return cls(normalize_component_type_name(component_type))
 
 
 class ActivationType(str, Enum):
@@ -167,10 +212,10 @@ class EventHandlerComponentInfo(ComponentInfo):
     weight: int = Field(default=0, description="权重/优先级（越高越先执行）")
 
 
-class WorkflowStepComponentInfo(ComponentInfo):
-    """WorkflowStep 组件信息"""
+class HookHandlerComponentInfo(ComponentInfo):
+    """HookHandler 组件信息"""
 
-    type: ComponentType = ComponentType.WORKFLOW_STEP
+    type: ComponentType = ComponentType.HOOK_HANDLER
     stage: WorkflowStage = Field(description="所属 workflow 阶段")
     priority: int = Field(default=0, description="阶段内优先级（越高越先执行）")
     timeout_ms: int = Field(default=0, description="超时(ms)，0=不限时")

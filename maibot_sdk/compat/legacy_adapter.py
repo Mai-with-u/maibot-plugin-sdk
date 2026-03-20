@@ -10,6 +10,7 @@ from typing import Any
 
 from maibot_sdk.compat import _context_holder
 from maibot_sdk.compat.base.base_plugin import BasePlugin
+from maibot_sdk.types import normalize_component_type_name
 
 logger = logging.getLogger("maibot_sdk.compat.legacy_adapter")
 
@@ -131,8 +132,9 @@ class LegacyPluginAdapter:
         ctype = str(comp_info.component_type)
 
         if ctype == "action":
+            component_type = normalize_component_type_name(ctype)
             return {
-                "type": "action",
+                "type": component_type,
                 "name": comp_info.name,
                 "description": comp_info.description or getattr(instance, "action_description", ""),
                 "metadata": {
@@ -143,8 +145,9 @@ class LegacyPluginAdapter:
                 },
             }
         elif ctype == "command":
+            component_type = normalize_component_type_name(ctype)
             return {
-                "type": "command",
+                "type": component_type,
                 "name": comp_info.name,
                 "description": comp_info.description or getattr(instance, "command_description", ""),
                 "metadata": {
@@ -153,8 +156,9 @@ class LegacyPluginAdapter:
                 },
             }
         elif ctype == "tool":
+            component_type = normalize_component_type_name(ctype)
             return {
-                "type": "tool",
+                "type": component_type,
                 "name": comp_info.name,
                 "description": comp_info.description or getattr(instance, "description", ""),
                 "metadata": {
@@ -163,8 +167,9 @@ class LegacyPluginAdapter:
                 },
             }
         elif ctype == "event_handler":
+            component_type = normalize_component_type_name(ctype)
             return {
-                "type": "event_handler",
+                "type": component_type,
                 "name": comp_info.name,
                 "description": comp_info.description or getattr(instance, "handler_description", ""),
                 "metadata": {
@@ -219,12 +224,15 @@ class LegacyPluginAdapter:
         """实际的组件调用逻辑。"""
 
         comp_desc = self._component_map.get(component_name, {})
-        comp_type = comp_desc.get("type", "")
+        try:
+            comp_type = normalize_component_type_name(comp_desc.get("type", ""))
+        except ValueError:
+            comp_type = str(comp_desc.get("type", ""))
 
         stream_id = kwargs.get("stream_id", "")
         plugin_config = kwargs.get("plugin_config", self._plugin_config)
 
-        if comp_type == "action":
+        if comp_type == "ACTION":
             # 对 Action 注入完整的运行时属性
             instance.action_data = kwargs.get("action_data", getattr(instance, "action_data", {}))
             instance.action_reasoning = kwargs.get("action_reasoning", getattr(instance, "action_reasoning", ""))
@@ -250,7 +258,7 @@ class LegacyPluginAdapter:
                     setattr(instance, attr, kwargs[attr])
             return await instance.execute()
 
-        elif comp_type == "command":
+        elif comp_type == "COMMAND":
             if "message" in kwargs:
                 instance.message = kwargs["message"]
             instance.plugin_config = plugin_config
@@ -259,14 +267,14 @@ class LegacyPluginAdapter:
                 instance.set_matched_groups(kwargs["matched_groups"])
             return await instance.execute()
 
-        elif comp_type == "event_handler":
+        elif comp_type == "EVENT_HANDLER":
             if hasattr(instance, "set_plugin_config"):
                 instance.set_plugin_config(plugin_config)
             if hasattr(instance, "set_plugin_name"):
                 instance.set_plugin_name(kwargs.get("plugin_name", self._legacy.__class__.__name__))
             return await instance.execute(kwargs.get("message"))
 
-        elif comp_type == "tool":
+        elif comp_type == "TOOL":
             instance.plugin_config = plugin_config
             if "chat_stream" in kwargs:
                 instance.chat_stream = kwargs["chat_stream"]

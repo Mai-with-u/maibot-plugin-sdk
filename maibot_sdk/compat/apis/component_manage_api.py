@@ -9,6 +9,7 @@ import warnings
 from typing import Any
 
 from maibot_sdk.compat._context_holder import get_context
+from maibot_sdk.types import normalize_component_type_name
 
 logger = logging.getLogger("legacy_plugin.component_manage_api")
 
@@ -21,8 +22,7 @@ def _set_plugins_cache(plugins: Any) -> None:
 
 
 def _normalize_component_type(component_type: Any) -> str:
-    value = getattr(component_type, "value", component_type)
-    return str(value or "").strip().lower()
+    return normalize_component_type_name(component_type)
 
 
 def _iter_cached_components() -> list[dict[str, Any]]:
@@ -59,7 +59,11 @@ def get_component_info(component_name: str, component_type: Any) -> Any:
     warnings.warn("component_manage_api.get_component_info() 已弃用", DeprecationWarning, stacklevel=2)
     normalized_type = _normalize_component_type(component_type)
     for component_info in _iter_cached_components():
-        if component_info.get("type") != normalized_type:
+        try:
+            cached_type = _normalize_component_type(component_info.get("type"))
+        except ValueError:
+            continue
+        if cached_type != normalized_type:
             continue
         if component_info.get("full_name") == component_name or component_info.get("name") == component_name:
             return copy.deepcopy(component_info)
@@ -72,10 +76,15 @@ def get_components_info_by_type(component_type: Any) -> dict[str, Any]:
     normalized_type = _normalize_component_type(component_type)
     result: dict[str, Any] = {}
     for component_info in _iter_cached_components():
-        if component_info.get("type") == normalized_type:
-            key = str(component_info.get("full_name") or component_info.get("name") or "")
-            if key:
-                result[key] = copy.deepcopy(component_info)
+        try:
+            cached_type = _normalize_component_type(component_info.get("type"))
+        except ValueError:
+            continue
+        if cached_type != normalized_type:
+            continue
+        key = str(component_info.get("full_name") or component_info.get("name") or "")
+        if key:
+            result[key] = copy.deepcopy(component_info)
     return result
 
 
