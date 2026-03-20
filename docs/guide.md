@@ -11,12 +11,14 @@
 - [插件结构](#插件结构)
 - [插件基类](#插件基类)
 - [组件装饰器](#组件装饰器)
+  - [Adapter](#adapter)
   - [Action](#action)
   - [Command](#command)
   - [Tool](#tool)
   - [EventHandler](#eventhandler)
   - [HookHandler](#hookhandler)
 - [能力代理](#能力代理)
+  - [Adapter -- 平台适配](#adapter----平台适配)
   - [Send -- 消息发送](#send----消息发送)
   - [Database -- 数据库](#database----数据库)
   - [LLM -- 大语言模型](#llm----大语言模型)
@@ -51,7 +53,7 @@ pip install maibot-plugin-sdk
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler, HookHandler
+from maibot_sdk import Adapter, MaiBotPlugin, Action, Command, Tool, EventHandler, HookHandler
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
@@ -148,11 +150,123 @@ def create_plugin():
 
 `get_components()` 由 Runner 自动调用，收集所有被装饰器标记的组件声明，无需手动覆盖。
 
+### get_adapter_info()
+
+如果插件类使用了 `@Adapter` 装饰器，Runner 会自动调用 `get_adapter_info()` 收集适配器声明并注册到 Host。普通功能插件无需覆盖此方法。
+
 ---
 
 ## 组件装饰器
 
 组件是插件对外暴露的功能单元。通过装饰器声明组件，Runner 在加载插件时自动收集并注册到 Host。
+
+其中 `Action`、`Command`、`Tool`、`EventHandler`、`HookHandler` 都是**方法装饰器**；`Adapter` 是修饰插件类本身的**类装饰器**，用于声明当前插件承担平台适配器角色。
+
+### Adapter
+
+`@Adapter` 用于声明“当前插件类是一个平台适配器”。Host 会读取这份声明，将插件注册为某个平台的 Platform IO 驱动。
+
+```python
+from typing import Any
+
+from maibot_sdk import Adapter, MaiBotPlugin
+
+
+@Adapter(
+    platform="qq",
+    protocol="napcat",
+    account_id="10001",
+    scope="primary",
+    adapter_role="ingress",
+)
+class NapCatAdapterPlugin(MaiBotPlugin):
+
+    async def send_to_platform(
+        self,
+        message: dict[str, Any],
+        route: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        # 将 Host 的 MessageDict 转成平台动作并发送
+        return {
+            "success": True,
+            "external_message_id": "platform-msg-1",
+            "metadata": {"action": "send_group_msg"},
+        }
+
+    async def on_platform_event(self, payload: dict[str, Any]) -> None:
+        accepted = await self.ctx.adapter.receive_external_message(
+            {
+                "message_id": payload["message_id"],
+                "platform": "qq",
+                "message_info": {
+                    "user_info": {
+                        "user_id": payload["user_id"],
+                        "user_nickname": payload["nickname"],
+                    },
+                    "group_info": {
+                        "group_id": payload.get("group_id", ""),
+                        "group_name": payload.get("group_name", ""),
+                    },
+                    "additional_config": {},
+                },
+                "raw_message": payload["message"],
+            },
+            route_metadata={"self_id": "10001", "connection_id": "primary"},
+            external_message_id=payload["message_id"],
+            dedupe_key=payload["message_id"],
+        )
+        if not accepted:
+            self.ctx.logger.warning("Host 未接收入站消息")
+```
+
+**参数列表**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `platform` | `str` | (必填) | 适配器负责的平台名称，如 `qq` |
+| `protocol` | `str` | `""` | 平台接入协议或方言名称，如 `napcat` |
+| `account_id` | `str` | `""` | 可选的机器人账号 ID / `self_id` |
+| `scope` | `str` | `""` | 可选的路由作用域，例如连接实例名 |
+| `send_method` | `str` | `"send_to_platform"` | Host 出站时调用的方法名 |
+| `**metadata` | `dict[str, Any]` | `{}` | 适配器附加元数据，会写入 `AdapterInfo.metadata` |
+
+**出站约定**：
+
+- Host 默认调用 `send_to_platform(message, route=None, metadata=None, **kwargs)`。
+- `message` 是 Host 标准 `MessageDict`，`route` 包含 `platform` / `account_id` / `scope`，`metadata` 是 Platform IO 附带的投递元数据。
+- 推荐返回：
+
+```python
+{
+    "success": True,
+    "external_message_id": "platform-msg-1",
+    "metadata": {"action": "send_private_msg"},
+}
+```
+
+发送失败时可返回：
+
+```python
+{
+    "success": False,
+    "error": "平台返回失败",
+    "metadata": {"retcode": 100},
+}
+```
+
+**入站约定**：
+
+- 适配器插件通过 `self.ctx.adapter.receive_external_message(...)` 把外部平台消息注入 Host 主消息链。
+- `route_metadata` 常见字段包括 `self_id`、`connection_id`。
+- 当前 Host 实现至少要求 `message` 中存在以下字段：
+  - `message_id`
+  - `platform`
+  - `message_info.user_info.user_id`
+  - `message_info.user_info.user_nickname`
+  - `raw_message`
+- 群消息通常还会附带 `message_info.group_info`；去重和观测建议同时传 `external_message_id` 与 `dedupe_key`。
 
 ### Action
 
@@ -433,6 +547,50 @@ INGRESS -> PRE_PROCESS -> PLAN -> TOOL_EXECUTE -> POST_PROCESS -> EGRESS
 ## 能力代理
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
+
+当前 `PluginContext` 暴露 13 个能力代理：`adapter`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
+
+### Adapter -- 平台适配
+
+```python
+adapter = self.ctx.adapter
+```
+
+| 方法 | 说明 |
+|------|------|
+| `await adapter.receive_external_message(message, route_metadata=None, external_message_id="", dedupe_key="")` | 将外部平台消息注入 Host 主消息链，返回 `bool` 表示 Host 是否接受 |
+
+适配器插件通常在收到平台入站事件后调用此能力：
+
+```python
+accepted = await self.ctx.adapter.receive_external_message(
+    {
+        "message_id": "msg-1",
+        "platform": "qq",
+        "message_info": {
+            "user_info": {
+                "user_id": "u1",
+                "user_nickname": "tester",
+            },
+            "group_info": {
+                "group_id": "g1",
+                "group_name": "group",
+            },
+            "additional_config": {},
+        },
+        "raw_message": [],
+    },
+    route_metadata={"self_id": "10001"},
+    external_message_id="external-1",
+    dedupe_key="dedupe-1",
+)
+```
+
+说明：
+
+- `message` 需要遵守 Host 当前的 `MessageDict` 结构，至少保证 `message_id`、`platform`、`message_info.user_info.user_id`、`message_info.user_info.user_nickname` 和 `raw_message` 存在。
+- `route_metadata` 用于补充路由辅助信息，常见值包括 `self_id`、`connection_id`。
+- 返回值为 `False` 时，表示 Host 拒绝或丢弃了本次入站注入；适配器可按需记录日志或做补偿处理。
 
 ### Send -- 消息发送
 
@@ -762,7 +920,7 @@ person = self.ctx.person
 | 方法 | 参数 | 说明 |
 |------|------|------|
 | `await person.get_id(platform, user_id)` | `platform: str`, `user_id: str` | 获取 person_id |
-| `await person.get_value(person_id, field_name, default)` | `person_id: str`, `field_name: str` | 获取用户字段值 |
+| `await person.get_value(person_id, field_name)` | `person_id: str`, `field_name: str` | 获取用户字段值 |
 | `await person.get_id_by_name(person_name)` | `person_name: str` | 根据用户名获取 person_id |
 
 `person.get_id()` / `person.get_id_by_name()` 直接返回 `person_id` 字符串；`person.get_value()` 直接返回对应字段值。
@@ -774,7 +932,7 @@ person = self.ctx.person
 pid = await self.ctx.person.get_id("qq", "12345")
 
 # 获取昵称
-name = await self.ctx.person.get_value(pid, "nickname", "未知")
+name = await self.ctx.person.get_value(pid, "nickname") or "未知"
 ```
 
 ### Knowledge -- 知识库
@@ -790,9 +948,9 @@ knowledge = self.ctx.knowledge
 示例：
 
 ```python
-result = await self.ctx.knowledge.search("Python 是什么", limit=3)
-if result.get("success"):
-    print(result["content"])
+content = await self.ctx.knowledge.search("Python 是什么", limit=3)
+if content:
+    print(content)
 ```
 
 ### Tool -- 工具定义
@@ -931,9 +1089,12 @@ from maibot_sdk.types import (
     ToolComponentInfo,   # Tool 组件信息
     EventHandlerComponentInfo,  # EventHandler 组件信息
     HookHandlerComponentInfo,   # HookHandler 组件信息
+    AdapterInfo,         # 适配器声明信息
     CapabilityResult,    # 能力调用结果
 )
 ```
+
+> **注意**：`ComponentType.MESSAGE_GATEWAY` 目前是协议层保留值。当前 SDK 没有公开 `@MessageGateway` 装饰器；插件作者应使用 `@Action` / `@Command` / `@Tool` / `@EventHandler` / `@HookHandler`，或对适配器插件使用 `@Adapter`。
 
 ---
 
@@ -1043,15 +1204,15 @@ def test_messages():
 运行测试：
 
 ```bash
-pip install pytest pytest-asyncio
-pytest -v
+uv sync --extra dev
+uv run pytest -v
 ```
 
 ### 开发依赖
 
 ```bash
-pip install maibot-plugin-sdk[dev]
-# 包含 ruff, mypy, pytest, pytest-asyncio
+uv sync --extra dev
+# 包含 ruff、mypy、pytest、pytest-asyncio
 ```
 
 ### 类型检查
@@ -1059,7 +1220,7 @@ pip install maibot-plugin-sdk[dev]
 SDK 附带 `py.typed` 标记，支持静态类型检查：
 
 ```bash
-mypy my_plugin/
+uv run mypy my_plugin/
 ```
 
 ---

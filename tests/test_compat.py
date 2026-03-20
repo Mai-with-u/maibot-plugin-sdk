@@ -369,7 +369,7 @@ class TestApiModules:
         from maibot_sdk.context import PluginContext
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             capability = payload["capability"]
             return {
@@ -538,7 +538,7 @@ class TestCompatRuntimeContracts:
         from maibot_sdk.context import PluginContext
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             assert payload["capability"] == "send.text"
             return {"success": False, "error": "denied"}
@@ -555,7 +555,7 @@ class TestCompatRuntimeContracts:
         from maibot_sdk.context import PluginContext
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             capability = payload["capability"]
             return {
@@ -591,7 +591,7 @@ class TestCompatRuntimeContracts:
         from maibot_sdk.context import PluginContext
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             capability = payload["capability"]
             return {
@@ -618,7 +618,7 @@ class TestCompatRuntimeContracts:
         captured: dict[str, object] = {}
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             captured["capability"] = payload["capability"]
             captured["args"] = payload["args"]
@@ -648,7 +648,7 @@ class TestCompatRuntimeContracts:
         from maibot_sdk.context import PluginContext
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             capability = payload["capability"]
             return {
@@ -696,7 +696,7 @@ class TestCompatRuntimeContracts:
         }
 
         async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-            assert method == "cap.request"
+            assert method == "cap.call"
             assert payload is not None
             capability = payload["capability"]
             return {

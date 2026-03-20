@@ -13,12 +13,49 @@ logger = logging.getLogger("legacy_plugin.emoji_api")
 
 
 def _get_emoji() -> Any:
+    """获取当前上下文中的表情能力代理。
+
+    Returns:
+        Any: 兼容层中的 emoji 能力对象；若当前没有上下文则返回 ``None``。
+    """
     ctx = get_context()
     return ctx.emoji if ctx else None
 
 
+def _normalize_emoji_result(result: Any) -> dict[str, Any] | None:
+    """将旧版或新版表情返回值归一化为字典。
+
+    Args:
+        result: 底层 emoji 能力返回的原始对象。
+
+    Returns:
+        dict[str, Any] | None: 归一化后的表情信息字典；若无法识别则返回 ``None``。
+    """
+    if isinstance(result, dict):
+        return {str(key): value for key, value in result.items()}
+
+    if isinstance(result, (tuple, list)) and len(result) >= 3:
+        return {
+            "base64": result[0],
+            "description": result[1],
+            "emotion": result[2],
+        }
+
+    if all(hasattr(result, field_name) for field_name in ("base64", "description", "emotion")):
+        return {
+            "base64": result.base64,
+            "description": result.description,
+            "emotion": result.emotion,
+        }
+
+    return None
+
+
 async def get_by_description(description: str) -> dict[str, Any] | None:
-    """根据描述获取表情包
+    """根据描述获取表情包。
+
+    Args:
+        description: 用于检索表情包的描述文本。
 
     Returns:
         归一化后的表情包字典或 None。
@@ -34,9 +71,7 @@ async def get_by_description(description: str) -> dict[str, Any] | None:
         return None
     try:
         result = await emoji.get_by_description(description=description)
-        if isinstance(result, (tuple, list)) and len(result) >= 3:
-            return (result[0], result[1], result[2])
-        return result
+        return _normalize_emoji_result(result)
     except Exception as e:
         logger.error(f"emoji_api.get_by_description 失败: {e}")
         return None

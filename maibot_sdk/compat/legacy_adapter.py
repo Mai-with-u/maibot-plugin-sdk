@@ -4,6 +4,7 @@
 使 Runner 可以统一管理新旧插件。
 """
 
+import importlib
 import logging
 import warnings
 from typing import Any
@@ -16,13 +17,20 @@ logger = logging.getLogger("maibot_sdk.compat.legacy_adapter")
 
 
 def _load_global_config_snapshot() -> dict[str, Any] | None:
-    """尽力读取当前主程序全局配置的 dict 快照。"""
-    try:
-        from src.config.config import global_config
+    """尽力读取当前主程序全局配置的快照。
 
+    Returns:
+        dict[str, Any] | None: 若当前运行环境存在主程序全局配置，则返回其
+        ``model_dump`` 结果；否则返回 ``None``。
+    """
+    try:
+        config_module = importlib.import_module("src.config.config")
+        global_config = getattr(config_module, "global_config", None)
+        if global_config is None or not hasattr(global_config, "model_dump"):
+            return None
         dumped = global_config.model_dump()
         if isinstance(dumped, dict):
-            return dumped
+            return {str(key): value for key, value in dumped.items()}
     except Exception:
         return None
     return None

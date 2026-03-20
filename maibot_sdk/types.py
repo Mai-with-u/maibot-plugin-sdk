@@ -46,6 +46,7 @@ def normalize_component_type_name(component_type: Any) -> str:
         raise ValueError(f"不支持的组件类型: {normalized_value}")
     return normalized_name
 
+
 # ─── 枚举类型 ──────────────────────────────────────────────────────
 
 
@@ -222,6 +223,17 @@ class HookHandlerComponentInfo(ComponentInfo):
     blocking: bool = Field(default=True, description="True=串行可修改消息, False=并发只读")
     error_policy: ErrorPolicy = Field(default=ErrorPolicy.ABORT, description="异常处理策略")
     filter: dict[str, Any] = Field(default_factory=dict, description="前置过滤条件，Host 预过滤不走 IPC")
+
+
+class AdapterInfo(BaseModel):
+    """适配器插件声明信息。"""
+
+    platform: str = Field(description="适配器负责的平台名称，例如 qq")
+    protocol: str = Field(default="", description="平台接入协议或方言名称，例如 napcat")
+    account_id: str = Field(default="", description="可选的机器人账号 ID 或 self_id")
+    scope: str = Field(default="", description="可选的路由作用域，例如连接实例名")
+    send_method: str = Field(default="send_to_platform", description="Host 出站时调用的插件方法名")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="适配器附加元数据")
 
 
 # ─── 通用响应 ──────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import logging as stdlib_logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from maibot_sdk.capabilities.adapter import AdapterCapability
 from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
@@ -22,7 +23,7 @@ from maibot_sdk.capabilities.send import SendCapability
 from maibot_sdk.capabilities.tool import ToolCapability
 
 # RPC 调用函数类型: async (method, plugin_id, payload) -> result
-RpcCallFn = Callable[..., Awaitable[Any]]
+RpcCallFn = Callable[[str, str, dict[str, Any] | None], Awaitable[Any]]
 
 _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "chat.get_all_streams": "streams",
@@ -91,17 +92,18 @@ class PluginContext:
     """
 
     def __init__(self, plugin_id: str, rpc_call: RpcCallFn | None = None) -> None:
-        """
+        """初始化插件运行时上下文。
+
         Args:
-            plugin_id: 当前插件 ID
-            rpc_call: RPC 调用函数，由 Runner 注入
-                      签名: async (method, plugin_id, payload) -> result
+            plugin_id: 当前插件 ID。
+            rpc_call: RPC 调用函数，由 Runner 注入。
         """
         self._plugin_id: str = plugin_id
         self._rpc_call: RpcCallFn | None = rpc_call
         self._logger: stdlib_logging.Logger | None = None
 
         # 能力代理
+        self.adapter: AdapterCapability = AdapterCapability(self)
         self.send: SendCapability = SendCapability(self)
         self.db: DatabaseCapability = DatabaseCapability(self)
         self.llm: LLMCapability = LLMCapability(self)
@@ -117,6 +119,11 @@ class PluginContext:
 
     @property
     def plugin_id(self) -> str:
+        """返回当前插件 ID。
+
+        Returns:
+            str: 当前插件 ID。
+        """
         return self._plugin_id
 
     @property
@@ -136,22 +143,43 @@ class PluginContext:
             self._logger = stdlib_logging.getLogger(f"plugin.{self._plugin_id}")
         return self._logger
 
-    async def call_capability(self, capability: str, **kwargs: Any) -> Any:
-        """调用一项能力（底层统一转发为 RPC）
+    async def call_host_method(
+        self,
+        method: str,
+        *,
+        plugin_id: str = "",
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        """调用 Host 暴露的原始 RPC 方法。
 
         Args:
-            capability: 能力名称，如 "send.text", "db.query"
-            **kwargs: 能力参数
+            method: Host 侧 RPC 方法名。
+            plugin_id: 可选的目标插件 ID；Runner 端会强制绑定为当前插件身份。
+            payload: 原始 RPC 载荷。
 
         Returns:
-            能力调用结果
+            Any: Host 方法返回的业务数据。
+
+        Raises:
+            RuntimeError: 当前上下文尚未注入可用的 RPC 调用函数时抛出。
         """
         if self._rpc_call is None:
             raise RuntimeError("PluginContext 尚未初始化 RPC 连接")
 
-        result = await self._rpc_call(
-            method="cap.request",
-            plugin_id=self._plugin_id,
+        return await self._rpc_call(method, plugin_id or self._plugin_id, payload)
+
+    async def call_capability(self, capability: str, **kwargs: Any) -> Any:
+        """调用一项能力。
+
+        Args:
+            capability: 能力名称，如 ``send.text``、``db.query``。
+            **kwargs: 能力参数。
+
+        Returns:
+            Any: 能力调用结果。
+        """
+        result = await self.call_host_method(
+            "cap.call",
             payload={
                 "capability": capability,
                 "args": kwargs,

@@ -5,25 +5,46 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [2.0.0] - 2026-03-20
+## [Unreleased]
+
+
+## [2.0.0] - 2026-03-21
+
+### 新增
+
+- 新增 `@Adapter` 类装饰器配套文档，明确适配器插件的声明方式、出站 `send_to_platform()` 约定与入站 `ctx.adapter.receive_external_message()` 注入方式
+- 补充 `PluginContext.adapter` 能力的使用说明，文档化当前 Host 对适配器入站 `MessageDict` 的最小字段要求
+
 
 ### 变更
 
 - **组件协议统一**：SDK 产出的组件类型协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`、`HOOK_HANDLER`），并在组件管理入口中兼容大小写不同但语义一致的输入
 - **Hook 命名收敛**：`WorkflowStep` 正式移除并更名为 `HookHandler`；`ComponentType.WORKFLOW_STEP` 与 `WorkflowStep` 装饰器不再保留兼容映射，这是一次明确的不向后兼容更改
+- README、开发指南与迁移指南统一为“13 种能力代理 + logger 接口”的当前实现口径
+- README 与开发指南补充“5 种组件方法装饰器 + 1 种适配器类装饰器”的区分，避免把 `@Adapter` 与普通组件装饰器混淆
+- 迁移指南中的配置、数据库、人物信息、知识库与 Manifest 示例对齐当前 SDK 签名和协议值
+
 
 ### 修复
 
 - 兼容层旧版插件适配器改为产出新的大写组件协议值，避免与 runtime 的组件注册协议不一致
 - 兼容层组件查询 API 统一按归一化后的组件类型比较，兼容 Host 返回的大写组件类型
+- 修复 SDK 在 `ruff check`、`ruff format --check` 与 `mypy` 下的当前问题，统一到内建泛型与现有 import 排序规则
+- 修复 `collect_adapter_info()` 的返回值类型收窄问题，避免在严格类型检查下把 `Any` 直接向外透出
+- 修复 compat `emoji_api.get_by_description()` 的返回值归一化逻辑，统一返回字典结构而非 tuple
+- 修复 compat `LegacyPluginAdapter` 对主程序配置模块的静态导入依赖，避免 SDK 单独运行 `mypy` 时出现 `import-not-found`
 
 ### 文档
 
 - README、开发指南、迁移指南同步更新 `HookHandler` 命名与组件协议变更说明
+- README、开发指南、迁移指南全面补充适配器插件说明，并注明 `WorkflowStep` 仅保留为显式报错入口，不再提供兼容映射
+- 开发文档中的检查命令更新为 `uv sync --extra dev` / `uv run ...` 形式，与仓库当前使用方式保持一致
 
 ### 测试
 
 - 补充组件类型归一化、`HookHandler` 组件收集和 `WorkflowStep` breaking change 的回归测试
+- 补充适配器声明收集、`PluginContext.adapter` 能力调用与适配器兼容层相关回归测试
+- 验证 SDK 目录下 `uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 均通过
 
 ## [1.2.4] - 2026-03-13
 

@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from maibot_sdk import Action, Command, EventHandler, HookHandler, MaiBotPlugin, Tool, WorkflowStep
+from maibot_sdk import Action, Adapter, Command, EventHandler, HookHandler, MaiBotPlugin, Tool, WorkflowStep
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
@@ -40,6 +40,19 @@ class SamplePlugin(MaiBotPlugin):
         return {"hook_result": HookResult.CONTINUE}
 
 
+@Adapter(
+    platform="qq",
+    protocol="napcat",
+    account_id="10001",
+    scope="primary",
+    adapter_role="ingress",
+)
+class SampleAdapterPlugin(MaiBotPlugin):
+    async def send_to_platform(self, **kwargs):
+        """供 Host 出站调用的适配器发送方法。"""
+        return kwargs
+
+
 def test_plugin_instantiation():
     plugin = SamplePlugin()
     assert isinstance(plugin, MaiBotPlugin)
@@ -54,6 +67,20 @@ def test_collect_components():
     assert "test_tool" in names
     assert "test_event" in names
     assert "test_hook" in names
+
+
+def test_collect_adapter_info():
+    plugin = SampleAdapterPlugin()
+    adapter_info = plugin.get_adapter_info()
+
+    assert adapter_info == {
+        "platform": "qq",
+        "protocol": "napcat",
+        "account_id": "10001",
+        "scope": "primary",
+        "send_method": "send_to_platform",
+        "metadata": {"adapter_role": "ingress"},
+    }
 
 
 def test_component_types():
@@ -104,12 +131,13 @@ def test_context_raises_without_rpc():
 
 
 def test_context_has_all_capabilities():
-    """验证 PluginContext 暴露了全部 12 个能力代理 + logger 属性"""
+    """验证 PluginContext 暴露了全部 13 个能力代理和 logger 属性。"""
     from maibot_sdk.context import PluginContext
 
     ctx = PluginContext(plugin_id="__test__", rpc_call=None)
 
     expected = [
+        "adapter",
         "send",
         "db",
         "llm",
@@ -136,6 +164,7 @@ def test_context_has_all_capabilities():
 
 def test_capability_classes_importable():
     """确保所有能力代理类可以正常 import"""
+    from maibot_sdk.capabilities.adapter import AdapterCapability
     from maibot_sdk.capabilities.chat import ChatCapability
     from maibot_sdk.capabilities.component import ComponentCapability
     from maibot_sdk.capabilities.config import ConfigCapability
@@ -153,6 +182,7 @@ def test_capability_classes_importable():
 
     assert all(
         [
+            AdapterCapability,
             ChatCapability,
             ComponentCapability,
             ConfigCapability,
@@ -181,7 +211,7 @@ def test_component_capability_normalizes_lowercase_component_type():
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         captured.update(payload["args"])
         return {"success": True}
@@ -213,7 +243,7 @@ def test_database_count_unwraps_host_dict_result():
     from maibot_sdk.context import PluginContext
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         assert payload["capability"] == "database.count"
         return {"success": True, "count": 3}
@@ -231,7 +261,7 @@ def test_database_query_uses_model_name_signature():
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         captured.update(payload["args"])
         return {"success": True, "result": []}
@@ -267,7 +297,7 @@ def test_database_get_uses_filters_signature():
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         captured.update(payload["args"])
         return {"success": True, "result": None}
@@ -299,7 +329,7 @@ def test_send_custom_sends_compat_field_aliases():
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         captured.update(payload["args"])
         return payload
@@ -322,7 +352,7 @@ def test_chat_capability_passes_platform_argument():
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         captured.update(payload["args"])
         return {"success": True, "streams": []}
@@ -339,7 +369,7 @@ def test_llm_result_normalizes_model_alias():
     from maibot_sdk.context import PluginContext
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         return {
             "success": True,
             "response": "ok",
@@ -360,7 +390,7 @@ def test_capabilities_unwrap_host_wrapper_results():
     from maibot_sdk.context import PluginContext
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "cap.request"
+        assert method == "cap.call"
         assert payload is not None
         capability = payload["capability"]
         return {
@@ -394,3 +424,39 @@ def test_capabilities_unwrap_host_wrapper_results():
     assert result["talk_value"] == 0.75
     assert result["tools"] == [{"name": "demo"}]
     assert result["send_ok"] is True
+
+
+def test_adapter_capability_calls_host_receive_external_message():
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "host.receive_external_message"
+        assert plugin_id == "demo"
+        assert payload is not None
+        captured.update(payload)
+        return {"accepted": True}
+
+    async def main() -> bool:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return await ctx.adapter.receive_external_message(
+            {
+                "message_id": "msg-1",
+                "platform": "qq",
+                "message_info": {
+                    "user_info": {"user_id": "u1", "user_nickname": "tester"},
+                    "group_info": {"group_id": "g1", "group_name": "group"},
+                    "additional_config": {},
+                },
+                "raw_message": [],
+            },
+            route_metadata={"self_id": "10001"},
+            external_message_id="external-1",
+            dedupe_key="dedupe-1",
+        )
+
+    assert asyncio.run(main()) is True
+    assert captured["route_metadata"] == {"self_id": "10001"}
+    assert captured["external_message_id"] == "external-1"
+    assert captured["dedupe_key"] == "dedupe-1"

@@ -2,9 +2,9 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 12 种能力代理、日志接口、5 种组件装饰器、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 13 种能力代理、日志接口、5 种组件方法装饰器、1 种适配器类装饰器、消息模型、生命周期、调试与发布。
 >
-> **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。
+> **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
 ## 安装
 
@@ -35,12 +35,15 @@ def create_plugin():
 
 将上述代码保存为 `plugin.py`，放入 MaiBot 的 `plugins/` 目录即可自动加载。
 
+如果你在编写平台适配器插件，请使用 `@Adapter` 声明插件类，并通过 `self.ctx.adapter.receive_external_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `Adapter` 章节。
+
 ## 能力一览
 
 通过 `self.ctx` 访问所有能力，调用自动转发为 RPC 请求：
 
 | 属性 | 说明 |
 |------|------|
+| `ctx.adapter` | 适配器插件专用入站注入能力 |
 | `ctx.send` | 发送文本、图片、表情、转发、混合消息 |
 | `ctx.db` | 数据库增删改查计数 |
 | `ctx.llm` | LLM 文本生成与工具调用 |
@@ -55,11 +58,61 @@ def create_plugin():
 | `ctx.tool` | LLM 工具定义查询 |
 | `ctx.logger` | 插件日志（标准 logging.Logger） |
 
+## 适配器插件
+
+如果插件负责把外部平台接入 MaiBot，可使用 `@Adapter` 声明一个平台适配器：
+
+```python
+from typing import Any
+
+from maibot_sdk import Adapter, MaiBotPlugin
+
+
+@Adapter(platform="qq", protocol="napcat", account_id="10001", scope="primary")
+class NapCatAdapterPlugin(MaiBotPlugin):
+
+    async def send_to_platform(
+        self,
+        message: dict[str, Any],
+        route: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        # 将 Host MessageDict 转成平台动作并发送
+        return {"success": True, "external_message_id": "platform-msg-1"}
+
+    async def handle_inbound(self, payload: dict[str, Any]) -> None:
+        await self.ctx.adapter.receive_external_message(
+            {
+                "message_id": payload["message_id"],
+                "platform": "qq",
+                "message_info": {
+                    "user_info": {
+                        "user_id": payload["user_id"],
+                        "user_nickname": payload["nickname"],
+                    },
+                    "additional_config": {},
+                },
+                "raw_message": payload["message"],
+            },
+            route_metadata={"self_id": "10001", "connection_id": "primary"},
+            external_message_id=payload["message_id"],
+            dedupe_key=payload["message_id"],
+        )
+
+
+def create_plugin():
+    return NapCatAdapterPlugin()
+```
+
+Host 出站默认会调用 `send_to_platform()`；入站则由插件主动调用 `ctx.adapter.receive_external_message()` 注入主消息链。
+
 ## 兼容说明
 
 - Runner 会在调用 `on_load()` 之前先注入 `PluginContext` 并完成 capability bootstrap，因此插件可以在 `on_load()` 中直接调用 `self.ctx.send.*`、`self.ctx.db.*` 等能力，无需自行等待“注册完成”信号。
+- `PluginContext` 当前暴露 13 个能力代理：`adapter`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
-- `ctx.db.count(table, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
+- `ctx.db.count(model_name, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
 - 对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 等接口，SDK 会自动把 Host 返回的单字段包装结果解包为插件更直观的值、列表或字典；兼容层异步 API 也保持相同语义。
 - 兼容层 `emoji_api.get_random()` / `emoji_api.get_by_description()` 会返回归一化后的字典结果，而不是旧版 tuple 结构；迁移旧插件时请按字段读取。
 - `ctx.chat.*` 查询接口支持显式传入 `platform`，不再被固定到默认平台。
@@ -87,11 +140,12 @@ my_plugin/
 ```bash
 git clone https://github.com/Mai-with-u/maibot-plugin-sdk.git
 cd maibot-plugin-sdk
-pip install -e ".[dev]"
+uv sync --extra dev
 
-ruff check maibot_sdk/    # lint
-mypy maibot_sdk/          # 类型检查
-pytest -v                 # 测试
+uv run ruff check .           # lint
+uv run ruff format --check .  # 格式检查
+uv run mypy .                 # 类型检查
+uv run pytest -v              # 测试
 ```
 
 ## 许可证

@@ -15,6 +15,7 @@
 - [第四步：迁移 Command 组件](#第四步迁移-command-组件)
 - [第五步：迁移 Tool 组件](#第五步迁移-tool-组件)
 - [第六步：迁移 EventHandler 组件](#第六步迁移-eventhandler-组件)
+- [补充：迁移适配器插件（可选）](#补充迁移适配器插件可选)
 - [第七步：新增 - HookHandler 组件](#第七步新增---hookhandler-组件)
 - [第八步：迁移配置系统](#第八步迁移配置系统)
   - [WebUI 配置可视化](#webui-配置可视化)
@@ -74,7 +75,8 @@ Runner 子进程（独立进程）
 │   ├── @Command 装饰器
 │   ├── @Tool 装饰器
 │   ├── @EventHandler 装饰器
-│   └── @HookHandler 装饰器（新增）
+│   ├── @HookHandler 装饰器（新增）
+│   └── @Adapter 类装饰器（适配器插件可选）
 ├── self.ctx（能力代理，通过 RPC 与 Host 通信）
 └── create_plugin() 工厂函数
 ```
@@ -86,6 +88,7 @@ Runner 子进程（独立进程）
 | "我在主进程里运行" | "我在独立子进程里运行" |
 | "我可以 import 任何 src.* 模块" | "我只能 import maibot_sdk 和第三方库" |
 | "我直接调用内部 API" | "我通过 self.ctx 能力代理发起 RPC 调用" |
+| "我直接把平台事件塞进内部链路" | "我通过 @Adapter + self.ctx.adapter.receive_external_message() 注入主消息链" |
 | "每个组件是一个独立类" | "每个组件是插件类上的一个被装饰的方法" |
 | "我手动注册组件到列表里" | "装饰器自动收集，无需手动注册" |
 | "配置通过 ConfigField + config_schema 定义" | "配置通过 config.toml + self.ctx.config 读取" |
@@ -110,6 +113,7 @@ Runner 子进程（独立进程）
 6. ~~`self.get_config(key)` 基类方法~~ → `await self.ctx.config.get(key)`
 7. ~~`ConfigField` + `config_schema` 配置声明~~ → `config.toml` 手动编写
 8. ~~`self.action_data` / `self.matched_groups` 属性~~ → 方法参数 `**kwargs`
+9. 如果旧插件承担平台接入职责：~~直接调用内部消息入口 / 手写平台桥接~~ → `@Adapter` + `send_to_platform()` + `self.ctx.adapter.receive_external_message()`
 
 ---
 
@@ -140,7 +144,7 @@ from src.common.logger import get_logger
 ### 新系统导入
 
 ```python
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler
+from maibot_sdk import Adapter, MaiBotPlugin, Action, Command, Tool, EventHandler
 from maibot_sdk.types import (
     ActivationType,       # 对应旧版 ActionActivationType
     ChatMode,             # 保持不变
@@ -170,7 +174,8 @@ from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
 | `from src.plugin_system.base.component_types import ComponentType` | **删除** — 内部使用（SDK 自动处理） |
 | `from src.plugin_system.base.component_types import EventType` | `from maibot_sdk.types import EventType` |
 | `from src.plugin_system.base.config_types import section_meta` | **删除** — 新系统无此概念 |
-| `from src.common.logger import get_logger` | `self.ctx.logger.info(msg)` 或用标准 `print()` |
+| 旧接入层没有统一的适配器声明装饰器 | `from maibot_sdk import Adapter` |
+| `from src.common.logger import get_logger` | `self.ctx.logger.info(msg)` 或 `logging.getLogger(__name__)` |
 
 > **重要**：新系统中，插件**不得**导入任何 `src.*` 模块。这会被 Runner 的 sys.path 隔离机制阻止。
 
@@ -287,6 +292,7 @@ def create_plugin():
 | 基类 | `BasePlugin` | `MaiBotPlugin` |
 | 注册方式 | `@register_plugin` 类装饰器 | `create_plugin()` 工厂函数 |
 | 组件注册 | `get_plugin_components()` 返回列表 | 装饰器自动收集（删除此方法） |
+| 适配器声明 | 无统一入口 | `@Adapter(...)` 类装饰器 + `get_adapter_info()` 自动收集 |
 | 插件名称 | `plugin_name = "xxx"` 类属性 | `_manifest.json` 中的 `name` 字段 |
 | 依赖声明 | `dependencies` / `python_dependencies` 类属性 | `_manifest.json` 中声明 |
 | 配置声明 | `config_schema` + `ConfigField` | 只需要 `config.toml` 文件 |
@@ -643,6 +649,95 @@ async def filter_spam(self, plain_text="", **kwargs):
 
 ---
 
+## 补充：迁移适配器插件（可选）
+
+如果你的旧代码本质上不是“功能组件插件”，而是负责把外部平台事件接入 MaiBot，那么新 SDK 对应的迁移目标不是 `Action` / `Command`，而是“适配器插件”。
+
+### 新旧思路对照
+
+| 旧做法 | 新做法 |
+|--------|--------|
+| 直接调用主程序内部消息入口 | `await self.ctx.adapter.receive_external_message(...)` |
+| 手写平台发送桥接函数 | `@Adapter(..., send_method="send_to_platform")` + `async def send_to_platform(...)` |
+| 依赖内部模块传递路由信息 | 通过 `@Adapter(account_id/scope/metadata)` 声明路由身份 |
+
+### 新写法示例
+
+```python
+from typing import Any
+
+from maibot_sdk import Adapter, MaiBotPlugin
+
+
+@Adapter(
+    platform="qq",
+    protocol="napcat",
+    account_id="10001",
+    scope="primary",
+    adapter_role="ingress",
+)
+class NapCatAdapterPlugin(MaiBotPlugin):
+    async def send_to_platform(
+        self,
+        message: dict[str, Any],
+        route: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        # 1. 将 Host MessageDict 转成平台发送动作
+        # 2. 调用平台 SDK / WebSocket / HTTP API
+        # 3. 返回标准发送结果
+        return {
+            "success": True,
+            "external_message_id": "platform-msg-1",
+            "metadata": {"action": "send_group_msg"},
+        }
+
+    async def on_platform_message(self, payload: dict[str, Any]) -> None:
+        accepted = await self.ctx.adapter.receive_external_message(
+            {
+                "message_id": payload["message_id"],
+                "platform": "qq",
+                "message_info": {
+                    "user_info": {
+                        "user_id": payload["user_id"],
+                        "user_nickname": payload["nickname"],
+                    },
+                    "group_info": {
+                        "group_id": payload.get("group_id", ""),
+                        "group_name": payload.get("group_name", ""),
+                    },
+                    "additional_config": {},
+                },
+                "raw_message": payload["message"],
+            },
+            route_metadata={"self_id": "10001", "connection_id": "primary"},
+            external_message_id=payload["message_id"],
+            dedupe_key=payload["message_id"],
+        )
+        if not accepted:
+            self.ctx.logger.warning("Host 未接收入站平台消息")
+
+
+def create_plugin():
+    return NapCatAdapterPlugin()
+```
+
+### 迁移要点
+
+- `@Adapter` 修饰的是**插件类**，不是方法。
+- Host 出站默认会调用 `send_to_platform(message, route=None, metadata=None, **kwargs)`。
+- 当前 Host 对入站 `message` 至少要求包含：
+  - `message_id`
+  - `platform`
+  - `message_info.user_info.user_id`
+  - `message_info.user_info.user_nickname`
+  - `raw_message`
+- 群消息一般还要补上 `message_info.group_info`。
+- `route_metadata` 常见字段是 `self_id`、`connection_id`，建议同时传 `external_message_id` 和 `dedupe_key` 以便去重。
+
+---
+
 ## 第七步：新增 - HookHandler 组件
 
 > SDK 2.0 起，`WorkflowStep` 已移除并更名为 `HookHandler`。这是一次不向后兼容更改。
@@ -752,8 +847,11 @@ if message is None:
 # 获取插件全部配置
 all_config = await self.ctx.config.get_plugin()
 
-# 获取全局配置
-global_config = await self.ctx.config.get_all()
+# 获取当前插件的完整配置快照
+current_plugin_config = await self.ctx.config.get_all()
+
+# 获取其他插件的配置
+other_plugin_config = await self.ctx.config.get_plugin("other_plugin")
 ```
 
 ### 配置相关 API 对照
@@ -953,17 +1051,20 @@ global_config = await self.ctx.config.get_all()
 | `self.get_config("key", default)` | `await self.ctx.config.get("key")` |
 | `self.config["section"]["key"]` | `await self.ctx.config.get("section.key")` |
 | — | `await self.ctx.config.get_plugin()` **(获取当前插件全部配置)** |
-| — | `await self.ctx.config.get_all()` **(获取全部配置)** |
+| — | `await self.ctx.config.get_plugin("other_plugin")` **(获取指定插件配置)** |
+| — | `await self.ctx.config.get_all()` **(获取当前插件的完整配置快照)** |
+
+> **注意**：新版 SDK 没有直接暴露“读取主程序全局配置”的新接口。若旧插件依赖 `config_api.get_global_config()`，需要重新评估是否应改为插件本地配置，或继续通过 compat 层过渡。
 
 ### 数据库
 
 | 旧系统 | 新系统 |
 |--------|--------|
-| `from src.plugin_system.apis import database_api` | `await self.ctx.db.query(table, filters)` |
-| — | `await self.ctx.db.save(table, data)` |
-| — | `await self.ctx.db.get(table, key_field, key_value)` |
-| — | `await self.ctx.db.delete(table, filters)` |
-| — | `await self.ctx.db.count(table)` |
+| `from src.plugin_system.apis import database_api` | `await self.ctx.db.query(model_name, query_type="get", filters=...)` |
+| — | `await self.ctx.db.save(model_name, data)` |
+| — | `await self.ctx.db.get(model_name, filters=..., limit=..., order_by=..., single_result=...)` |
+| — | `await self.ctx.db.delete(model_name, filters)` |
+| — | `await self.ctx.db.count(model_name, filters)` |
 
 > **返回值说明**：`await self.ctx.db.count(...)` 直接返回 `int`，不需要再从字典中手动读取 `count` 字段。
 
@@ -988,6 +1089,15 @@ global_config = await self.ctx.config.get_all()
 | — | `await self.ctx.emoji.delete_emoji(hash)` |
 
 > **兼容层说明**：旧版 `emoji_api.get_random()` / `emoji_api.get_by_description()` 在 IPC 运行时下会直接返回新版 SDK 的归一化字典结果（如 `{"base64": ..., "description": ..., "emotion": ...}`），而不是旧系统里常见的 tuple 结构。迁移时不要再按位置解包。
+
+### 适配器
+
+| 旧系统 | 新系统 |
+|--------|--------|
+| 直接调用内部消息入口注入平台事件 | `await self.ctx.adapter.receive_external_message(message, route_metadata=...)` |
+| 手写平台发送桥接函数 | `@Adapter(..., send_method="send_to_platform")` + `async def send_to_platform(...)` |
+
+> **当前 Host 约束**：入站 `message` 至少应包含 `message_id`、`platform`、`message_info.user_info.user_id`、`message_info.user_info.user_nickname` 和 `raw_message`。群消息通常还要补上 `message_info.group_info`。
 
 ### 消息查询
 
@@ -1022,7 +1132,7 @@ global_config = await self.ctx.config.get_all()
 | 旧系统 | 新系统 |
 |--------|--------|
 | `from src.plugin_system.apis import person_api` | `await self.ctx.person.get_id(platform, user_id)` |
-| — | `await self.ctx.person.get_value(person_id, field)` |
+| — | `await self.ctx.person.get_value(person_id, field_name)` |
 | — | `await self.ctx.person.get_id_by_name(name)` |
 
 ### 组件管理
@@ -1048,6 +1158,8 @@ global_config = await self.ctx.config.get_all()
 | `logger.warning("msg")` | `self.ctx.logger.warning("msg")` |
 | `logger.error("msg")` | `self.ctx.logger.error("msg")` |
 
+> **返回值说明**：`await self.ctx.knowledge.search(...)` 会直接返回知识库检索内容，而不是外层 `{"success": true, "content": ...}` RPC 包装结构。
+>
 > **注意**：`self.ctx.logger` 是标准的 `logging.Logger` 实例，使用同步接口（`.info()` / `.debug()` 等）。日志会由 Runner 进程的 IPC 日志处理器自动转发到主进程。
 
 ---
@@ -1080,12 +1192,12 @@ global_config = await self.ctx.config.get_all()
     ],
     "components": [
       {
-        "type": "action",
+        "type": "ACTION",
         "name": "hello_greeting",
         "description": "向用户发送问候"
       },
       {
-        "type": "command",
+        "type": "COMMAND",
         "name": "time",
         "description": "查询时间",
         "pattern": "/time"
@@ -1103,6 +1215,8 @@ global_config = await self.ctx.config.get_all()
 | `plugin_info.capabilities` | 声明插件使用的能力列表（如 `send.text`、`config.get`），用于权限控制 |
 | `plugin_info.components` | 组件声明列表，与旧系统一致 |
 | `id` | 全局唯一插件 ID，格式为 `author.plugin-name` |
+
+> **适配器插件补充**：如果迁移后的插件承担平台接入职责，建议将 `plugin_info.plugin_type` 设为 `"adapter"`，并在代码中使用 `@Adapter(...)` 声明适配器角色。
 
 ---
 
@@ -1429,7 +1543,7 @@ msg.modify_plain_text("新文本")
 - `from src.plugin_system import ConfigField, ComponentInfo` → 删除
 - `from src.plugin_system.base.component_types import ...` → 删除
 - `from src.plugin_system.base.config_types import section_meta` → 删除
-- `from src.common.logger import get_logger` → 删除，使用 `self.ctx.logger.info()` 或 `print()`
+- `from src.common.logger import get_logger` → 删除，使用 `self.ctx.logger.info()` 或 `logging.getLogger(__name__)`
 - **禁止**保留任何 `from src.*` 或 `import src.*` 的导入
 
 ### 2. 主类改写
@@ -1492,11 +1606,12 @@ msg.modify_plain_text("新文本")
 - `await self.send_image(b64)` → `await self.ctx.send.image(b64, stream_id)`
 - `await self.send_command(cmd)` → `await self.ctx.send.command(cmd, stream_id)`
 - `self.get_config(key, default)` → `await self.ctx.config.get(key)`（异步！）
-- `logger.info(msg)` → `self.ctx.logger.info(msg)` 或 `print(msg)`
+- `logger.info(msg)` → `self.ctx.logger.info(msg)` 或 `logging.getLogger(__name__).info(msg)`
 
 ### 10. 类型导入
 - `from maibot_sdk.types import ActivationType, ChatMode, EventType, ToolParameterInfo, ToolParamType`
 - 如需 HookHandler：`from maibot_sdk import HookHandler` + `from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy`
+- 如需适配器插件：`from maibot_sdk import Adapter`，并实现 `send_to_platform()` + `self.ctx.adapter.receive_external_message(...)`
 - 如需消息模型：`from maibot_sdk.messages import MaiMessages, MessageSegment`
 
 ## 输出要求
@@ -1521,6 +1636,7 @@ msg.modify_plain_text("新文本")
 
 | 代理 | 方法 | 说明 |
 |------|------|------|
+| `self.ctx.adapter` | `.receive_external_message(message, route_metadata=..., ...)` | 注入外部平台消息 |
 | `self.ctx.send` | `.text(text, stream_id)` | 发送文本 |
 | | `.emoji(emoji_data, stream_id)` | 发送表情 |
 | | `.image(image_data, stream_id)` | 发送图片 |
@@ -1529,12 +1645,13 @@ msg.modify_plain_text("新文本")
 | | `.command(command, stream_id)` | 发送命令 |
 | `self.ctx.config` | `.get(key)` | 获取配置值 |
 | | `.get_plugin()` | 获取当前插件配置 |
-| | `.get_all()` | 获取全部配置 |
-| `self.ctx.db` | `.query(table, filters, ...)` | 查询数据 |
-| | `.save(table, data, ...)` | 保存数据 |
-| | `.get(table, key_field, key_value)` | 获取单条 |
-| | `.delete(table, filters)` | 删除数据 |
-| | `.count(table)` | 统计数量 |
+| | `.get_plugin("other_plugin")` | 获取指定插件配置 |
+| | `.get_all()` | 获取当前插件完整配置快照 |
+| `self.ctx.db` | `.query(model_name, query_type="get", filters=...)` | 查询数据 |
+| | `.save(model_name, data, ...)` | 保存数据 |
+| | `.get(model_name, filters=..., ...)` | 获取单条 |
+| | `.delete(model_name, filters)` | 删除数据 |
+| | `.count(model_name, filters)` | 统计数量 |
 | `self.ctx.llm` | `.generate(prompt, ...)` | LLM 生成 |
 | | `.generate_with_tools(prompt, tools, ...)` | 带工具生成 |
 | | `.get_available_models()` | 获取可用模型 |
@@ -1560,7 +1677,7 @@ msg.modify_plain_text("新文本")
 | | `.set_adjust(chat_id, value)` | 设置调整值 |
 | | `.get_adjust(chat_id)` | 获取调整值 |
 | `self.ctx.person` | `.get_id(platform, user_id)` | 获取人物 ID |
-| | `.get_value(person_id, field)` | 获取字段值 |
+| | `.get_value(person_id, field_name)` | 获取字段值 |
 | | `.get_id_by_name(name)` | 按名称查找 |
 | `self.ctx.knowledge` | `.search(query, limit)` | 知识库搜索 |
 | `self.ctx.tool` | `.get_definitions()` | 获取工具定义 |

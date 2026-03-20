@@ -1,6 +1,6 @@
 """发言频率能力代理
 
-对应旧系统的 frequency_api，所有方法底层转发为 cap.request RPC。
+对应旧系统的 frequency_api，所有方法底层转发为 cap.call RPC。
 """
 
 from __future__ import annotations
