@@ -460,3 +460,38 @@ def test_adapter_capability_calls_host_receive_external_message():
     assert captured["route_metadata"] == {"self_id": "10001"}
     assert captured["external_message_id"] == "external-1"
     assert captured["dedupe_key"] == "dedupe-1"
+
+
+def test_adapter_capability_calls_host_update_runtime_state() -> None:
+    """验证适配器能力代理可以上报运行时状态。"""
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(
+        method: str,
+        plugin_id: str = "",
+        payload: dict[str, object] | None = None,
+    ) -> dict[str, bool]:
+        """模拟 Host RPC 调用并捕获上报载荷。"""
+        assert method == "host.update_adapter_state"
+        assert plugin_id == "demo"
+        assert payload is not None
+        captured.update(payload)
+        return {"accepted": True}
+
+    async def main() -> bool:
+        """执行一次适配器状态上报调用。"""
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return await ctx.adapter.update_runtime_state(
+            connected=True,
+            account_id="10001",
+            scope="primary",
+            metadata={"ws_url": "ws://127.0.0.1:3001"},
+        )
+
+    assert asyncio.run(main()) is True
+    assert captured["connected"] is True
+    assert captured["account_id"] == "10001"
+    assert captured["scope"] == "primary"
+    assert captured["metadata"] == {"ws_url": "ws://127.0.0.1:3001"}

@@ -55,3 +55,36 @@ class AdapterCapability:
         if not isinstance(result, dict):
             return False
         return bool(result.get("accepted", False))
+
+    async def update_runtime_state(
+        self,
+        *,
+        connected: bool,
+        account_id: str = "",
+        scope: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        """向 Host 上报适配器运行时状态。
+
+        Args:
+            connected: 当前适配器连接是否已经就绪，可安全接管平台路由。
+            account_id: 当前连接对应的账号 ID 或 ``self_id``。
+            scope: 当前连接对应的可选路由作用域，例如连接实例名。
+            metadata: 可选的运行时状态元数据。
+
+        Returns:
+            bool: Host 是否接受了本次状态更新。
+        """
+
+        result = await self._ctx.call_host_method(
+            "host.update_adapter_state",
+            payload={
+                "connected": connected,
+                "account_id": account_id,
+                "scope": scope,
+                "metadata": metadata or {},
+            },
+        )
+        if not isinstance(result, dict):
+            return False
+        return bool(result.get("accepted", False))
