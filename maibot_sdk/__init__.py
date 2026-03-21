@@ -13,7 +13,7 @@ from maibot_sdk.components import Action, Adapter, Command, EventHandler, HookHa
 from maibot_sdk.context import PluginContext
 from maibot_sdk.plugin import MaiBotPlugin
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 __all__ = [
     "MaiBotPlugin",
