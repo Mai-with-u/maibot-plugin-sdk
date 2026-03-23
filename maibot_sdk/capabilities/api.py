@@ -73,3 +73,26 @@ class APICapability:
             "api.list",
             plugin_id=plugin_id,
         )
+
+    async def replace_dynamic_apis(
+        self,
+        apis: list[dict[str, Any]],
+        *,
+        offline_reason: str = "动态 API 已下线",
+    ) -> bool:
+        """用新的动态 API 集合替换当前插件已暴露的动态 API。
+
+        Args:
+            apis: 最新的动态 API 声明列表。
+            offline_reason: 被下线 API 对外返回的错误原因。
+
+        Returns:
+            bool: Host 是否接受本次动态 API 替换请求。
+        """
+
+        result = await self._ctx.call_capability(
+            "api.replace_dynamic",
+            apis=apis,
+            offline_reason=offline_reason,
+        )
+        return bool(isinstance(result, dict) and result.get("success"))

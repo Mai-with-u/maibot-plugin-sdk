@@ -1,5 +1,7 @@
 """maibot-plugin-sdk 基础测试"""
 
+from typing import Any
+
 import asyncio
 
 import pytest
@@ -233,6 +235,7 @@ def test_collect_api_components() -> None:
 
     assert api_components["test_api"]["metadata"]["version"] == "1"
     assert api_components["test_api"]["metadata"]["public"] is True
+    assert api_components["test_api"]["metadata"]["handler_name"] == "handle_api"
 
 
 def test_collect_config_reload_subscriptions() -> None:
@@ -315,6 +318,28 @@ def test_component_capability_normalizes_lowercase_component_type():
     asyncio.run(main())
 
     assert captured["component_type"] == "EVENT_HANDLER"
+
+
+def test_component_capability_forwards_api_version():
+    """组件启停能力应透传 API 版本参数。"""
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.call"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        await ctx.component.disable_component("demo.test_api", "api", version="2")
+
+    asyncio.run(main())
+
+    assert captured["component_type"] == "API"
+    assert captured["version"] == "2"
 
 
 def test_component_capability_rejects_workflow_step_name():
@@ -593,3 +618,68 @@ def test_gateway_capability_calls_host_update_state() -> None:
     assert captured["account_id"] == "10001"
     assert captured["scope"] == "primary"
     assert captured["metadata"] == {"ws_url": "ws://127.0.0.1:3001"}
+
+
+def test_context_blocks_internal_host_methods() -> None:
+    """插件不应直接调用 Host 内部 RPC。"""
+    from maibot_sdk.context import PluginContext
+
+    async def fake_rpc_call(
+        method: str,
+        plugin_id: str = "",
+        payload: dict[str, object] | None = None,
+    ) -> dict[str, bool]:
+        raise AssertionError(f"不应真正发起 RPC: {method} {plugin_id} {payload}")
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        with pytest.raises(PermissionError, match="plugin.bootstrap"):
+            await ctx.call_host_method("plugin.bootstrap")
+
+    asyncio.run(main())
+
+
+def test_dynamic_api_helpers_can_sync_and_dispatch() -> None:
+    """插件基类应能同步并分发动态 API。"""
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+    plugin = SamplePlugin()
+
+    async def fake_rpc_call(
+        method: str,
+        plugin_id: str = "",
+        payload: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        assert method == "cap.call"
+        assert plugin_id == "demo"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {"success": True, "count": 1, "offlined": 0}
+
+    async def dynamic_handler(value: str) -> str:
+        """测试动态 API 处理器。"""
+
+        return f"echo:{value}"
+
+    plugin._set_context(PluginContext(plugin_id="demo", rpc_call=fake_rpc_call))
+    component = plugin.register_dynamic_api(
+        "dynamic.echo",
+        dynamic_handler,
+        description="动态回显",
+        version="2",
+        public=True,
+    )
+
+    async def main() -> tuple[Any, bool]:
+        result = await plugin.invoke_component(component["metadata"]["handler_name"], value="hello")
+        synced = await plugin.sync_dynamic_apis(offline_reason="mcp server closed")
+        return result, synced
+
+    result, synced = asyncio.run(main())
+
+    assert result == "echo:hello"
+    assert synced is True
+    assert captured["offline_reason"] == "mcp server closed"
+    assert captured["apis"][0]["name"] == "dynamic.echo"
+    assert captured["apis"][0]["metadata"]["version"] == "2"

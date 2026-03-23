@@ -79,6 +79,14 @@ _BOOLEAN_SUCCESS_CAPABILITIES = {
     "send.text",
 }
 
+_ALLOWED_RAW_HOST_METHODS = frozenset(
+    {
+        "cap.call",
+        "host.route_message",
+        "host.update_message_gateway_state",
+    }
+)
+
 
 class PluginContext:
     """插件运行时上下文
@@ -167,11 +175,18 @@ class PluginContext:
 
         Raises:
             RuntimeError: 当前上下文尚未注入可用的 RPC 调用函数时抛出。
+            PermissionError: 当前插件尝试调用未开放的 Host 原始 RPC 方法时抛出。
         """
         if self._rpc_call is None:
             raise RuntimeError("PluginContext 尚未初始化 RPC 连接")
+        normalized_method = str(method or "").strip()
+        if normalized_method not in _ALLOWED_RAW_HOST_METHODS:
+            raise PermissionError(
+                f"插件不允许直接调用 Host 原始 RPC 方法: {normalized_method or '<empty>'}。"
+                "请优先使用 self.ctx 上的能力代理。"
+            )
 
-        return await self._rpc_call(method, plugin_id or self._plugin_id, payload)
+        return await self._rpc_call(normalized_method, plugin_id or self._plugin_id, payload)
 
     async def call_capability(self, capability: str, **kwargs: Any) -> Any:
         """调用一项能力。

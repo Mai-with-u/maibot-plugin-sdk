@@ -4,7 +4,8 @@
 插件通过装饰器声明组件，通过 self.ctx 访问能力代理。
 """
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from inspect import isawaitable, iscoroutinefunction
 from typing import Any, ClassVar
 
 from maibot_sdk.components import collect_components
@@ -45,6 +46,8 @@ class MaiBotPlugin:
     def __init__(self) -> None:
         """初始化插件基类状态。"""
         self._ctx: PluginContext | None = None
+        self._dynamic_api_components: dict[str, dict[str, Any]] = {}
+        self._dynamic_api_handlers: dict[str, Callable[..., Any]] = {}
 
     @property
     def ctx(self) -> PluginContext:
@@ -73,7 +76,130 @@ class MaiBotPlugin:
 
         由 Runner 自动调用，无需手动覆盖。
         """
-        return collect_components(self)
+        components = collect_components(self)
+        components.extend(self.get_dynamic_api_components())
+        return components
+
+    @staticmethod
+    def _build_dynamic_api_key(name: str, version: str) -> str:
+        """构造动态 API 的稳定键。"""
+
+        normalized_name = str(name or "").strip()
+        normalized_version = str(version or "1").strip() or "1"
+        return f"{normalized_name}@{normalized_version}"
+
+    def register_dynamic_api(
+        self,
+        name: str,
+        handler: Callable[..., Any],
+        *,
+        description: str = "",
+        version: str = "1",
+        public: bool = False,
+        handler_name: str = "",
+        **metadata: Any,
+    ) -> dict[str, Any]:
+        """注册一个动态 API 定义。
+
+        Args:
+            name: 对外暴露的 API 名称。
+            handler: 当前 API 对应的处理函数。
+            description: API 描述。
+            version: API 版本。
+            public: 是否允许其他插件调用。
+            handler_name: 可选的内部处理器名称；留空时自动生成。
+            **metadata: 额外元数据。
+
+        Returns:
+            dict[str, Any]: 可直接同步到 Host 的组件声明。
+        """
+
+        normalized_name = str(name or "").strip()
+        if not normalized_name:
+            raise ValueError("动态 API 名称不能为空")
+        normalized_version = str(version or "1").strip() or "1"
+        resolved_handler_name = str(handler_name or f"dynamic_api__{normalized_name}__{normalized_version}").strip()
+        if not resolved_handler_name:
+            raise ValueError("动态 API handler_name 不能为空")
+
+        component = {
+            "name": normalized_name,
+            "type": "API",
+            "metadata": {
+                "description": description,
+                "version": normalized_version,
+                "public": bool(public),
+                "dynamic": True,
+                "handler_name": resolved_handler_name,
+                **metadata,
+            },
+        }
+        self._dynamic_api_components[self._build_dynamic_api_key(normalized_name, normalized_version)] = component
+        self._dynamic_api_handlers[resolved_handler_name] = handler
+        return {
+            "name": component["name"],
+            "type": component["type"],
+            "metadata": dict(component["metadata"]),
+        }
+
+    def unregister_dynamic_api(self, name: str, *, version: str = "1") -> bool:
+        """注销一个动态 API 定义。"""
+
+        api_key = self._build_dynamic_api_key(name, version)
+        component = self._dynamic_api_components.pop(api_key, None)
+        if component is None:
+            return False
+
+        handler_name = str(component["metadata"].get("handler_name", "") or "").strip()
+        if handler_name:
+            handler_still_used = any(
+                str(candidate["metadata"].get("handler_name", "") or "").strip() == handler_name
+                for candidate in self._dynamic_api_components.values()
+            )
+            if not handler_still_used:
+                self._dynamic_api_handlers.pop(handler_name, None)
+        return True
+
+    def clear_dynamic_apis(self) -> None:
+        """清空当前插件维护的全部动态 API。"""
+
+        self._dynamic_api_components.clear()
+        self._dynamic_api_handlers.clear()
+
+    def get_dynamic_api_components(self) -> list[dict[str, Any]]:
+        """返回当前插件维护的动态 API 组件声明。"""
+
+        return [
+            {
+                "name": component["name"],
+                "type": component["type"],
+                "metadata": dict(component["metadata"]),
+            }
+            for component in self._dynamic_api_components.values()
+        ]
+
+    async def sync_dynamic_apis(self, *, offline_reason: str = "动态 API 已下线") -> bool:
+        """将当前动态 API 集合同步到 Host。"""
+
+        return await self.ctx.api.replace_dynamic_apis(
+            self.get_dynamic_api_components(),
+            offline_reason=offline_reason,
+        )
+
+    async def invoke_component(self, component_name: str, **kwargs: Any) -> Any:
+        """为动态 API 提供默认的组件调用分发。"""
+
+        handler = self._dynamic_api_handlers.get(component_name)
+        if handler is None:
+            raise AttributeError(f"插件未注册动态组件处理器: {component_name}")
+
+        if iscoroutinefunction(handler):
+            return await handler(**kwargs)
+
+        result = handler(**kwargs)
+        if isawaitable(result):
+            return await result
+        return result
 
     def get_config_reload_subscriptions(self) -> list[str]:
         """返回当前插件订阅的全局配置热重载范围。

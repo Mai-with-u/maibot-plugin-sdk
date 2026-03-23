@@ -38,7 +38,14 @@ class ComponentCapability:
         """列出已注册的插件"""
         return await self._ctx.call_capability("component.list_registered_plugins")
 
-    async def enable_component(self, name: str, component_type: str, scope: str = "global", stream_id: str = "") -> Any:
+    async def enable_component(
+        self,
+        name: str,
+        component_type: str,
+        scope: str = "global",
+        stream_id: str = "",
+        version: str = "",
+    ) -> Any:
         """启用组件"""
         return await self._ctx.call_capability(
             "component.enable",
@@ -46,10 +53,16 @@ class ComponentCapability:
             component_type=normalize_component_type_name(component_type),
             scope=scope,
             stream_id=stream_id,
+            version=version,
         )
 
     async def disable_component(
-        self, name: str, component_type: str, scope: str = "global", stream_id: str = ""
+        self,
+        name: str,
+        component_type: str,
+        scope: str = "global",
+        stream_id: str = "",
+        version: str = "",
     ) -> Any:
         """禁用组件"""
         return await self._ctx.call_capability(
@@ -58,6 +71,7 @@ class ComponentCapability:
             component_type=normalize_component_type_name(component_type),
             scope=scope,
             stream_id=stream_id,
+            version=version,
         )
 
     async def load_plugin(self, plugin_name: str) -> Any:
