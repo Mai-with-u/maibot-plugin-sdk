@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from maibot_sdk import (
+    API,
     Action,
     Command,
     EventHandler,
@@ -31,6 +32,10 @@ class SamplePlugin(MaiBotPlugin):
     @Action("test_action", description="测试动作", activation_type=ActivationType.KEYWORD, activation_keywords=["你好"])
     async def handle_action(self, **kwargs):
         return True, "ok"
+
+    @API("test_api", description="测试 API", version="1", public=True)
+    async def handle_api(self, **kwargs):
+        return {"ok": True}
 
     @Command("test_cmd", pattern=r"^/test")
     async def handle_cmd(self, **kwargs):
@@ -59,6 +64,7 @@ def test_collect_components():
     components = plugin.get_components()
     names = {c["name"] for c in components}
     assert "test_action" in names
+    assert "test_api" in names
     assert "test_cmd" in names
     assert "test_tool" in names
     assert "test_event" in names
@@ -70,6 +76,7 @@ def test_component_types():
     components = plugin.get_components()
     type_map = {c["name"]: c["type"] for c in components}
     assert type_map["test_action"] == ComponentType.ACTION.value
+    assert type_map["test_api"] == ComponentType.API.value
     assert type_map["test_cmd"] == ComponentType.COMMAND.value
     assert type_map["test_tool"] == ComponentType.TOOL.value
     assert type_map["test_event"] == ComponentType.EVENT_HANDLER.value
@@ -119,6 +126,7 @@ def test_context_has_all_capabilities():
     ctx = PluginContext(plugin_id="__test__", rpc_call=None)
 
     expected = [
+        "api",
         "gateway",
         "send",
         "db",
@@ -176,8 +184,24 @@ def test_collect_message_gateway_components() -> None:
     assert gateway_components["inbound"]["metadata"]["route_type"] == "receive"
 
 
+def test_collect_api_components() -> None:
+    """API 装饰器应被收集为标准组件声明。"""
+
+    plugin = SamplePlugin()
+    components = plugin.get_components()
+    api_components = {
+        component["name"]: component
+        for component in components
+        if component["type"] == "API"
+    }
+
+    assert api_components["test_api"]["metadata"]["version"] == "1"
+    assert api_components["test_api"]["metadata"]["public"] is True
+
+
 def test_capability_classes_importable():
     """确保所有能力代理类可以正常 import"""
+    from maibot_sdk.capabilities.api import APICapability
     from maibot_sdk.capabilities.chat import ChatCapability
     from maibot_sdk.capabilities.component import ComponentCapability
     from maibot_sdk.capabilities.config import ConfigCapability
@@ -196,6 +220,7 @@ def test_capability_classes_importable():
 
     assert all(
         [
+            APICapability,
             ChatCapability,
             ComponentCapability,
             ConfigCapability,

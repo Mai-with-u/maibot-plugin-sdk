@@ -10,12 +10,14 @@ from pydantic import BaseModel, Field
 
 _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "ACTION": "ACTION",
+    "API": "API",
     "COMMAND": "COMMAND",
     "EVENT_HANDLER": "EVENT_HANDLER",
     "HOOK_HANDLER": "HOOK_HANDLER",
     "MESSAGE_GATEWAY": "MESSAGE_GATEWAY",
     "TOOL": "TOOL",
     "action": "ACTION",
+    "api": "API",
     "command": "COMMAND",
     "event_handler": "EVENT_HANDLER",
     "hook_handler": "HOOK_HANDLER",
@@ -54,6 +56,7 @@ class ComponentType(str, Enum):
     """组件类型"""
 
     ACTION = "ACTION"
+    API = "API"
     COMMAND = "COMMAND"
     TOOL = "TOOL"
     EVENT_HANDLER = "EVENT_HANDLER"
@@ -194,6 +197,14 @@ class ActionComponentInfo(ComponentInfo):
     associated_types: list[str] = Field(default_factory=list, description="关联消息类型")
     parallel_action: bool = Field(default=False, description="是否可并行执行")
     action_prompt: str = Field(default="", description="Action 的 LLM 提示语")
+
+
+class APIComponentInfo(ComponentInfo):
+    """API 组件信息"""
+
+    type: ComponentType = ComponentType.API
+    version: str = Field(default="1", description="API 版本")
+    public: bool = Field(default=False, description="是否允许其他插件调用")
 
 
 class CommandComponentInfo(ComponentInfo):

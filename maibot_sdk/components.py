@@ -10,6 +10,7 @@ from typing import Any
 from maibot_sdk.types import (
     ActionComponentInfo,
     ActivationType,
+    APIComponentInfo,
     ChatMode,
     CommandComponentInfo,
     ErrorPolicy,
@@ -111,6 +112,44 @@ def Command(
             description=description,
             command_pattern=pattern,
             aliases=aliases or [],
+            metadata=metadata,
+        )
+        setattr(func, _COMPONENT_INFO_ATTR, info)
+        return func
+
+    return decorator
+
+
+def API(
+    name: str,
+    description: str = "",
+    version: str = "1",
+    public: bool = False,
+    **metadata: Any,
+) -> _Decorator:
+    """API 组件装饰器。
+
+    用法：
+        @API("render_html", description="渲染 HTML", version="1", public=True)
+        async def handle_render_html(self, html: str):
+            ...
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        """将 API 元数据附着到目标函数。
+
+        Args:
+            func: 被声明为 API 的方法。
+
+        Returns:
+            Callable[..., Any]: 原始函数对象。
+        """
+
+        info = APIComponentInfo(
+            name=name,
+            description=description,
+            version=str(version or "1").strip() or "1",
+            public=bool(public),
             metadata=metadata,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)

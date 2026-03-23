@@ -4,11 +4,11 @@
 
 核心导出：
 - MaiBotPlugin: 插件基类
-- Action, Command, Tool, EventHandler, HookHandler, MessageGateway: 组件声明装饰器
+- Action, API, Command, Tool, EventHandler, HookHandler, MessageGateway: 组件声明装饰器
 - PluginContext: 插件运行时上下文（提供能力代理）
 """
 
-from maibot_sdk.components import Action, Command, EventHandler, HookHandler, MessageGateway, Tool, WorkflowStep
+from maibot_sdk.components import API, Action, Command, EventHandler, HookHandler, MessageGateway, Tool, WorkflowStep
 from maibot_sdk.context import PluginContext
 from maibot_sdk.plugin import MaiBotPlugin
 
@@ -16,6 +16,7 @@ __version__ = "2.0.1"
 
 __all__ = [
     "MaiBotPlugin",
+    "API",
     "Action",
     "Command",
     "Tool",

@@ -8,6 +8,7 @@ import logging as stdlib_logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from maibot_sdk.capabilities.api import APICapability
 from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
@@ -26,6 +27,9 @@ from maibot_sdk.capabilities.tool import ToolCapability
 RpcCallFn = Callable[[str, str, dict[str, Any] | None], Awaitable[Any]]
 
 _CAPABILITY_RESULT_KEYS: dict[str, str] = {
+    "api.call": "result",
+    "api.get": "api",
+    "api.list": "apis",
     "chat.get_all_streams": "streams",
     "chat.get_group_streams": "streams",
     "chat.get_private_streams": "streams",
@@ -103,6 +107,7 @@ class PluginContext:
         self._logger: stdlib_logging.Logger | None = None
 
         # 能力代理
+        self.api: APICapability = APICapability(self)
         self.gateway: GatewayCapability = GatewayCapability(self)
         self.send: SendCapability = SendCapability(self)
         self.db: DatabaseCapability = DatabaseCapability(self)
