@@ -4,16 +4,24 @@
 使 Runner 可以统一管理新旧插件。
 """
 
-import importlib
-import logging
-import warnings
+# ruff: noqa: I001
+
+from collections.abc import Iterable
 from typing import Any
+
+import importlib
+import inspect
+import json
+import logging
+import os
+import warnings
 
 from maibot_sdk.compat import _context_holder
 from maibot_sdk.compat.base.base_plugin import BasePlugin
 from maibot_sdk.types import normalize_component_type_name
 
 logger = logging.getLogger("maibot_sdk.compat.legacy_adapter")
+_GLOBAL_CONFIG_SNAPSHOT_ENV = "MAIBOT_GLOBAL_CONFIG_SNAPSHOT"
 
 
 def _load_global_config_snapshot() -> dict[str, Any] | None:
@@ -23,14 +31,33 @@ def _load_global_config_snapshot() -> dict[str, Any] | None:
         dict[str, Any] | None: 若当前运行环境存在主程序全局配置，则返回其
         ``model_dump`` 结果；否则返回 ``None``。
     """
+    snapshot_payload = os.getenv(_GLOBAL_CONFIG_SNAPSHOT_ENV, "").strip()
+    if snapshot_payload:
+        try:
+            parsed_snapshot = json.loads(snapshot_payload)
+        except json.JSONDecodeError:
+            logger.warning("解析全局配置快照失败，已回退到运行时动态读取")
+        else:
+            if isinstance(parsed_snapshot, dict):
+                return {str(key): value for key, value in parsed_snapshot.items()}
+
     try:
         config_module = importlib.import_module("src.config.config")
         global_config = getattr(config_module, "global_config", None)
+        model_config = getattr(config_module, "model_config", None)
         if global_config is None or not hasattr(global_config, "model_dump"):
             return None
+
         dumped = global_config.model_dump()
-        if isinstance(dumped, dict):
-            return {str(key): value for key, value in dumped.items()}
+        if not isinstance(dumped, dict):
+            return None
+
+        snapshot = {str(key): value for key, value in dumped.items()}
+        if model_config is not None and hasattr(model_config, "model_dump"):
+            model_dumped = model_config.model_dump()
+            if isinstance(model_dumped, dict):
+                snapshot["model"] = model_dumped
+        return snapshot
     except Exception:
         return None
     return None
@@ -51,6 +78,7 @@ class LegacyPluginAdapter:
         )
         self._legacy = legacy_plugin
         self._ctx = None
+        self._global_config: dict[str, Any] = _load_global_config_snapshot() or {}
         self._plugin_config: dict[str, Any] = {}
         self._component_instances: dict[str, Any] = {}
         self._component_map: dict[str, dict[str, Any]] = {}
@@ -68,16 +96,47 @@ class LegacyPluginAdapter:
             from maibot_sdk.compat.apis import config_api
 
             config_api.set_config_cache(
-                global_cfg=_load_global_config_snapshot(),
+                global_cfg=self._global_config,
                 plugin_cfg=self._plugin_config,
             )
         except Exception:
             pass
 
+    def _update_global_config_cache(self, scope: str, config_data: dict[str, Any]) -> None:
+        """按配置范围刷新旧版 config_api 的全局配置缓存。"""
+
+        normalized_scope = str(scope or "").strip().lower()
+        normalized_config = config_data if isinstance(config_data, dict) else {}
+
+        if normalized_scope == "bot":
+            merged_config = dict(normalized_config)
+            model_snapshot = self._global_config.get("model")
+            if isinstance(model_snapshot, dict):
+                merged_config["model"] = model_snapshot
+            self._global_config = merged_config
+            return
+
+        if normalized_scope == "model":
+            self._global_config["model"] = normalized_config
+
     def set_plugin_config(self, config: dict[str, Any]) -> None:
         """由 Runner 设置插件配置，并同步到 config_api 缓存"""
         self._plugin_config = config or {}
         self._sync_config_cache()
+
+    def get_config_reload_subscriptions(self) -> list[str]:
+        """返回旧版插件声明的全局配置热更新订阅范围。"""
+
+        raw_subscriptions = getattr(self._legacy, "config_reload_subscriptions", ())
+        if isinstance(raw_subscriptions, str) or not isinstance(raw_subscriptions, Iterable):
+            return []
+
+        normalized_subscriptions = {
+            normalized_scope
+            for subscription in raw_subscriptions
+            if (normalized_scope := str(subscription or "").strip().lower()) in {"bot", "model"}
+        }
+        return sorted(normalized_subscriptions)
 
     async def on_load(self) -> None:
         """调用旧版插件的 on_load"""
@@ -96,10 +155,38 @@ class LegacyPluginAdapter:
         if hasattr(self._legacy, "on_unload"):
             await self._legacy.on_unload()
 
-    async def on_config_update(self, new_config: dict[str, Any], version: str) -> None:
-        self.set_plugin_config(new_config)
+    async def on_config_update(self, scope: str, config_data: dict[str, Any], version: str) -> None:
+        normalized_scope = str(scope or "").strip().lower()
+        if normalized_scope == "self":
+            self.set_plugin_config(config_data)
+        else:
+            self._update_global_config_cache(normalized_scope, config_data)
+            self._sync_config_cache()
+
         if hasattr(self._legacy, "on_config_update"):
-            ret = self._legacy.on_config_update(new_config, version)
+            handler = self._legacy.on_config_update
+            try:
+                signature = inspect.signature(handler)
+                parameters = list(signature.parameters.values())
+            except (TypeError, ValueError):
+                parameters = []
+
+            accepts_varargs = any(parameter.kind == inspect.Parameter.VAR_POSITIONAL for parameter in parameters)
+            positional_count = len(
+                [
+                    parameter
+                    for parameter in parameters
+                    if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                ]
+            )
+            if accepts_varargs or positional_count >= 3:
+                ret = handler(scope, config_data, version)
+            elif positional_count == 2:
+                ret = handler(config_data, version)
+            elif positional_count == 1:
+                ret = handler(config_data)
+            else:
+                ret = handler()
             if hasattr(ret, "__await__"):
                 await ret
 

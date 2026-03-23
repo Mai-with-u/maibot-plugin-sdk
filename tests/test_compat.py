@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import logging
 import sys
 import types
@@ -481,6 +482,64 @@ class TestLegacyPluginAdapter:
             adapter.set_plugin_config({"section": {"key": "value"}})
             assert config_api.get_global_config("bot.name") == "MaiBot"
             assert config_api.get_global_config("bot.admin_id") == "12345"
+
+    def test_get_config_reload_subscriptions(self):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        class _ScopedPlugin(_StubPlugin):
+            config_reload_subscriptions = ["model", "bot", "ignored", "bot"]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(_ScopedPlugin())
+
+        assert adapter.get_config_reload_subscriptions() == ["bot", "model"]
+
+    def test_on_config_update_accepts_scope_and_refreshes_global_cache(self, monkeypatch):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        monkeypatch.setenv(
+            "MAIBOT_GLOBAL_CONFIG_SNAPSHOT",
+            json.dumps({"bot": {"name": "MaiBot"}, "model": {"models": [{"name": "old"}]}}),
+        )
+
+        class _ScopedPlugin(_StubPlugin):
+            def __init__(self):
+                self.updates: list[tuple[str, dict[str, object], str]] = []
+
+            async def on_config_update(self, scope: str, config: dict[str, object], version: str) -> None:
+                self.updates.append((scope, config, version))
+
+        legacy_plugin = _ScopedPlugin()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(legacy_plugin)
+
+        asyncio.run(adapter.on_config_update("model", {"models": [{"name": "new"}]}, "v2"))
+
+        assert legacy_plugin.updates == [("model", {"models": [{"name": "new"}]}, "v2")]
+        assert config_api.get_global_config("model.models")[0]["name"] == "new"
+
+    def test_on_config_update_preserves_two_argument_legacy_signature(self):
+        from maibot_sdk.compat.legacy_adapter import LegacyPluginAdapter
+
+        class _TwoArgPlugin(_StubPlugin):
+            def __init__(self):
+                self.updates: list[tuple[dict[str, object], str]] = []
+
+            def on_config_update(self, config: dict[str, object], version: str) -> None:
+                self.updates.append((config, version))
+
+        legacy_plugin = _TwoArgPlugin()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            adapter = LegacyPluginAdapter(legacy_plugin)
+
+        asyncio.run(adapter.on_config_update("self", {"enabled": True}, "v1"))
+
+        assert legacy_plugin.updates == [({"enabled": True}, "v1")]
 
 
 # ═══════════════════════════════════════════════════════════════════
