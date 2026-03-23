@@ -8,13 +8,13 @@ import logging as stdlib_logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from maibot_sdk.capabilities.adapter import AdapterCapability
 from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
 from maibot_sdk.capabilities.database import DatabaseCapability
 from maibot_sdk.capabilities.emoji import EmojiCapability
 from maibot_sdk.capabilities.frequency import FrequencyCapability
+from maibot_sdk.capabilities.gateway import GatewayCapability
 from maibot_sdk.capabilities.knowledge import KnowledgeCapability
 from maibot_sdk.capabilities.llm import LLMCapability
 from maibot_sdk.capabilities.message import MessageCapability
@@ -103,7 +103,7 @@ class PluginContext:
         self._logger: stdlib_logging.Logger | None = None
 
         # 能力代理
-        self.adapter: AdapterCapability = AdapterCapability(self)
+        self.gateway: GatewayCapability = GatewayCapability(self)
         self.send: SendCapability = SendCapability(self)
         self.db: DatabaseCapability = DatabaseCapability(self)
         self.llm: LLMCapability = LLMCapability(self)

@@ -112,6 +112,14 @@ class ToolParamType(str, Enum):
     OBJECT = "object"
 
 
+class MessageGatewayRouteType(str, Enum):
+    """消息网关路由类型。"""
+
+    SEND = "send"
+    RECEIVE = "receive"
+    DUPLEX = "duplex"
+
+
 class WorkflowStage(str, Enum):
     """Workflow 阶段"""
 
@@ -225,15 +233,15 @@ class HookHandlerComponentInfo(ComponentInfo):
     filter: dict[str, Any] = Field(default_factory=dict, description="前置过滤条件，Host 预过滤不走 IPC")
 
 
-class AdapterInfo(BaseModel):
-    """适配器插件声明信息。"""
+class MessageGatewayComponentInfo(ComponentInfo):
+    """消息网关组件信息。"""
 
-    platform: str = Field(description="适配器负责的平台名称，例如 qq")
-    protocol: str = Field(default="", description="平台接入协议或方言名称，例如 napcat")
-    account_id: str = Field(default="", description="可选的机器人账号 ID 或 self_id")
-    scope: str = Field(default="", description="可选的路由作用域，例如连接实例名")
-    send_method: str = Field(default="send_to_platform", description="Host 出站时调用的插件方法名")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="适配器附加元数据")
+    type: ComponentType = ComponentType.MESSAGE_GATEWAY
+    route_type: MessageGatewayRouteType = Field(description="消息网关路由类型")
+    platform: str = Field(default="", description="可选的平台名称，允许在运行时动态上报")
+    protocol: str = Field(default="", description="可选的协议或接入方言名称")
+    account_id: str = Field(default="", description="可选的账号 ID 或 self_id")
+    scope: str = Field(default="", description="可选的路由作用域")
 
 
 # ─── 通用响应 ──────────────────────────────────────────────────────

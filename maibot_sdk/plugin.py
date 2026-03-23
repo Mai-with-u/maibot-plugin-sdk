@@ -1,12 +1,12 @@
 """MaiBot 插件基类
 
 所有 SDK 插件必须继承此基类。
-插件通过装饰器声明组件和适配器角色，通过 self.ctx 访问能力代理。
+插件通过装饰器声明组件，通过 self.ctx 访问能力代理。
 """
 
 from typing import Any
 
-from maibot_sdk.components import collect_adapter_info, collect_components
+from maibot_sdk.components import collect_components
 from maibot_sdk.context import PluginContext
 
 
@@ -64,16 +64,6 @@ class MaiBotPlugin:
         由 Runner 自动调用，无需手动覆盖。
         """
         return collect_components(self)
-
-    def get_adapter_info(self) -> dict[str, Any] | None:
-        """收集当前插件声明的适配器信息。
-
-        Returns:
-            Optional[Dict[str, Any]]: 若插件类声明了 ``@Adapter``，返回适配器信息；
-            否则返回 ``None``。
-        """
-
-        return collect_adapter_info(self)
 
     async def on_load(self) -> None:
         """插件加载完成后的回调。

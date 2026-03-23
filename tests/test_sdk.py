@@ -4,7 +4,16 @@ import asyncio
 
 import pytest
 
-from maibot_sdk import Action, Adapter, Command, EventHandler, HookHandler, MaiBotPlugin, Tool, WorkflowStep
+from maibot_sdk import (
+    Action,
+    Command,
+    EventHandler,
+    HookHandler,
+    MaiBotPlugin,
+    MessageGateway,
+    Tool,
+    WorkflowStep,
+)
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
@@ -40,19 +49,6 @@ class SamplePlugin(MaiBotPlugin):
         return {"hook_result": HookResult.CONTINUE}
 
 
-@Adapter(
-    platform="qq",
-    protocol="napcat",
-    account_id="10001",
-    scope="primary",
-    adapter_role="ingress",
-)
-class SampleAdapterPlugin(MaiBotPlugin):
-    async def send_to_platform(self, **kwargs):
-        """供 Host 出站调用的适配器发送方法。"""
-        return kwargs
-
-
 def test_plugin_instantiation():
     plugin = SamplePlugin()
     assert isinstance(plugin, MaiBotPlugin)
@@ -67,20 +63,6 @@ def test_collect_components():
     assert "test_tool" in names
     assert "test_event" in names
     assert "test_hook" in names
-
-
-def test_collect_adapter_info():
-    plugin = SampleAdapterPlugin()
-    adapter_info = plugin.get_adapter_info()
-
-    assert adapter_info == {
-        "platform": "qq",
-        "protocol": "napcat",
-        "account_id": "10001",
-        "scope": "primary",
-        "send_method": "send_to_platform",
-        "metadata": {"adapter_role": "ingress"},
-    }
 
 
 def test_component_types():
@@ -131,13 +113,13 @@ def test_context_raises_without_rpc():
 
 
 def test_context_has_all_capabilities():
-    """验证 PluginContext 暴露了全部 13 个能力代理和 logger 属性。"""
+    """验证 PluginContext 暴露了全部能力代理和 logger 属性。"""
     from maibot_sdk.context import PluginContext
 
     ctx = PluginContext(plugin_id="__test__", rpc_call=None)
 
     expected = [
-        "adapter",
+        "gateway",
         "send",
         "db",
         "llm",
@@ -162,15 +144,47 @@ def test_context_has_all_capabilities():
     assert ctx.logger.name == "plugin.__test__"
 
 
+class SampleGatewayPlugin(MaiBotPlugin):
+    """用于验证消息网关组件收集的测试插件。"""
+
+    @MessageGateway(route_type="send", platform="qq")
+    async def outbound(self, **kwargs):
+        """示例出站网关。"""
+
+        return kwargs
+
+    @MessageGateway(route_type="receive")
+    async def inbound(self, **kwargs):
+        """示例入站网关。"""
+
+        return kwargs
+
+
+def test_collect_message_gateway_components() -> None:
+    """消息网关装饰器应被收集为标准组件声明。"""
+
+    plugin = SampleGatewayPlugin()
+    components = plugin.get_components()
+    gateway_components = {
+        component["name"]: component
+        for component in components
+        if component["type"] == "MESSAGE_GATEWAY"
+    }
+
+    assert gateway_components["outbound"]["metadata"]["route_type"] == "send"
+    assert gateway_components["outbound"]["metadata"]["platform"] == "qq"
+    assert gateway_components["inbound"]["metadata"]["route_type"] == "receive"
+
+
 def test_capability_classes_importable():
     """确保所有能力代理类可以正常 import"""
-    from maibot_sdk.capabilities.adapter import AdapterCapability
     from maibot_sdk.capabilities.chat import ChatCapability
     from maibot_sdk.capabilities.component import ComponentCapability
     from maibot_sdk.capabilities.config import ConfigCapability
     from maibot_sdk.capabilities.database import DatabaseCapability
     from maibot_sdk.capabilities.emoji import EmojiCapability
     from maibot_sdk.capabilities.frequency import FrequencyCapability
+    from maibot_sdk.capabilities.gateway import GatewayCapability
     from maibot_sdk.capabilities.knowledge import KnowledgeCapability
     from maibot_sdk.capabilities.llm import LLMCapability
     from maibot_sdk.capabilities.message import MessageCapability
@@ -182,13 +196,13 @@ def test_capability_classes_importable():
 
     assert all(
         [
-            AdapterCapability,
             ChatCapability,
             ComponentCapability,
             ConfigCapability,
             DatabaseCapability,
             EmojiCapability,
             FrequencyCapability,
+            GatewayCapability,
             KnowledgeCapability,
             LLMCapability,
             MessageCapability,
@@ -202,7 +216,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.0.0"
+    assert maibot_sdk.__version__ == "2.0.1"
 
 
 def test_component_capability_normalizes_lowercase_component_type():
@@ -426,13 +440,13 @@ def test_capabilities_unwrap_host_wrapper_results():
     assert result["send_ok"] is True
 
 
-def test_adapter_capability_calls_host_receive_external_message():
+def test_gateway_capability_calls_host_route_message():
     from maibot_sdk.context import PluginContext
 
     captured: dict[str, object] = {}
 
     async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
-        assert method == "host.receive_external_message"
+        assert method == "host.route_message"
         assert plugin_id == "demo"
         assert payload is not None
         captured.update(payload)
@@ -440,8 +454,9 @@ def test_adapter_capability_calls_host_receive_external_message():
 
     async def main() -> bool:
         ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
-        return await ctx.adapter.receive_external_message(
-            {
+        return await ctx.gateway.route_message(
+            gateway_name="napcat_gateway",
+            message={
                 "message_id": "msg-1",
                 "platform": "qq",
                 "message_info": {
@@ -457,13 +472,14 @@ def test_adapter_capability_calls_host_receive_external_message():
         )
 
     assert asyncio.run(main()) is True
+    assert captured["gateway_name"] == "napcat_gateway"
     assert captured["route_metadata"] == {"self_id": "10001"}
     assert captured["external_message_id"] == "external-1"
     assert captured["dedupe_key"] == "dedupe-1"
 
 
-def test_adapter_capability_calls_host_update_runtime_state() -> None:
-    """验证适配器能力代理可以上报运行时状态。"""
+def test_gateway_capability_calls_host_update_state() -> None:
+    """验证消息网关能力代理可以上报运行时状态。"""
     from maibot_sdk.context import PluginContext
 
     captured: dict[str, object] = {}
@@ -474,24 +490,28 @@ def test_adapter_capability_calls_host_update_runtime_state() -> None:
         payload: dict[str, object] | None = None,
     ) -> dict[str, bool]:
         """模拟 Host RPC 调用并捕获上报载荷。"""
-        assert method == "host.update_adapter_state"
+        assert method == "host.update_message_gateway_state"
         assert plugin_id == "demo"
         assert payload is not None
         captured.update(payload)
         return {"accepted": True}
 
     async def main() -> bool:
-        """执行一次适配器状态上报调用。"""
+        """执行一次消息网关状态上报调用。"""
         ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
-        return await ctx.adapter.update_runtime_state(
-            connected=True,
+        return await ctx.gateway.update_state(
+            gateway_name="napcat_gateway",
+            ready=True,
+            platform="qq",
             account_id="10001",
             scope="primary",
             metadata={"ws_url": "ws://127.0.0.1:3001"},
         )
 
     assert asyncio.run(main()) is True
-    assert captured["connected"] is True
+    assert captured["gateway_name"] == "napcat_gateway"
+    assert captured["ready"] is True
+    assert captured["platform"] == "qq"
     assert captured["account_id"] == "10001"
     assert captured["scope"] == "primary"
     assert captured["metadata"] == {"ws_url": "ws://127.0.0.1:3001"}

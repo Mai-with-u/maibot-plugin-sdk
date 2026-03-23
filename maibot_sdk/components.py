@@ -1,7 +1,6 @@
 """组件声明装饰器
 
-用于在插件类中声明 Action/Command/Tool/EventHandler/HookHandler 组件，
-以及在插件类本身声明适配器角色。
+用于在插件类中声明 Action/Command/Tool/EventHandler/HookHandler/MessageGateway 组件。
 装饰器将组件元数据附加到方法或类上，Runner 在加载时收集。
 """
 
@@ -11,13 +10,14 @@ from typing import Any
 from maibot_sdk.types import (
     ActionComponentInfo,
     ActivationType,
-    AdapterInfo,
     ChatMode,
     CommandComponentInfo,
     ErrorPolicy,
     EventHandlerComponentInfo,
     EventType,
     HookHandlerComponentInfo,
+    MessageGatewayComponentInfo,
+    MessageGatewayRouteType,
     ToolComponentInfo,
     ToolParameterInfo,
     WorkflowStage,
@@ -25,11 +25,9 @@ from maibot_sdk.types import (
 
 # 装饰器签名: 接受函数返回函数
 _Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
-_ClassDecorator = Callable[[type[Any]], type[Any]]
 
 # 标记属性名，用于在方法上附加组件信息
 _COMPONENT_INFO_ATTR = "__maibot_component_info__"
-_ADAPTER_INFO_ATTR = "__maibot_adapter_info__"
 
 
 def Action(
@@ -288,48 +286,85 @@ def WorkflowStep(*args: Any, **kwargs: Any) -> _Decorator:
     raise RuntimeError("`WorkflowStep` 已移除，请改用 `HookHandler`。这是一个不向后兼容更改。")
 
 
-def Adapter(
-    platform: str,
+def _normalize_message_gateway_route_type(route_type: str) -> MessageGatewayRouteType:
+    """规范化消息网关路由类型字符串。
+
+    Args:
+        route_type: 用户声明的路由类型字符串。
+
+    Returns:
+        MessageGatewayRouteType: 归一化后的路由类型枚举。
+
+    Raises:
+        ValueError: 当输入值不是支持的路由类型时抛出。
+    """
+
+    normalized_route_type = str(route_type or "").strip().lower()
+    alias_map = {
+        "recv": MessageGatewayRouteType.RECEIVE,
+        "receive": MessageGatewayRouteType.RECEIVE,
+        "recive": MessageGatewayRouteType.RECEIVE,
+        "send": MessageGatewayRouteType.SEND,
+        "duplex": MessageGatewayRouteType.DUPLEX,
+    }
+    resolved_route_type = alias_map.get(normalized_route_type)
+    if resolved_route_type is None:
+        raise ValueError(f"不支持的消息网关路由类型: {route_type}")
+    return resolved_route_type
+
+
+def MessageGateway(
+    route_type: str,
+    *,
+    name: str = "",
+    description: str = "",
+    platform: str = "",
     protocol: str = "",
     account_id: str = "",
     scope: str = "",
-    send_method: str = "send_to_platform",
     **metadata: Any,
-) -> _ClassDecorator:
-    """声明当前插件类是一个适配器插件。
+) -> _Decorator:
+    """声明消息网关组件。
 
     Args:
-        platform: 适配器负责的平台名称，例如 ``qq``。
-        protocol: 可选的接入协议或实现名称，例如 ``napcat``。
+        route_type: 网关路由类型，支持 ``send``、``receive``、``duplex``。
+        name: 可选的组件名；留空时默认使用方法名。
+        description: 组件描述。
+        platform: 可选的平台名称；为空时允许运行时动态上报。
+        protocol: 可选的协议或实现名称。
         account_id: 可选的账号 ID 或 ``self_id``。
         scope: 可选的路由作用域。
-        send_method: Host 出站时要调用的插件方法名。
-        **metadata: 额外适配器元数据。
+        **metadata: 额外元数据。
 
     Returns:
-        _ClassDecorator: 用于修饰插件类的类装饰器。
+        _Decorator: 用于修饰插件方法的装饰器。
     """
 
-    def decorator(cls: type[Any]) -> type[Any]:
-        """将适配器元数据附着到插件类上。
+    normalized_route_type = _normalize_message_gateway_route_type(route_type)
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        """将 MessageGateway 元数据附着到目标函数。
 
         Args:
-            cls: 待标记的插件类。
+            func: 被声明为消息网关的插件方法。
 
         Returns:
-            type[Any]: 原始插件类。
+            Callable[..., Any]: 原始函数对象。
         """
 
-        info = AdapterInfo(
-            platform=platform,
-            protocol=protocol,
-            account_id=account_id,
-            scope=scope,
-            send_method=send_method,
+        component_name = name or func.__name__
+        info = MessageGatewayComponentInfo(
+            name=component_name,
+            description=description,
+            route_type=normalized_route_type,
+            platform=str(platform or "").strip(),
+            protocol=str(protocol or "").strip(),
+            account_id=str(account_id or "").strip(),
+            scope=str(scope or "").strip(),
             metadata=metadata,
         )
-        setattr(cls, _ADAPTER_INFO_ATTR, info)
-        return cls
+        setattr(func, _COMPONENT_INFO_ATTR, info)
+        return func
 
     return decorator
 
@@ -358,23 +393,3 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
                 }
             )
     return components
-
-
-def collect_adapter_info(instance: object) -> dict[str, Any] | None:
-    """从插件实例中收集适配器声明信息。
-
-    Args:
-        instance: 已实例化的插件对象。
-
-    Returns:
-        Optional[Dict[str, Any]]: 若插件类声明了 ``@Adapter``，返回可直接序列化的
-        适配器信息；否则返回 ``None``。
-    """
-
-    adapter_info = getattr(instance.__class__, _ADAPTER_INFO_ATTR, None)
-    if adapter_info is None:
-        return None
-    dumped_adapter_info = adapter_info.model_dump()
-    if not isinstance(dumped_adapter_info, dict):
-        return None
-    return {str(key): value for key, value in dumped_adapter_info.items()}
