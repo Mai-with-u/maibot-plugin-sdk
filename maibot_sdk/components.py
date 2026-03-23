@@ -13,7 +13,6 @@ from maibot_sdk.types import (
     APIComponentInfo,
     ChatMode,
     CommandComponentInfo,
-    ComponentType,
     ErrorPolicy,
     EventHandlerComponentInfo,
     EventType,
@@ -426,8 +425,7 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
         if callable(attr) and hasattr(attr, _COMPONENT_INFO_ATTR):
             info = getattr(attr, _COMPONENT_INFO_ATTR)
             component_metadata = info.model_dump(exclude={"name", "type"})
-            if getattr(info, "type", None) == ComponentType.API:
-                component_metadata.setdefault("handler_name", attr_name)
+            component_metadata.setdefault("handler_name", attr_name)
             components.append(
                 {
                     "name": info.name,
