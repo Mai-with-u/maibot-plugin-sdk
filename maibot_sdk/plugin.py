@@ -4,10 +4,12 @@
 插件通过装饰器声明组件，通过 self.ctx 访问能力代理。
 """
 
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, ClassVar
 
 from maibot_sdk.components import collect_components
 from maibot_sdk.context import PluginContext
+from maibot_sdk.types import normalize_config_reload_subscription
 
 
 class MaiBotPlugin:
@@ -30,6 +32,14 @@ class MaiBotPlugin:
 
         def create_plugin():
             return MyPlugin()
+    """
+
+    config_reload_subscriptions: ClassVar[Iterable[str]] = ()
+    """插件订阅的全局配置热重载范围。
+
+    仅支持订阅 ``bot`` 和 ``model`` 两类全局配置广播。插件自身的
+    ``config.toml`` 变化不通过该字段声明，而是固定通过
+    :meth:`on_config_update` 接收。
     """
 
     def __init__(self) -> None:
@@ -65,25 +75,53 @@ class MaiBotPlugin:
         """
         return collect_components(self)
 
+    def get_config_reload_subscriptions(self) -> list[str]:
+        """返回当前插件订阅的全局配置热重载范围。
+
+        Returns:
+            list[str]: 归一化后的订阅范围列表，仅包含 ``bot`` 和 ``model``。
+
+        Raises:
+            TypeError: 当 ``config_reload_subscriptions`` 不是可迭代对象时抛出。
+            ValueError: 当订阅值不受支持时抛出。
+        """
+
+        raw_subscriptions = type(self).config_reload_subscriptions
+        if isinstance(raw_subscriptions, str):
+            raise TypeError("config_reload_subscriptions 必须是可迭代集合，不能直接使用字符串")
+        if not isinstance(raw_subscriptions, Iterable):
+            raise TypeError("config_reload_subscriptions 必须是可迭代集合")
+
+        normalized_subscriptions: set[str] = set()
+        for subscription in raw_subscriptions:
+            normalized_subscriptions.add(normalize_config_reload_subscription(subscription))
+        return sorted(normalized_subscriptions)
+
     async def on_load(self) -> None:
         """插件加载完成后的回调。
 
-        该方法为可选覆盖点，默认不执行任何逻辑。
+        Raises:
+            NotImplementedError: 子类未覆盖该生命周期方法时抛出。
         """
-        pass
+        raise NotImplementedError("插件必须实现 on_load() 来处理加载生命周期")
 
     async def on_unload(self) -> None:
         """插件卸载前的回调。
 
-        该方法为可选覆盖点，默认不执行任何逻辑。
+        Raises:
+            NotImplementedError: 子类未覆盖该生命周期方法时抛出。
         """
-        pass
+        raise NotImplementedError("插件必须实现 on_unload() 来处理卸载生命周期")
 
-    async def on_config_update(self, new_config: dict[str, Any], version: str) -> None:
-        """配置热更新回调。
+    async def on_config_update(self, scope: str, config_data: dict[str, Any], version: str) -> None:
+        """处理配置热更新事件。
 
         Args:
-            new_config: 新配置数据。
+            scope: 配置变更范围，取值为 ``self``、``bot``、``model``。
+            config_data: 当前范围对应的最新配置数据。
             version: 配置版本号。
+
+        Raises:
+            NotImplementedError: 子类未覆盖该生命周期方法时抛出。
         """
-        pass
+        raise NotImplementedError("插件必须实现 on_config_update() 来处理配置热重载")

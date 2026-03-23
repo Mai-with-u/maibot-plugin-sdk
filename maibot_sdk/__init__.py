@@ -11,6 +11,7 @@
 from maibot_sdk.components import API, Action, Command, EventHandler, HookHandler, MessageGateway, Tool, WorkflowStep
 from maibot_sdk.context import PluginContext
 from maibot_sdk.plugin import MaiBotPlugin
+from maibot_sdk.types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
 __version__ = "2.0.1"
 
@@ -25,4 +26,7 @@ __all__ = [
     "MessageGateway",
     "WorkflowStep",
     "PluginContext",
+    "CONFIG_RELOAD_SCOPE_SELF",
+    "ON_BOT_CONFIG_RELOAD",
+    "ON_MODEL_CONFIG_RELOAD",
 ]

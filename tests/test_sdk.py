@@ -6,6 +6,8 @@ import pytest
 
 from maibot_sdk import (
     API,
+    CONFIG_RELOAD_SCOPE_SELF,
+    ON_MODEL_CONFIG_RELOAD,
     Action,
     Command,
     EventHandler,
@@ -29,6 +31,18 @@ from maibot_sdk.types import (
 
 
 class SamplePlugin(MaiBotPlugin):
+    config_reload_subscriptions = {ON_MODEL_CONFIG_RELOAD}
+
+    async def on_load(self) -> None:
+        """处理插件加载。"""
+
+        return None
+
+    async def on_unload(self) -> None:
+        """处理插件卸载。"""
+
+        return None
+
     @Action("test_action", description="测试动作", activation_type=ActivationType.KEYWORD, activation_keywords=["你好"])
     async def handle_action(self, **kwargs):
         return True, "ok"
@@ -52,6 +66,11 @@ class SamplePlugin(MaiBotPlugin):
     @HookHandler("test_hook", stage=WorkflowStage.INGRESS)
     async def handle_hook(self, **kwargs):
         return {"hook_result": HookResult.CONTINUE}
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        del scope
+        del config_data
+        del version
 
 
 def test_plugin_instantiation():
@@ -155,6 +174,16 @@ def test_context_has_all_capabilities():
 class SampleGatewayPlugin(MaiBotPlugin):
     """用于验证消息网关组件收集的测试插件。"""
 
+    async def on_load(self) -> None:
+        """处理插件加载。"""
+
+        return None
+
+    async def on_unload(self) -> None:
+        """处理插件卸载。"""
+
+        return None
+
     @MessageGateway(route_type="send", platform="qq")
     async def outbound(self, **kwargs):
         """示例出站网关。"""
@@ -166,6 +195,13 @@ class SampleGatewayPlugin(MaiBotPlugin):
         """示例入站网关。"""
 
         return kwargs
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        """处理配置热重载事件。"""
+
+        del scope
+        del config_data
+        del version
 
 
 def test_collect_message_gateway_components() -> None:
@@ -197,6 +233,23 @@ def test_collect_api_components() -> None:
 
     assert api_components["test_api"]["metadata"]["version"] == "1"
     assert api_components["test_api"]["metadata"]["public"] is True
+
+
+def test_collect_config_reload_subscriptions() -> None:
+    """插件应能声明全局配置热重载订阅。"""
+
+    plugin = SamplePlugin()
+
+    assert plugin.get_config_reload_subscriptions() == [ON_MODEL_CONFIG_RELOAD]
+
+
+@pytest.mark.asyncio
+async def test_on_config_update_can_distinguish_scope() -> None:
+    """插件可通过 scope 区分自配置与全局配置热重载。"""
+
+    plugin = SamplePlugin()
+
+    await plugin.on_config_update(CONFIG_RELOAD_SCOPE_SELF, {}, "")
 
 
 def test_capability_classes_importable():

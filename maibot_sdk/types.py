@@ -25,6 +25,13 @@ _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "tool": "TOOL",
 }
 _REMOVED_COMPONENT_TYPE_ALIASES = {"WORKFLOW_STEP", "workflow_step"}
+CONFIG_RELOAD_SCOPE_SELF = "self"
+ON_BOT_CONFIG_RELOAD = "bot"
+ON_MODEL_CONFIG_RELOAD = "model"
+_CONFIG_RELOAD_SUBSCRIPTION_ALIASES: dict[str, str] = {
+    "bot": ON_BOT_CONFIG_RELOAD,
+    "model": ON_MODEL_CONFIG_RELOAD,
+}
 
 
 def normalize_component_type_name(component_type: Any) -> str:
@@ -47,6 +54,26 @@ def normalize_component_type_name(component_type: Any) -> str:
     if normalized_name is None:
         raise ValueError(f"不支持的组件类型: {normalized_value}")
     return normalized_name
+
+
+def normalize_config_reload_subscription(subscription: Any) -> str:
+    """将配置热重载订阅值归一化为协议层使用的字符串。
+
+    Args:
+        subscription: 插件声明的原始订阅值。
+
+    Returns:
+        str: 归一化后的订阅范围，仅支持 ``bot`` 或 ``model``。
+
+    Raises:
+        ValueError: 当订阅值不受支持时抛出。
+    """
+
+    normalized_value = str(subscription or "").strip().lower()
+    subscription_name = _CONFIG_RELOAD_SUBSCRIPTION_ALIASES.get(normalized_value)
+    if subscription_name is None:
+        raise ValueError(f"不支持的配置热重载订阅: {subscription}")
+    return subscription_name
 
 
 # ─── 枚举类型 ──────────────────────────────────────────────────────
