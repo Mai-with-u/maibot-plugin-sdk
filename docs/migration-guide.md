@@ -154,7 +154,7 @@ from maibot_sdk.types import (
 )
 # 如果使用 HookHandler（新增功能）：
 from maibot_sdk import HookHandler
-from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
+from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 ```
 
 ### 导入映射表
@@ -744,37 +744,33 @@ def create_plugin():
 >
 > 旧系统的 `BasePlugin` 已有 `get_workflow_steps()` 方法支持 workflow 注册，但采用回调函数 + `WorkflowStepInfo` 的方式，使用较少。新系统通过 `@HookHandler` 装饰器大幅简化了声明方式。如果你的旧插件没有用到 workflow 可跳过本节。
 
-`HookHandler` 允许插件参与 MaiBot 的 6 阶段消息处理流水线：
-
-```
-INGRESS → PRE_PROCESS → PLAN → TOOL_EXECUTE → POST_PROCESS → EGRESS
-```
+`HookHandler` 现在用于订阅主程序真实执行路径上的命名 Hook 点，不再绑定固定的 6 阶段流水线。
 
 ### 使用示例
 
 ```python
 from maibot_sdk import HookHandler
-from maibot_sdk.types import WorkflowStage, HookResult
+from maibot_sdk.types import HookMode, HookOrder
 
 @HookHandler(
-    "content_filter",
-    stage=WorkflowStage.INGRESS,
+    "heart_fc.heart_flow_cycle_start",
+    name="content_filter",
     description="内容过滤",
-    priority=10,          # 阶段内优先级，越高越先执行
-    blocking=True,        # 串行执行，可修改消息
+    mode=HookMode.BLOCKING,
+    order=HookOrder.EARLY,
     timeout_ms=5000,      # 超时 5 秒
 )
-async def filter_content(self, context, message, **kwargs):
-    """过滤不当内容"""
-    text = message.get("plain_text", "")
-    if "敏感词" in text:
-        return {
-            "hook_result": HookResult.ABORT.value,  # 终止流水线
-            "modified_message": None,
-        }
+async def filter_content(self, session_id="", cycle_id="", **kwargs):
+    """过滤不当内容。"""
+    if not session_id:
+        return {"action": "abort"}
     return {
-        "hook_result": HookResult.CONTINUE.value,  # 继续
-        "modified_message": message,
+        "action": "continue",
+        "modified_kwargs": {
+            "session_id": session_id,
+            "cycle_id": cycle_id,
+            **kwargs,
+        },
     }
 ```
 
@@ -782,13 +778,14 @@ async def filter_content(self, context, message, **kwargs):
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `name` | str | 组件名称 |
-| `stage` | WorkflowStage | 所属阶段（INGRESS/PRE_PROCESS/PLAN/TOOL_EXECUTE/POST_PROCESS/EGRESS） |
-| `priority` | int | 阶段内优先级（越高越先执行） |
-| `blocking` | bool | `True`=串行可修改消息，`False`=并发只读 |
+| `hook` | str | 订阅的命名 Hook 名称 |
+| `name` | str | 可选组件名称；留空时默认使用方法名 |
+| `mode` | HookMode | `BLOCKING`=串行控制点，`OBSERVE`=并发观察者 |
+| `order` | HookOrder | 同一模式内的顺序槽位：EARLY/NORMAL/LATE |
 | `timeout_ms` | int | 超时毫秒数，0=不限时 |
 | `error_policy` | ErrorPolicy | 异常策略：ABORT（终止）/ SKIP（跳过）/ LOG（记录） |
-| `filter` | dict | 前置过滤条件 |
+
+Host 的实际执行顺序为：`BLOCKING` 先于 `OBSERVE`，`EARLY` 先于 `NORMAL` 先于 `LATE`，同槽位内内置插件优先于第三方插件。
 
 ---
 
@@ -1610,7 +1607,7 @@ msg.modify_plain_text("新文本")
 
 ### 10. 类型导入
 - `from maibot_sdk.types import ActivationType, ChatMode, EventType, ToolParameterInfo, ToolParamType`
-- 如需 HookHandler：`from maibot_sdk import HookHandler` + `from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy`
+- 如需 HookHandler：`from maibot_sdk import HookHandler` + `from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder`
 - 如需适配器插件：`from maibot_sdk import Adapter`，并实现 `send_to_platform()` + `self.ctx.adapter.receive_external_message(...)`
 - 如需消息模型：`from maibot_sdk.messages import MaiMessages, MessageSegment`
 

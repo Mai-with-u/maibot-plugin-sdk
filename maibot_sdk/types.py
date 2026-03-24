@@ -150,15 +150,19 @@ class MessageGatewayRouteType(str, Enum):
     DUPLEX = "duplex"
 
 
-class WorkflowStage(str, Enum):
-    """Workflow 阶段"""
+class HookMode(str, Enum):
+    """Hook 处理模式。"""
 
-    INGRESS = "ingress"
-    PRE_PROCESS = "pre_process"
-    PLAN = "plan"
-    TOOL_EXECUTE = "tool_execute"
-    POST_PROCESS = "post_process"
-    EGRESS = "egress"
+    BLOCKING = "blocking"
+    OBSERVE = "observe"
+
+
+class HookOrder(str, Enum):
+    """Hook 在同一模式内的顺序槽位。"""
+
+    EARLY = "early"
+    NORMAL = "normal"
+    LATE = "late"
 
 
 class ModifyFlag(str, Enum):
@@ -169,20 +173,12 @@ class ModifyFlag(str, Enum):
     CAN_MODIFY_MESSAGE = "can_modify_message"
 
 
-class HookResult(str, Enum):
-    """Workflow hook 返回值语义"""
-
-    CONTINUE = "continue"  # 继续当前 stage 的下一个 hook
-    SKIP_STAGE = "skip_stage"  # 跳过当前 stage 剩余 hook，进入下一个 stage
-    ABORT = "abort"  # 终止整个 pipeline
-
-
 class ErrorPolicy(str, Enum):
     """Hook 异常处理策略"""
 
-    ABORT = "abort"  # 异常终止 pipeline（默认）
+    ABORT = "abort"  # 异常时终止当前 hook 调用
     SKIP = "skip"  # 记录日志，跳过此 hook 继续
-    LOG = "log"  # 记录日志，将异常传给后续 hook
+    LOG = "log"  # 记录日志，并继续执行后续 hook
 
 
 # ─── 工具参数定义 ──────────────────────────────────────────────────
@@ -263,12 +259,11 @@ class HookHandlerComponentInfo(ComponentInfo):
     """HookHandler 组件信息"""
 
     type: ComponentType = ComponentType.HOOK_HANDLER
-    stage: WorkflowStage = Field(description="所属 workflow 阶段")
-    priority: int = Field(default=0, description="阶段内优先级（越高越先执行）")
-    timeout_ms: int = Field(default=0, description="超时(ms)，0=不限时")
-    blocking: bool = Field(default=True, description="True=串行可修改消息, False=并发只读")
-    error_policy: ErrorPolicy = Field(default=ErrorPolicy.ABORT, description="异常处理策略")
-    filter: dict[str, Any] = Field(default_factory=dict, description="前置过滤条件，Host 预过滤不走 IPC")
+    hook: str = Field(description="订阅的命名 Hook 名称")
+    mode: HookMode = Field(default=HookMode.BLOCKING, description="处理模式：blocking 或 observe")
+    order: HookOrder = Field(default=HookOrder.NORMAL, description="同一模式内的顺序槽位")
+    timeout_ms: int = Field(default=0, description="处理器超时(ms)，0 表示使用 Hook 默认值")
+    error_policy: ErrorPolicy = Field(default=ErrorPolicy.SKIP, description="异常处理策略")
 
 
 class MessageGatewayComponentInfo(ComponentInfo):

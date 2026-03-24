@@ -439,81 +439,82 @@ async def filter_spam(self, **kwargs):
 
 ### HookHandler
 
-`HookHandler` 参与消息处理管线（Pipeline）。管线按阶段顺序执行，每个阶段内按优先级排序。
+`HookHandler` 用于订阅主程序真实执行路径上的命名 Hook 点。主程序在任意位置调用
+`await manager.invoke_hook("hook.name", **kwargs)` 时，所有订阅该 Hook 的插件处理器都会被 Host 调度执行。
 
 ```python
 from maibot_sdk import HookHandler
-from maibot_sdk.types import WorkflowStage, HookResult, ErrorPolicy
+from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 
-# 串行步骤（可修改消息）
 @HookHandler(
-    "keyword_filter",
-    stage=WorkflowStage.INGRESS,
-    priority=10,
+    "heart_fc.heart_flow_cycle_start",
+    name="keyword_guard",
+    mode=HookMode.BLOCKING,
+    order=HookOrder.EARLY,
     timeout_ms=5000,
     error_policy=ErrorPolicy.SKIP,
 )
-async def filter_keywords(self, context, message, **kwargs):
-    # message 是 MaiMessages 序列化后的 dict
-    text = message.get("plain_text", "")
-    if "禁止词" in text:
-        return {"hook_result": HookResult.ABORT}
-    return {"hook_result": HookResult.CONTINUE, "modified_message": message}
+async def guard_cycle_start(self, session_id="", cycle_id="", **kwargs):
+    if not session_id:
+        return {"action": "abort"}
+    return {
+        "action": "continue",
+        "modified_kwargs": {
+            "session_id": session_id,
+            "cycle_id": cycle_id,
+            **kwargs,
+        },
+    }
 
-# 并发只读步骤
 @HookHandler(
-    "analytics",
-    stage=WorkflowStage.PRE_PROCESS,
-    blocking=False,
+    "heart_fc.heart_flow_cycle_start",
+    name="analytics_observer",
+    mode=HookMode.OBSERVE,
+    order=HookOrder.LATE,
 )
-async def collect_analytics(self, context, message, **kwargs):
-    # 只读观察者，与同阶段其他 non-blocking 步骤并发执行
-    await self.ctx.db.save("analytics", {"text": message.get("plain_text", "")})
+async def collect_analytics(self, session_id="", cycle_id="", **kwargs):
+    await self.ctx.db.query(
+        model_name="HookLog",
+        query_type="insert",
+        data={"session_id": session_id, "cycle_id": cycle_id},
+    )
 ```
 
 **参数列表**：
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `name` | `str` | (必填) | 组件名称 |
-| `stage` | `WorkflowStage` | (必填) | 所属阶段 |
+| `hook` | `str` | (必填) | 订阅的命名 Hook 名称 |
+| `name` | `str` | `方法名` | 组件名称；留空时默认使用被装饰方法名 |
 | `description` | `str` | `""` | 描述 |
-| `priority` | `int` | `0` | 阶段内优先级（越高越先） |
-| `timeout_ms` | `int` | `0` | 超时毫秒数，0 = 不限时 |
-| `blocking` | `bool` | `True` | `True` = 串行执行，可修改消息；`False` = 并发只读 |
-| `error_policy` | `ErrorPolicy` | `ABORT` | 异常处理策略 |
-| `filter` | `dict` | `{}` | 前置过滤条件（Host 端预过滤，不满足时不发起 RPC） |
+| `mode` | `HookMode` | `BLOCKING` | `BLOCKING` 为串行控制点，`OBSERVE` 为并发观察者 |
+| `order` | `HookOrder` | `NORMAL` | 同一模式内的顺序槽位：`EARLY` / `NORMAL` / `LATE` |
+| `timeout_ms` | `int` | `0` | 超时毫秒数，`0` 表示使用当前 Hook 的默认值 |
+| `error_policy` | `ErrorPolicy` | `SKIP` | 异常处理策略 |
 
-**WorkflowStage 阶段顺序**：
+**Host 执行顺序**：
 
-```
-INGRESS -> PRE_PROCESS -> PLAN -> TOOL_EXECUTE -> POST_PROCESS -> EGRESS
-```
+1. `BLOCKING` 先于 `OBSERVE`
+2. `EARLY` 先于 `NORMAL` 先于 `LATE`
+3. 内置插件先于第三方插件
+4. 同槽位内按 `plugin_id` 和处理器名称稳定排序
 
-| 阶段 | 说明 |
+**HookHandler 返回值**：
+
+| 字段 | 含义 |
 |------|------|
-| `INGRESS` | 消息入口，过滤和预检 |
-| `PRE_PROCESS` | 前处理，上下文补充 |
-| `PLAN` | 规划阶段，决定调用哪些 Action/Tool |
-| `TOOL_EXECUTE` | 工具执行 |
-| `POST_PROCESS` | 后处理，修改回复内容 |
-| `EGRESS` | 出口，最终发送前处理 |
-
-**HookResult 返回值**：
-
-| 值 | 含义 |
-|----|------|
-| `CONTINUE` | 继续执行当前阶段的下一个步骤 |
-| `SKIP_STAGE` | 跳过当前阶段剩余步骤，进入下一阶段 |
-| `ABORT` | 终止整个 pipeline |
+| `action="continue"` | 继续执行后续 blocking 处理器 |
+| `action="abort"` | 中止本次 Hook 调用 |
+| `modified_kwargs` | 仅 `BLOCKING` 处理器可返回，用于覆盖后续处理器看到的参数 |
+| `custom_result` | 额外返回值；主要用于日志和上层附加处理 |
 
 **ErrorPolicy 错误策略**：
 
 | 值 | 含义 |
 |----|------|
-| `ABORT` | 异常时终止 pipeline（默认） |
+| `ABORT` | 异常时终止当前 Hook 调用 |
 | `SKIP` | 记录日志，跳过此步骤继续 |
-| `LOG` | 记录日志，将异常传给后续步骤 |
+| `LOG` | 记录日志，并继续后续步骤 |
 
 ### MessageGateway
 
@@ -1186,11 +1187,11 @@ from maibot_sdk.types import (
     ComponentType,       # 组件类型 (ACTION/API/COMMAND/TOOL/EVENT_HANDLER/HOOK_HANDLER/MESSAGE_GATEWAY)
     ErrorPolicy,         # 异常策略 (ABORT/SKIP/LOG)
     EventType,           # 事件类型
-    HookResult,          # Workflow 返回值 (CONTINUE/SKIP_STAGE/ABORT)
+    HookMode,            # Hook 处理模式 (BLOCKING/OBSERVE)
+    HookOrder,           # Hook 顺序槽位 (EARLY/NORMAL/LATE)
     MessageGatewayRouteType,  # 消息网关路由类型
     ModifyFlag,          # 消息修改标志
     ToolParamType,       # 工具参数类型
-    WorkflowStage,       # Workflow 阶段
 
     # 模型
     ToolParameterInfo,   # 工具参数定义

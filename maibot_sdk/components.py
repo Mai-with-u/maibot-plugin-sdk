@@ -8,8 +8,8 @@ from collections.abc import Callable
 from typing import Any
 
 from maibot_sdk.types import (
-    ActionComponentInfo,
     ActivationType,
+    ActionComponentInfo,
     APIComponentInfo,
     ChatMode,
     CommandComponentInfo,
@@ -17,11 +17,12 @@ from maibot_sdk.types import (
     EventHandlerComponentInfo,
     EventType,
     HookHandlerComponentInfo,
+    HookMode,
+    HookOrder,
     MessageGatewayComponentInfo,
     MessageGatewayRouteType,
     ToolComponentInfo,
     ToolParameterInfo,
-    WorkflowStage,
 )
 
 # 装饰器签名: 接受函数返回函数
@@ -257,37 +258,52 @@ def EventHandler(
 
 
 def HookHandler(
-    name: str,
-    stage: WorkflowStage,
+    hook: str,
+    *,
+    name: str = "",
     description: str = "",
-    priority: int = 0,
+    mode: HookMode = HookMode.BLOCKING,
+    order: HookOrder = HookOrder.NORMAL,
     timeout_ms: int = 0,
-    blocking: bool = True,
-    error_policy: ErrorPolicy = ErrorPolicy.ABORT,
-    filter: dict[str, Any] | None = None,
+    error_policy: ErrorPolicy = ErrorPolicy.SKIP,
     **metadata: Any,
 ) -> _Decorator:
-    """HookHandler 组件装饰器
+    """声明命名 Hook 处理器。
 
     Args:
-        name: 组件名称
-        stage: 所属 workflow 阶段
-        priority: 阶段内优先级（越高越先执行）
-        timeout_ms: 超时(ms)，0=不限时
-        blocking: True=串行可修改消息, False=并发只读
-        error_policy: 异常处理策略 (abort/skip/log)
-        filter: 前置过滤条件 dict，Host 端预过滤不满足条件的调用
+        hook: 订阅的命名 Hook 名称。
+        name: 可选的组件名称；留空时默认使用方法名。
+        description: 组件描述。
+        mode: Hook 处理模式。
+        order: Hook 在同一模式内的顺序槽位。
+        timeout_ms: 处理器超时，单位为毫秒；传入 ``0`` 表示使用 Hook 默认值。
+        error_policy: 异常处理策略。
+        **metadata: 额外元数据。
+
+    Returns:
+        _Decorator: 用于修饰插件方法的装饰器。
 
     用法：
-        @HookHandler("my_ingress", stage=WorkflowStage.INGRESS, priority=10)
-        async def handle_ingress(self, context, message, **kwargs):
-            return {"hook_result": "continue", "modified_message": {...}}
+        @HookHandler(
+            "heart_fc.heart_flow_cycle_start",
+            name="cycle_start_guard",
+            mode=HookMode.BLOCKING,
+            order=HookOrder.EARLY,
+        )
+        async def handle_cycle_start(self, **kwargs):
+            return {"action": "continue", "modified_kwargs": kwargs}
 
-        @HookHandler("observer", stage=WorkflowStage.PRE_PROCESS, blocking=False)
-        async def observe(self, context, message, **kwargs):
-            # 只读观察者，并发执行
-            ...
+        @HookHandler(
+            "heart_fc.heart_flow_cycle_start",
+            mode=HookMode.OBSERVE,
+        )
+        async def observe_cycle_start(self, **kwargs):
+            await self.ctx.db.save("hook_log", kwargs)
     """
+
+    normalized_hook = str(hook or "").strip()
+    if not normalized_hook:
+        raise ValueError("HookHandler 的 hook 名称不能为空")
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         """将 HookHandler 元数据附着到目标函数。
@@ -298,15 +314,18 @@ def HookHandler(
         Returns:
             Callable[..., Any]: 原始函数对象。
         """
+        component_name = str(name or func.__name__).strip()
+        if not component_name:
+            raise ValueError("HookHandler 的组件名称不能为空")
+
         info = HookHandlerComponentInfo(
-            name=name,
-            stage=stage,
+            name=component_name,
+            hook=normalized_hook,
             description=description,
-            priority=priority,
+            mode=mode,
+            order=order,
             timeout_ms=timeout_ms,
-            blocking=blocking,
             error_policy=error_policy,
-            filter=filter or {},
             metadata=metadata,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
@@ -424,7 +443,7 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
             continue
         if callable(attr) and hasattr(attr, _COMPONENT_INFO_ATTR):
             info = getattr(attr, _COMPONENT_INFO_ATTR)
-            component_metadata = info.model_dump(exclude={"name", "type"})
+            component_metadata = info.model_dump(mode="json", exclude={"name", "type"})
             component_metadata.setdefault("handler_name", attr_name)
             components.append(
                 {

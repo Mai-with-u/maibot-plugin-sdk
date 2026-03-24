@@ -156,6 +156,7 @@ def create_plugin():
 
 - Runner 会在调用 `on_load()` 之前先注入 `PluginContext` 并完成 capability bootstrap，因此插件可以在 `on_load()` 中直接调用 `self.ctx.send.*`、`self.ctx.db.*` 等能力，无需自行等待“注册完成”信号。
 - SDK 插件必须实现 `on_load()`、`on_unload()` 和 `on_config_update(scope, config_data, version)` 三个生命周期方法；未实现时 Runner 会拒绝加载。
+- `HookHandler` 现在基于命名 Hook 点注册，不再依赖固定的 workflow stage；插件通过 `hook`、`mode`、`order` 描述自己的订阅位置。
 - `PluginContext` 当前暴露 14 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
 - `ctx.gateway.route_message()` / `ctx.gateway.update_state()` 分别对应主程序的入站路由和网关状态上报接口；只有处于 `ready=True` 的消息网关才会被主程序接收入站消息或纳入出站路由。
 - `ctx.api` 支持查询、调用其他插件公开的 API，也支持用 `register_dynamic_api()` / `sync_dynamic_apis()` 动态更新当前插件的 API 集合。

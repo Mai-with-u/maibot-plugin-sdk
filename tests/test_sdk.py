@@ -23,11 +23,11 @@ from maibot_sdk.types import (
     ActivationType,
     ComponentType,
     EventType,
-    HookResult,
+    HookMode,
+    HookOrder,
     ModifyFlag,
     ToolParameterInfo,
     ToolParamType,
-    WorkflowStage,
 )
 
 
@@ -45,28 +45,46 @@ class SamplePlugin(MaiBotPlugin):
         return None
 
     @Action("test_action", description="测试动作", activation_type=ActivationType.KEYWORD, activation_keywords=["你好"])
-    async def handle_action(self, **kwargs):
+    async def handle_action(self, **kwargs: Any) -> tuple[bool, str]:
+        """处理测试 Action。"""
+
+        del kwargs
         return True, "ok"
 
     @API("test_api", description="测试 API", version="1", public=True)
-    async def handle_api(self, **kwargs):
+    async def handle_api(self, **kwargs: Any) -> dict[str, bool]:
+        """处理测试 API。"""
+
+        del kwargs
         return {"ok": True}
 
     @Command("test_cmd", pattern=r"^/test")
-    async def handle_cmd(self, **kwargs):
+    async def handle_cmd(self, **kwargs: Any) -> tuple[bool, str, int]:
+        """处理测试命令。"""
+
+        del kwargs
         return True, "done", 2
 
     @Tool("test_tool", parameters=[ToolParameterInfo(name="q", param_type=ToolParamType.STRING)])
-    async def handle_tool(self, **kwargs):
+    async def handle_tool(self, **kwargs: Any) -> str:
+        """处理测试工具。"""
+
+        del kwargs
         return "result"
 
     @EventHandler("test_event", event_type=EventType.ON_MESSAGE)
-    async def handle_event(self, **kwargs):
-        pass
+    async def handle_event(self, **kwargs: Any) -> None:
+        """处理测试事件。"""
 
-    @HookHandler("test_hook", stage=WorkflowStage.INGRESS)
-    async def handle_hook(self, **kwargs):
-        return {"hook_result": HookResult.CONTINUE}
+        del kwargs
+        return None
+
+    @HookHandler("demo.test_hook", name="test_hook", mode=HookMode.BLOCKING, order=HookOrder.NORMAL)
+    async def handle_hook(self, **kwargs: Any) -> dict[str, str]:
+        """处理测试 Hook。"""
+
+        del kwargs
+        return {"action": "continue"}
 
     async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
         del scope
@@ -103,9 +121,22 @@ def test_component_types():
     assert type_map["test_hook"] == ComponentType.HOOK_HANDLER.value
 
 
+def test_hook_handler_metadata():
+    """HookHandler 应输出新的命名 Hook 元数据。"""
+
+    plugin = SamplePlugin()
+    components = plugin.get_components()
+    hook_component = next(component for component in components if component["name"] == "test_hook")
+
+    assert hook_component["metadata"]["hook"] == "demo.test_hook"
+    assert hook_component["metadata"]["mode"] == HookMode.BLOCKING
+    assert hook_component["metadata"]["order"] == HookOrder.NORMAL
+    assert getattr(hook_component["metadata"]["error_policy"], "value", hook_component["metadata"]["error_policy"]) == "skip"
+
+
 def test_workflow_step_is_a_breaking_change():
     with pytest.raises(RuntimeError, match="HookHandler"):
-        WorkflowStep("legacy_hook", stage=WorkflowStage.INGRESS)
+        WorkflowStep("legacy_hook")
 
 
 def test_messages_modify():
@@ -186,13 +217,13 @@ class SampleGatewayPlugin(MaiBotPlugin):
         return None
 
     @MessageGateway(route_type="send", platform="qq")
-    async def outbound(self, **kwargs):
+    async def outbound(self, **kwargs: Any) -> dict[str, Any]:
         """示例出站网关。"""
 
         return kwargs
 
     @MessageGateway(route_type="receive")
-    async def inbound(self, **kwargs):
+    async def inbound(self, **kwargs: Any) -> dict[str, Any]:
         """示例入站网关。"""
 
         return kwargs
