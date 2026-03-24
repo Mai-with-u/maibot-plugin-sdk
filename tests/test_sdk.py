@@ -1,8 +1,7 @@
 """maibot-plugin-sdk 基础测试"""
 
-from typing import Any
-
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -212,9 +211,7 @@ def test_collect_message_gateway_components() -> None:
     plugin = SampleGatewayPlugin()
     components = plugin.get_components()
     gateway_components = {
-        component["name"]: component
-        for component in components
-        if component["type"] == "MESSAGE_GATEWAY"
+        component["name"]: component for component in components if component["type"] == "MESSAGE_GATEWAY"
     }
 
     assert gateway_components["outbound"]["metadata"]["route_type"] == "send"
@@ -227,11 +224,7 @@ def test_collect_api_components() -> None:
 
     plugin = SamplePlugin()
     components = plugin.get_components()
-    api_components = {
-        component["name"]: component
-        for component in components
-        if component["type"] == "API"
-    }
+    api_components = {component["name"]: component for component in components if component["type"] == "API"}
 
     assert api_components["test_api"]["metadata"]["version"] == "1"
     assert api_components["test_api"]["metadata"]["public"] is True
@@ -297,7 +290,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.0.1"
+    assert maibot_sdk.__version__ == "2.1.0"
 
 
 def test_component_capability_normalizes_lowercase_component_type():

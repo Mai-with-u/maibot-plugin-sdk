@@ -2,7 +2,7 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 13 种能力代理、日志接口、5 种组件方法装饰器、1 种适配器类装饰器、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 14 种能力代理、日志接口、7 种组件方法装饰器、消息模型、生命周期、调试与发布。
 >
 > **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
@@ -15,9 +15,19 @@ pip install maibot-plugin-sdk
 ## 快速开始
 
 ```python
-from maibot_sdk import MaiBotPlugin, Action, Command
+from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, Action, Command, MaiBotPlugin
 
 class MyPlugin(MaiBotPlugin):
+    async def on_load(self) -> None:
+        return None
+
+    async def on_unload(self) -> None:
+        return None
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        if scope == CONFIG_RELOAD_SCOPE_SELF:
+            self.ctx.logger.info("插件配置已更新: version=%s", version)
+        del config_data
 
     @Action("greet", description="打招呼")
     async def handle_greet(self, **kwargs):
@@ -35,7 +45,7 @@ def create_plugin():
 
 将上述代码保存为 `plugin.py`，放入 MaiBot 的 `plugins/` 目录即可自动加载。
 
-如果你在编写平台适配器插件，请使用 `@Adapter` 声明插件类，并通过 `self.ctx.adapter.receive_external_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `Adapter` 章节。
+如果你在编写平台接入插件，请使用 `@MessageGateway` 声明消息网关组件，并通过 `self.ctx.gateway.route_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `MessageGateway` 章节。
 
 ## 能力一览
 
@@ -43,7 +53,8 @@ def create_plugin():
 
 | 属性 | 说明 |
 |------|------|
-| `ctx.adapter` | 适配器插件专用入站注入能力 |
+| `ctx.api` | 插件 API 查询、调用与动态同步 |
+| `ctx.gateway` | 消息网关路由与运行时状态上报 |
 | `ctx.send` | 发送文本、图片、表情、转发、混合消息 |
 | `ctx.db` | 数据库增删改查计数 |
 | `ctx.llm` | LLM 文本生成与工具调用 |
@@ -58,19 +69,46 @@ def create_plugin():
 | `ctx.tool` | LLM 工具定义查询 |
 | `ctx.logger` | 插件日志（标准 logging.Logger） |
 
-## 适配器插件
+## 消息网关插件
 
-如果插件负责把外部平台接入 MaiBot，可使用 `@Adapter` 声明一个平台适配器：
+如果插件负责把外部平台接入 MaiBot，可使用 `@MessageGateway` 声明消息网关组件：
 
 ```python
 from typing import Any
 
-from maibot_sdk import Adapter, MaiBotPlugin
+from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin, MessageGateway
 
 
-@Adapter(platform="qq", protocol="napcat", account_id="10001", scope="primary")
-class NapCatAdapterPlugin(MaiBotPlugin):
+class NapCatGatewayPlugin(MaiBotPlugin):
+    async def on_load(self) -> None:
+        await self.ctx.gateway.update_state(
+            gateway_name="napcat_gateway",
+            ready=True,
+            platform="qq",
+            account_id="10001",
+            scope="primary",
+            metadata={"protocol": "napcat"},
+        )
 
+    async def on_unload(self) -> None:
+        await self.ctx.gateway.update_state(
+            gateway_name="napcat_gateway",
+            ready=False,
+        )
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        if scope == CONFIG_RELOAD_SCOPE_SELF:
+            self.ctx.logger.info("配置已更新: %s", version)
+        del config_data
+
+    @MessageGateway(
+        route_type="duplex",
+        name="napcat_gateway",
+        platform="qq",
+        protocol="napcat",
+        account_id="10001",
+        scope="primary",
+    )
     async def send_to_platform(
         self,
         message: dict[str, Any],
@@ -82,7 +120,8 @@ class NapCatAdapterPlugin(MaiBotPlugin):
         return {"success": True, "external_message_id": "platform-msg-1"}
 
     async def handle_inbound(self, payload: dict[str, Any]) -> None:
-        await self.ctx.adapter.receive_external_message(
+        accepted = await self.ctx.gateway.route_message(
+            gateway_name="napcat_gateway",
             {
                 "message_id": payload["message_id"],
                 "platform": "qq",
@@ -99,18 +138,27 @@ class NapCatAdapterPlugin(MaiBotPlugin):
             external_message_id=payload["message_id"],
             dedupe_key=payload["message_id"],
         )
+        if not accepted:
+            self.ctx.logger.warning("Host 未接收入站消息: %s", payload["message_id"])
 
 
 def create_plugin():
-    return NapCatAdapterPlugin()
+    return NapCatGatewayPlugin()
 ```
 
-Host 出站默认会调用 `send_to_platform()`；入站则由插件主动调用 `ctx.adapter.receive_external_message()` 注入主消息链。
+主程序会根据 `route_type` 和运行时状态选择可用网关：
+
+- `route_type="send"` 或 `"duplex"` 的网关可被 Platform IO 选中处理出站消息
+- `route_type="receive"` 或 `"duplex"` 的网关可通过 `ctx.gateway.route_message()` 注入入站消息
+- 插件应在链路可用时调用 `ctx.gateway.update_state(..., ready=True)`，在断开或卸载时上报 `ready=False`
 
 ## 兼容说明
 
 - Runner 会在调用 `on_load()` 之前先注入 `PluginContext` 并完成 capability bootstrap，因此插件可以在 `on_load()` 中直接调用 `self.ctx.send.*`、`self.ctx.db.*` 等能力，无需自行等待“注册完成”信号。
-- `PluginContext` 当前暴露 13 个能力代理：`adapter`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
+- SDK 插件必须实现 `on_load()`、`on_unload()` 和 `on_config_update(scope, config_data, version)` 三个生命周期方法；未实现时 Runner 会拒绝加载。
+- `PluginContext` 当前暴露 14 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
+- `ctx.gateway.route_message()` / `ctx.gateway.update_state()` 分别对应主程序的入站路由和网关状态上报接口；只有处于 `ready=True` 的消息网关才会被主程序接收入站消息或纳入出站路由。
+- `ctx.api` 支持查询、调用其他插件公开的 API，也支持用 `register_dynamic_api()` / `sync_dynamic_apis()` 动态更新当前插件的 API 集合。
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
 - `ctx.db.count(model_name, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
 - 对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 等接口，SDK 会自动把 Host 返回的单字段包装结果解包为插件更直观的值、列表或字典；兼容层异步 API 也保持相同语义。

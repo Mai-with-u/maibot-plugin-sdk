@@ -1,6 +1,6 @@
 [project]
 name = "maibot-plugin-sdk"
-version = "2.0.1"
+version = "2.1.0"
 description = "MaiBot 插件开发 SDK"
 readme = "README.md"
 license = "LGPL-3.0-only"

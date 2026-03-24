@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from builtins import list as builtins_list
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ class APICapability:
 
     async def replace_dynamic_apis(
         self,
-        apis: list[dict[str, Any]],
+        apis: builtins_list[dict[str, Any]],
         *,
         offline_reason: str = "动态 API 已下线",
     ) -> bool:

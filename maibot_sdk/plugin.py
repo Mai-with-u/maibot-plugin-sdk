@@ -122,24 +122,25 @@ class MaiBotPlugin:
         if not resolved_handler_name:
             raise ValueError("动态 API handler_name 不能为空")
 
-        component = {
+        component_metadata: dict[str, Any] = {
+            "description": description,
+            "version": normalized_version,
+            "public": bool(public),
+            "dynamic": True,
+            "handler_name": resolved_handler_name,
+            **metadata,
+        }
+        component: dict[str, Any] = {
             "name": normalized_name,
             "type": "API",
-            "metadata": {
-                "description": description,
-                "version": normalized_version,
-                "public": bool(public),
-                "dynamic": True,
-                "handler_name": resolved_handler_name,
-                **metadata,
-            },
+            "metadata": component_metadata,
         }
         self._dynamic_api_components[self._build_dynamic_api_key(normalized_name, normalized_version)] = component
         self._dynamic_api_handlers[resolved_handler_name] = handler
         return {
             "name": component["name"],
             "type": component["type"],
-            "metadata": dict(component["metadata"]),
+            "metadata": dict(component_metadata),
         }
 
     def unregister_dynamic_api(self, name: str, *, version: str = "1") -> bool:

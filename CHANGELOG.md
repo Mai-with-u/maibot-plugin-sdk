@@ -8,6 +8,30 @@
 ## [Unreleased]
 
 
+## [2.1.0] - 2026-03-24
+
+### 新增
+
+- 新增 `API` 组件声明与 `ctx.api` 能力代理，支持按名称/版本查询、调用可见 API
+- 新增动态 API 注册、注销与整表同步能力，插件可通过 `register_dynamic_api()`、`unregister_dynamic_api()`、`sync_dynamic_apis()` 维护运行时 API 集合
+- 新增全局配置热更新订阅机制，`MaiBotPlugin.config_reload_subscriptions` 现可声明 `bot` / `model` 级配置广播订阅
+- 新增 `MessageGateway` 组件装饰器与消息网关能力代理，支持适配器式入站消息接入与运行时状态上报
+
+### 变更
+
+- SDK 不再继续暴露旧的适配器能力代理，统一收敛到消息网关模型，适配器插件请改用 `MessageGateway` 和 `ctx.gateway`
+- `MaiBotPlugin.on_config_update()` 的职责扩展为同时处理插件自身配置更新与全局 `bot` / `model` 配置广播
+- 组件声明与上下文能力围绕动态 API / 消息网关场景补齐，便于 Host 在运行时增删 API 和管理适配器链路状态
+
+### 修复
+
+- 兼容层 `LegacyPluginAdapter` 现已支持全局配置热更新与订阅范围管理，减少旧版插件在新运行时中的行为偏差
+- 简化组件收集逻辑，移除未使用的 `ComponentType` 依赖，降低内部维护复杂度
+
+### 测试
+
+- 补充 API 能力代理、动态 API、配置热更新、消息网关以及兼容层配置同步的回归测试
+
 ## [2.0.1] - 2026-03-22
 
 ### 新增
