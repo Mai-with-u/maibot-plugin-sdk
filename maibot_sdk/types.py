@@ -1,8 +1,9 @@
-"""SDK 类型定义
+"""SDK 类型定义。
 
 定义插件开发中使用的公共类型。
 """
 
+from copy import deepcopy
 from enum import Enum
 from typing import Any
 
@@ -136,6 +137,7 @@ class ToolParamType(str, Enum):
 
     STRING = "string"
     INTEGER = "integer"
+    NUMBER = "number"
     FLOAT = "float"
     BOOLEAN = "boolean"
     ARRAY = "array"
@@ -191,7 +193,46 @@ class ToolParameterInfo(BaseModel):
     param_type: ToolParamType = Field(default=ToolParamType.STRING, description="参数类型")
     description: str = Field(default="", description="参数描述")
     required: bool = Field(default=True, description="是否必需")
+    enum_values: list[Any] | None = Field(default=None, description="可选枚举值列表")
+    items_schema: dict[str, Any] | None = Field(default=None, description="数组元素 Schema")
+    properties: dict[str, dict[str, Any]] | None = Field(default=None, description="对象属性定义")
+    required_properties: list[str] = Field(default_factory=list, description="对象内部必填字段")
+    additional_properties: bool | dict[str, Any] | None = Field(default=None, description="是否允许额外字段")
     default: Any = Field(default=None, description="默认值")
+
+    def to_parameter_schema(self) -> dict[str, Any]:
+        """将 SDK 工具参数定义转换为 JSON Schema 属性。
+
+        Returns:
+            dict[str, Any]: 参数对应的 Schema 片段。
+        """
+        schema: dict[str, Any] = {
+            "type": self._get_json_schema_type(),
+            "description": self.description,
+        }
+        if self.enum_values:
+            schema["enum"] = list(self.enum_values)
+        if self.default is not None:
+            schema["default"] = deepcopy(self.default)
+        if self.param_type == ToolParamType.ARRAY and self.items_schema is not None:
+            schema["items"] = deepcopy(self.items_schema)
+        if self.param_type == ToolParamType.OBJECT:
+            schema["properties"] = deepcopy(self.properties or {})
+            if self.required_properties:
+                schema["required"] = list(self.required_properties)
+            if self.additional_properties is not None:
+                schema["additionalProperties"] = deepcopy(self.additional_properties)
+        return schema
+
+    def _get_json_schema_type(self) -> str:
+        """获取参数对应的 JSON Schema 类型名。
+
+        Returns:
+            str: JSON Schema 类型名。
+        """
+        if self.param_type in {ToolParamType.FLOAT, ToolParamType.NUMBER}:
+            return "number"
+        return self.param_type.value
 
 
 # ─── 组件信息 ──────────────────────────────────────────────────────
@@ -244,6 +285,46 @@ class ToolComponentInfo(ComponentInfo):
     type: ComponentType = ComponentType.TOOL
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
     parameters_raw: dict[str, Any] = Field(default_factory=dict, description="原始参数 schema（兼容 dict 声明）")
+
+    def get_parameters_schema(self) -> dict[str, Any] | None:
+        """获取对象级工具参数 Schema。
+
+        Returns:
+            dict[str, Any] | None: 对象级参数 Schema；无参数时返回 `None`。
+        """
+        if self.parameters_raw:
+            if self.parameters_raw.get("type") == "object" or "properties" in self.parameters_raw:
+                return deepcopy(self.parameters_raw)
+            required_names: list[str] = []
+            normalized_properties: dict[str, Any] = {}
+            for property_name, property_schema in self.parameters_raw.items():
+                if not isinstance(property_schema, dict):
+                    continue
+                property_schema_copy = deepcopy(property_schema)
+                if bool(property_schema_copy.pop("required", False)):
+                    required_names.append(str(property_name))
+                normalized_properties[str(property_name)] = property_schema_copy
+            schema: dict[str, Any] = {
+                "type": "object",
+                "properties": normalized_properties,
+            }
+            if required_names:
+                schema["required"] = required_names
+            return schema
+        if not self.parameters:
+            return None
+        properties = {
+            parameter.name: parameter.to_parameter_schema()
+            for parameter in self.parameters
+        }
+        required_names = [parameter.name for parameter in self.parameters if parameter.required]
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": properties,
+        }
+        if required_names:
+            schema["required"] = required_names
+        return schema
 
 
 class EventHandlerComponentInfo(ComponentInfo):
