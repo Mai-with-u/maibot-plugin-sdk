@@ -8,9 +8,9 @@ from collections.abc import Callable, Iterable
 from inspect import isawaitable, iscoroutinefunction
 from typing import Any, ClassVar
 
-from maibot_sdk.components import collect_components
-from maibot_sdk.context import PluginContext
-from maibot_sdk.types import normalize_config_reload_subscription
+from .components import collect_components
+from .context import PluginContext
+from .types import normalize_config_reload_subscription
 
 
 class MaiBotPlugin:
@@ -18,13 +18,13 @@ class MaiBotPlugin:
 
     用法示例：
 
-        from maibot_sdk import MaiBotPlugin, Action, Command
+        from maibot_sdk import MaiBotPlugin, Command, Tool
 
         class MyPlugin(MaiBotPlugin):
-            @Action("greet", description="打招呼")
-            async def handle_greet(self, **kwargs):
-                await self.ctx.send.text("你好！", kwargs["stream_id"])
-                return True, "已回复"
+            @Tool("greet", description="打招呼")
+            async def handle_greet(self, stream_id: str = "", **kwargs):
+                await self.ctx.send.text("你好！", stream_id)
+                return {"content": "已回复"}
 
             @Command("hello", pattern=r"^/hello")
             async def handle_hello(self, **kwargs):

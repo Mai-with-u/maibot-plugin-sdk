@@ -1,15 +1,15 @@
 """组件声明装饰器
 
-用于在插件类中声明 Action/Command/Tool/EventHandler/HookHandler/MessageGateway 组件。
-装饰器将组件元数据附加到方法或类上，Runner 在加载时收集。
+用于在插件类中声明 Tool/Command/EventHandler/HookHandler/MessageGateway 等组件。
+兼容入口 `Action` 仍然保留，但会在内部转换为 Tool 声明。
 """
 
 from collections.abc import Callable
 from typing import Any
+import warnings
 
-from maibot_sdk.types import (
+from .types import (
     ActivationType,
-    ActionComponentInfo,
     APIComponentInfo,
     ChatMode,
     CommandComponentInfo,
@@ -23,6 +23,7 @@ from maibot_sdk.types import (
     MessageGatewayRouteType,
     ToolComponentInfo,
     ToolParameterInfo,
+    build_tool_detailed_description,
 )
 
 # 装饰器签名: 接受函数返回函数
@@ -30,6 +31,165 @@ _Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
 
 # 标记属性名，用于在方法上附加组件信息
 _COMPONENT_INFO_ATTR = "__maibot_component_info__"
+
+
+def _normalize_tool_descriptions(
+    name: str,
+    description: str = "",
+    brief_description: str = "",
+    detailed_description: str = "",
+) -> tuple[str, str]:
+    """规范化工具的简要描述与详细描述。
+
+    Args:
+        name: 工具名称。
+        description: 兼容旧参数的描述字段。
+        brief_description: 新版简要描述。
+        detailed_description: 新版详细描述。
+
+    Returns:
+        tuple[str, str]: ``(简要描述, 详细描述)``。
+    """
+
+    normalized_brief_description = str(brief_description or description or f"工具 {name}").strip()
+    normalized_detailed_description = str(detailed_description or "").strip()
+    return normalized_brief_description, normalized_detailed_description
+
+
+def _build_tool_parameters_schema(
+    parameters: list[ToolParameterInfo] | dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """将 Tool 装饰器参数定义转换为对象级 Schema。
+
+    Args:
+        parameters: Tool 装饰器收到的参数定义。
+
+    Returns:
+        dict[str, Any] | None: 规范化后的对象级 Schema。
+    """
+
+    if isinstance(parameters, dict):
+        if parameters.get("type") == "object" or "properties" in parameters:
+            return dict(parameters)
+
+        required_names: list[str] = []
+        normalized_properties: dict[str, Any] = {}
+        for property_name, property_schema in parameters.items():
+            if not isinstance(property_schema, dict):
+                continue
+
+            property_schema_copy = dict(property_schema)
+            if bool(property_schema_copy.pop("required", False)):
+                required_names.append(str(property_name))
+            normalized_properties[str(property_name)] = property_schema_copy
+
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": normalized_properties,
+        }
+        if required_names:
+            schema["required"] = required_names
+        return schema
+
+    if isinstance(parameters, list) and parameters:
+        properties = {
+            parameter.name: parameter.to_parameter_schema()
+            for parameter in parameters
+        }
+        required_names = [parameter.name for parameter in parameters if parameter.required]
+        schema = {
+            "type": "object",
+            "properties": properties,
+        }
+        if required_names:
+            schema["required"] = required_names
+        return schema
+
+    return None
+
+
+def _build_action_parameters_schema(action_parameters: dict[str, Any] | None) -> dict[str, Any] | None:
+    """将旧 Action 参数定义转换为 Tool 兼容 Schema。
+
+    Args:
+        action_parameters: Action 的参数声明。
+
+    Returns:
+        dict[str, Any] | None: 统一对象级参数 Schema。
+    """
+
+    if not isinstance(action_parameters, dict) or not action_parameters:
+        return None
+
+    properties: dict[str, Any] = {}
+    for parameter_name, parameter_description in action_parameters.items():
+        normalized_name = str(parameter_name or "").strip()
+        if not normalized_name:
+            continue
+        properties[normalized_name] = {
+            "type": "string",
+            "description": str(parameter_description or "").strip() or "兼容旧 Action 参数",
+        }
+
+    if not properties:
+        return None
+    return {
+        "type": "object",
+        "properties": properties,
+    }
+
+
+def _build_action_detailed_description(
+    action_parameters: dict[str, Any] | None,
+    action_require: list[str] | None,
+    associated_types: list[str] | None,
+    activation_type: ActivationType,
+    activation_keywords: list[str] | None,
+    action_prompt: str,
+    detailed_description: str = "",
+) -> str:
+    """构造兼容旧 Action 的详细工具描述。
+
+    Args:
+        action_parameters: Action 参数定义。
+        action_require: Action 使用要求。
+        associated_types: Action 关联消息类型。
+        activation_type: Action 激活方式。
+        activation_keywords: Action 关键词。
+        action_prompt: Action 提示语。
+        detailed_description: 额外详细描述。
+
+    Returns:
+        str: 兼容旧 Action 的详细描述文本。
+    """
+
+    parameters_schema = _build_action_parameters_schema(action_parameters)
+    description_parts: list[str] = []
+
+    parameter_description = build_tool_detailed_description(parameters_schema)
+    if parameter_description:
+        description_parts.append(parameter_description)
+
+    normalized_requirements = [str(item).strip() for item in (action_require or []) if str(item).strip()]
+    if normalized_requirements:
+        description_parts.append("使用建议：\n" + "\n".join(f"- {item}" for item in normalized_requirements))
+
+    normalized_types = [str(item).strip() for item in (associated_types or []) if str(item).strip()]
+    if normalized_types:
+        description_parts.append(f"适用消息类型：{'、'.join(normalized_types)}。")
+
+    activation_lines = [f"兼容旧 Action 激活方式：{activation_type.value}。"]
+    normalized_keywords = [str(item).strip() for item in (activation_keywords or []) if str(item).strip()]
+    if normalized_keywords:
+        activation_lines.append(f"激活关键词：{'、'.join(normalized_keywords)}。")
+    if str(action_prompt or "").strip():
+        activation_lines.append(f"原始 Action 提示语：{str(action_prompt).strip()}。")
+    description_parts.append("\n".join(activation_lines))
+
+    if str(detailed_description or "").strip():
+        description_parts.append(str(detailed_description).strip())
+
+    return "\n\n".join(part for part in description_parts if part).strip()
 
 
 def Action(
@@ -46,37 +206,59 @@ def Action(
     action_prompt: str = "",
     **metadata: Any,
 ) -> _Decorator:
-    """Action 组件装饰器
+    """兼容旧 Action 的组件装饰器。
 
-    用法：
-        @Action("my_action", description="做某事", activation_type=ActivationType.KEYWORD,
-                activation_keywords=["你好"], action_require=["send"])
-        async def handle_my_action(self, **kwargs):
-            ...
+    该装饰器不再生成独立的 Action 声明，而是会把 Action 元数据转换为
+    Tool 元数据并注册为工具组件。这样旧插件仍然可以继续使用 ``@Action``，
+    但主程序内部只维护一套 Tool 抽象。
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        """将 Action 元数据附着到目标函数。
+        """将兼容旧 Action 的 Tool 元数据附着到目标函数。
 
         Args:
-            func: 被声明为 Action 的方法。
+            func: 被声明为兼容 Action 的方法。
 
         Returns:
             Callable[..., Any]: 原始函数对象。
         """
-        info = ActionComponentInfo(
+
+        warnings.warn(
+            "`Action` 装饰器已废弃，将在内部按 Tool 组件注册；请优先改用 `Tool`。",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        brief_description, _ = _normalize_tool_descriptions(name=name, description=description)
+        converted_parameters_schema = _build_action_parameters_schema(action_parameters)
+        info = ToolComponentInfo(
             name=name,
-            description=description,
-            activation_type=activation_type,
-            activation_keywords=activation_keywords or [],
-            activation_probability=activation_probability,
-            chat_mode=chat_mode,
-            action_parameters=action_parameters or {},
-            action_require=action_require or [],
-            associated_types=associated_types or [],
-            parallel_action=parallel_action,
-            action_prompt=action_prompt,
-            metadata=metadata,
+            description=brief_description,
+            brief_description=brief_description,
+            detailed_description=_build_action_detailed_description(
+                action_parameters=action_parameters,
+                action_require=action_require,
+                associated_types=associated_types,
+                activation_type=activation_type,
+                activation_keywords=activation_keywords,
+                action_prompt=action_prompt,
+            ),
+            parameters_raw=converted_parameters_schema or {},
+            invoke_method="plugin.invoke_action",
+            metadata={
+                **metadata,
+                "legacy_action": True,
+                "legacy_component_type": "ACTION",
+                "activation_type": activation_type.value,
+                "activation_keywords": list(activation_keywords or []),
+                "activation_probability": activation_probability,
+                "chat_mode": chat_mode.value,
+                "action_parameters": dict(action_parameters or {}),
+                "action_require": list(action_require or []),
+                "associated_types": list(associated_types or []),
+                "parallel_action": parallel_action,
+                "action_prompt": action_prompt,
+            },
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
@@ -162,6 +344,8 @@ def API(
 def Tool(
     name: str,
     description: str = "",
+    brief_description: str = "",
+    detailed_description: str = "",
     parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
     **metadata: Any,
 ) -> _Decorator:
@@ -196,11 +380,25 @@ def Tool(
         elif isinstance(parameters, dict):
             raw_params = parameters
 
-        info = ToolComponentInfo(
+        normalized_brief_description, normalized_detailed_description = _normalize_tool_descriptions(
             name=name,
             description=description,
+            brief_description=brief_description,
+            detailed_description=detailed_description,
+        )
+        parameters_schema = _build_tool_parameters_schema(parameters)
+
+        info = ToolComponentInfo(
+            name=name,
+            description=normalized_brief_description,
+            brief_description=normalized_brief_description,
+            detailed_description=build_tool_detailed_description(
+                parameters_schema,
+                fallback_description=normalized_detailed_description,
+            ),
             parameters=typed_params,
             parameters_raw=raw_params,
+            invoke_method="plugin.invoke_tool",
             metadata=metadata,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)

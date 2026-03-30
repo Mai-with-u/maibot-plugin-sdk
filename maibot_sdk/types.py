@@ -35,6 +35,80 @@ _CONFIG_RELOAD_SUBSCRIPTION_ALIASES: dict[str, str] = {
 }
 
 
+def _normalize_schema_type_name(raw_type: Any) -> str:
+    """将任意 Schema 类型值规范化为可读字符串。
+
+    Args:
+        raw_type: 原始类型值。
+
+    Returns:
+        str: 规范化后的类型名称。
+    """
+
+    normalized_type = str(raw_type or "").strip().lower()
+    if not normalized_type:
+        return "string"
+    if normalized_type in {"number", "integer", "boolean", "array", "object"}:
+        return normalized_type
+    return normalized_type
+
+
+def build_tool_detailed_description(
+    parameters_schema: dict[str, Any] | None,
+    fallback_description: str = "",
+) -> str:
+    """根据对象级参数 Schema 生成工具详细描述。
+
+    Args:
+        parameters_schema: 工具参数对象 Schema。
+        fallback_description: 无法从 Schema 推导时使用的兜底说明。
+
+    Returns:
+        str: 生成后的详细描述文本。
+    """
+
+    if not parameters_schema:
+        return fallback_description.strip()
+
+    properties = parameters_schema.get("properties")
+    if not isinstance(properties, dict) or not properties:
+        return fallback_description.strip()
+
+    required_names = {
+        str(name).strip()
+        for name in parameters_schema.get("required", [])
+        if str(name).strip()
+    }
+
+    lines = ["参数说明："]
+    for parameter_name, parameter_schema in properties.items():
+        if not isinstance(parameter_schema, dict):
+            continue
+
+        normalized_name = str(parameter_name).strip()
+        required_text = "必填" if normalized_name in required_names else "可选"
+        parameter_type = _normalize_schema_type_name(parameter_schema.get("type"))
+        parameter_description = str(parameter_schema.get("description", "") or "").strip() or "无额外说明"
+        line = f"- {normalized_name}：{parameter_type}，{required_text}。{parameter_description}"
+
+        enum_values = parameter_schema.get("enum")
+        if isinstance(enum_values, list) and enum_values:
+            line += f" 可选值：{'、'.join(str(item) for item in enum_values)}。"
+
+        if "default" in parameter_schema:
+            line += f" 默认值：{parameter_schema['default']}。"
+
+        lines.append(line)
+
+    if len(lines) == 1:
+        return fallback_description.strip()
+
+    if fallback_description.strip():
+        lines.append("")
+        lines.append(fallback_description.strip())
+    return "\n".join(lines).strip()
+
+
 def normalize_component_type_name(component_type: Any) -> str:
     """将组件类型归一化为协议层使用的大写字符串。
 
@@ -283,8 +357,20 @@ class ToolComponentInfo(ComponentInfo):
     """Tool 组件信息"""
 
     type: ComponentType = ComponentType.TOOL
+    brief_description: str = Field(default="", description="工具简要描述")
+    detailed_description: str = Field(default="", description="工具详细描述")
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
     parameters_raw: dict[str, Any] = Field(default_factory=dict, description="原始参数 schema（兼容 dict 声明）")
+    invoke_method: str = Field(default="plugin.invoke_tool", description="调用当前工具时使用的 RPC 方法")
+
+    def get_brief_description(self) -> str:
+        """获取工具的简要描述。
+
+        Returns:
+            str: 归一化后的简要描述。
+        """
+
+        return str(self.brief_description or self.description or f"工具 {self.name}").strip()
 
     def get_parameters_schema(self) -> dict[str, Any] | None:
         """获取对象级工具参数 Schema。
@@ -325,6 +411,18 @@ class ToolComponentInfo(ComponentInfo):
         if required_names:
             schema["required"] = required_names
         return schema
+
+    def get_detailed_description(self) -> str:
+        """获取工具的详细描述。
+
+        Returns:
+            str: 包含参数说明的详细描述。
+        """
+
+        return build_tool_detailed_description(
+            self.get_parameters_schema(),
+            fallback_description=str(self.detailed_description or "").strip(),
+        )
 
 
 class EventHandlerComponentInfo(ComponentInfo):
