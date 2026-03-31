@@ -8,6 +8,31 @@
 ## [Unreleased]
 
 
+## [2.2.0] - 2026-03-31
+
+### 新增
+
+- `Tool` 组件补充 `brief_description` 与 `detailed_description` 两级描述字段，便于 Host 在工具筛选、展示和提示词拼装阶段区分“简要用途”和“详细参数说明”
+- `Tool` 组件在传入对象级参数 Schema 时，会自动生成更完整的详细参数描述，减少重复手写文档的负担
+- `HookHandler` 进一步完善命名 Hook 点注册模型，插件可更直接地声明订阅位置与执行顺序
+
+### 变更
+
+- SDK 文档口径统一调整为“优先使用 `Tool` 声明可供主程序调度的能力”；`Action` 仅保留为兼容旧插件的装饰器入口，内部会自动转换为 Tool 声明
+- `LLM` 能力代理增强参数与 JSON Schema 兼容性，支持更多类型映射与结构化工具定义场景
+- 同步发布版本号到 `2.2.0`，对齐 `pyproject.toml`、`maibot_sdk.__version__` 与测试断言
+
+### 文档
+
+- 更新 `README.md`，改写快速开始示例，明确 `Action` 的兼容定位与 `Tool` 的推荐用法
+- 更新 `docs/guide.md`，补充 `Tool` 的双层描述字段说明，并把 `Action` 章节调整为兼容迁移说明
+- 更新 `docs/migration-guide.md`，补充“旧 Action 迁移到新版 Tool 抽象”的建议路径与兼容说明
+
+### 测试
+
+- 验证 SDK 目录下 `uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 可通过
+
+
 ## [2.1.0] - 2026-03-24
 
 ### 新增

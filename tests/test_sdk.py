@@ -112,13 +112,16 @@ def test_collect_components():
 def test_component_types():
     plugin = SamplePlugin()
     components = plugin.get_components()
-    type_map = {c["name"]: c["type"] for c in components}
-    assert type_map["test_action"] == ComponentType.ACTION.value
-    assert type_map["test_api"] == ComponentType.API.value
-    assert type_map["test_cmd"] == ComponentType.COMMAND.value
-    assert type_map["test_tool"] == ComponentType.TOOL.value
-    assert type_map["test_event"] == ComponentType.EVENT_HANDLER.value
-    assert type_map["test_hook"] == ComponentType.HOOK_HANDLER.value
+    component_map = {c["name"]: c for c in components}
+    assert component_map["test_action"]["type"] == ComponentType.TOOL.value
+    action_metadata = component_map["test_action"]["metadata"]["metadata"]
+    assert action_metadata["legacy_action"] is True
+    assert action_metadata["legacy_component_type"] == ComponentType.ACTION.value
+    assert component_map["test_api"]["type"] == ComponentType.API.value
+    assert component_map["test_cmd"]["type"] == ComponentType.COMMAND.value
+    assert component_map["test_tool"]["type"] == ComponentType.TOOL.value
+    assert component_map["test_event"]["type"] == ComponentType.EVENT_HANDLER.value
+    assert component_map["test_hook"]["type"] == ComponentType.HOOK_HANDLER.value
 
 
 def test_hook_handler_metadata():
@@ -131,7 +134,10 @@ def test_hook_handler_metadata():
     assert hook_component["metadata"]["hook"] == "demo.test_hook"
     assert hook_component["metadata"]["mode"] == HookMode.BLOCKING
     assert hook_component["metadata"]["order"] == HookOrder.NORMAL
-    assert getattr(hook_component["metadata"]["error_policy"], "value", hook_component["metadata"]["error_policy"]) == "skip"
+    assert (
+        getattr(hook_component["metadata"]["error_policy"], "value", hook_component["metadata"]["error_policy"])
+        == "skip"
+    )
 
 
 def test_workflow_step_is_a_breaking_change():
@@ -321,7 +327,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.1.0"
+    assert maibot_sdk.__version__ == "2.2.0"
 
 
 def test_component_capability_normalizes_lowercase_component_type():

@@ -4,9 +4,9 @@
 兼容入口 `Action` 仍然保留，但会在内部转换为 Tool 声明。
 """
 
+import warnings
 from collections.abc import Callable
 from typing import Any
-import warnings
 
 from .types import (
     ActivationType,
@@ -92,10 +92,7 @@ def _build_tool_parameters_schema(
         return schema
 
     if isinstance(parameters, list) and parameters:
-        properties = {
-            parameter.name: parameter.to_parameter_schema()
-            for parameter in parameters
-        }
+        properties = {parameter.name: parameter.to_parameter_schema() for parameter in parameters}
         required_names = [parameter.name for parameter in parameters if parameter.required]
         schema = {
             "type": "object",

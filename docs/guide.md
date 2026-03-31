@@ -55,10 +55,11 @@ pip install maibot-plugin-sdk
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import API, Action, Command, EventHandler, HookHandler, MaiBotPlugin, MessageGateway, Tool
+from maibot_sdk import API, Command, EventHandler, HookHandler, MaiBotPlugin, MessageGateway, Tool
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
+如果你正在迁移旧插件，仍可导入 `Action`；但它现在是兼容入口，内部会自动转换成 Tool 声明。
 
 ---
 
@@ -70,7 +71,8 @@ SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架
 2. 创建 `plugin.py`：
 
 ```python
-from maibot_sdk import Action, Command, CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin
+from maibot_sdk import Command, CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin, Tool
+from maibot_sdk.types import ToolParameterInfo, ToolParamType
 
 
 class HelloPlugin(MaiBotPlugin):
@@ -85,10 +87,23 @@ class HelloPlugin(MaiBotPlugin):
             self.ctx.logger.info("插件配置已更新: version=%s", version)
         del config_data
 
-    @Action("say_hello", description="主动打招呼")
-    async def handle_greet(self, **kwargs):
-        await self.ctx.send.text("你好！", kwargs["stream_id"])
-        return True, "已回复"
+    @Tool(
+        "say_hello",
+        brief_description="在当前聊天中发送问候",
+        detailed_description="参数说明：\n- stream_id：string，必填。当前聊天流 ID。",
+        parameters=[
+            ToolParameterInfo(
+                name="stream_id",
+                param_type=ToolParamType.STRING,
+                description="当前聊天流 ID",
+                required=True,
+            ),
+        ],
+    )
+    async def handle_greet(self, stream_id: str, **kwargs):
+        del kwargs
+        await self.ctx.send.text("你好！", stream_id)
+        return {"success": True, "message": "已回复"}
 
     @Command("hello", pattern=r"^/hello")
     async def handle_hello(self, **kwargs):
@@ -198,7 +213,7 @@ class ConfigAwarePlugin(MaiBotPlugin):
 
 组件是插件对外暴露的功能单元。通过装饰器声明组件，Runner 在加载插件时自动收集并注册到 Host。
 
-当前 SDK 公开 7 种组件装饰器：`API`、`Action`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`。其中 `WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
+当前 SDK 对外推荐 6 种正式组件装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
 
 ### API
 
@@ -243,7 +258,11 @@ class MathPlugin(MaiBotPlugin):
 
 ### Action
 
-Action 是最常用的组件类型，代表一个可被调度执行的动作。
+`Action` 现在是**兼容旧插件的声明入口**，不再是 SDK 推荐的新能力声明方式。主程序内部已经统一按 Tool 抽象处理这类能力，所以：
+
+- 新插件请优先使用 `@Tool`
+- 旧插件迁移时如果想少改动，可以暂时保留 `@Action`
+- `@Action` 会在 SDK 内部自动转换成 Tool 声明，并保留旧的激活条件、提示语和参数信息到元数据/详细描述中
 
 ```python
 from maibot_sdk import Action
@@ -261,6 +280,31 @@ async def handle_greet(self, **kwargs):
     stream_id = kwargs["stream_id"]
     await self.ctx.send.text("你好！", stream_id)
     return True, "已回复"
+```
+
+如果你是在写新插件，推荐直接改成：
+
+```python
+from maibot_sdk import Tool
+from maibot_sdk.types import ToolParameterInfo, ToolParamType
+
+@Tool(
+    "greet",
+    brief_description="向用户打招呼",
+    detailed_description="当对话需要寒暄、欢迎或礼貌回应时使用。",
+    parameters=[
+        ToolParameterInfo(
+            name="stream_id",
+            param_type=ToolParamType.STRING,
+            description="当前聊天流 ID",
+            required=True,
+        ),
+    ],
+)
+async def handle_greet(self, stream_id: str, **kwargs):
+    del kwargs
+    await self.ctx.send.text("你好！", stream_id)
+    return {"success": True, "message": "已回复"}
 ```
 
 **参数列表**：
@@ -331,6 +375,8 @@ from maibot_sdk.types import ToolParameterInfo, ToolParamType
 @Tool(
     "web_search",
     description="搜索互联网",
+    brief_description="查询互联网信息并返回结果摘要",
+    detailed_description="参数说明：\n- query：string，必填。搜索关键词。\n- limit：integer，可选。返回结果数量。",
     parameters=[
         ToolParameterInfo(
             name="query",
@@ -352,6 +398,12 @@ async def handle_search(self, query: str, limit: int = 5, **kwargs):
     results = await do_search(query, limit)
     return results
 ```
+
+描述字段约定：
+
+- `brief_description`：给主程序或小模型快速判断“这个工具是做什么的”
+- `detailed_description`：描述参数、必填项、可选项和调用约束
+- `description`：兼容旧写法；如果不显式提供 `brief_description`，会自动作为简要描述使用
 
 **ToolParamType 枚举**：
 

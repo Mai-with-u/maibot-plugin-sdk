@@ -74,11 +74,7 @@ def build_tool_detailed_description(
     if not isinstance(properties, dict) or not properties:
         return fallback_description.strip()
 
-    required_names = {
-        str(name).strip()
-        for name in parameters_schema.get("required", [])
-        if str(name).strip()
-    }
+    required_names = {str(name).strip() for name in parameters_schema.get("required", []) if str(name).strip()}
 
     lines = ["参数说明："]
     for parameter_name, parameter_schema in properties.items():
@@ -390,27 +386,24 @@ class ToolComponentInfo(ComponentInfo):
                 if bool(property_schema_copy.pop("required", False)):
                     required_names.append(str(property_name))
                 normalized_properties[str(property_name)] = property_schema_copy
-            schema: dict[str, Any] = {
+            raw_schema: dict[str, Any] = {
                 "type": "object",
                 "properties": normalized_properties,
             }
             if required_names:
-                schema["required"] = required_names
-            return schema
+                raw_schema["required"] = required_names
+            return raw_schema
         if not self.parameters:
             return None
-        properties = {
-            parameter.name: parameter.to_parameter_schema()
-            for parameter in self.parameters
-        }
+        properties = {parameter.name: parameter.to_parameter_schema() for parameter in self.parameters}
         required_names = [parameter.name for parameter in self.parameters if parameter.required]
-        schema: dict[str, Any] = {
+        tool_schema: dict[str, Any] = {
             "type": "object",
             "properties": properties,
         }
         if required_names:
-            schema["required"] = required_names
-        return schema
+            tool_schema["required"] = required_names
+        return tool_schema
 
     def get_detailed_description(self) -> str:
         """获取工具的详细描述。

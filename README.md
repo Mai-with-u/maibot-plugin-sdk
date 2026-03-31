@@ -2,7 +2,7 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 14 种能力代理、日志接口、7 种组件方法装饰器、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 14 种能力代理、日志接口、6 种正式组件装饰器、1 种兼容装饰器、消息模型、生命周期、调试与发布。
 >
 > **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
@@ -15,7 +15,8 @@ pip install maibot-plugin-sdk
 ## 快速开始
 
 ```python
-from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, Action, Command, MaiBotPlugin
+from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, Command, MaiBotPlugin, Tool
+from maibot_sdk.types import ToolParameterInfo, ToolParamType
 
 class MyPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -29,10 +30,23 @@ class MyPlugin(MaiBotPlugin):
             self.ctx.logger.info("插件配置已更新: version=%s", version)
         del config_data
 
-    @Action("greet", description="打招呼")
-    async def handle_greet(self, **kwargs):
-        await self.ctx.send.text("你好！", kwargs["stream_id"])
-        return True, "已回复"
+    @Tool(
+        "greet",
+        brief_description="在合适的时候向用户打招呼",
+        detailed_description="参数说明：\n- stream_id：string，必填。当前聊天流 ID。",
+        parameters=[
+            ToolParameterInfo(
+                name="stream_id",
+                param_type=ToolParamType.STRING,
+                description="当前聊天流 ID",
+                required=True,
+            ),
+        ],
+    )
+    async def handle_greet(self, stream_id: str, **kwargs):
+        del kwargs
+        await self.ctx.send.text("你好！", stream_id)
+        return {"success": True, "message": "已回复"}
 
     @Command("hello", pattern=r"^/hello")
     async def handle_hello(self, **kwargs):
@@ -44,6 +58,8 @@ def create_plugin():
 ```
 
 将上述代码保存为 `plugin.py`，放入 MaiBot 的 `plugins/` 目录即可自动加载。
+
+如果你是在迁移旧插件，`Action` 装饰器仍然可以继续使用；但它现在只是兼容入口，SDK 内部会把它转换成 Tool 声明，新的插件建议直接使用 `@Tool`。
 
 如果你在编写平台接入插件，请使用 `@MessageGateway` 声明消息网关组件，并通过 `self.ctx.gateway.route_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `MessageGateway` 章节。
 

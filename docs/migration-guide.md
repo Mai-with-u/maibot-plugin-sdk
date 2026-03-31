@@ -71,9 +71,9 @@ Host 主进程
 Runner 子进程（独立进程）
 ├── PluginLoader（发现和加载插件）
 ├── MaiBotPlugin ← 你的插件（继承基类）
-│   ├── @Action 装饰器（直接标注方法）
+│   ├── @Tool 装饰器（推荐）
+│   ├── @Action 装饰器（兼容旧插件，会自动转换为 Tool）
 │   ├── @Command 装饰器
-│   ├── @Tool 装饰器
 │   ├── @EventHandler 装饰器
 │   ├── @HookHandler 装饰器（新增）
 │   └── @Adapter 类装饰器（适配器插件可选）
@@ -306,7 +306,12 @@ def create_plugin():
 
 旧系统中 Action 是一个**独立类**，继承 `BaseAction`，通过类属性声明元数据，在 `execute()` 方法中实现逻辑。
 
-新系统中 Action 是插件类上的一个**方法**，通过 `@Action` 装饰器声明元数据。
+新版 SDK 中已经没有独立的 Action 运行时抽象，主程序内部统一按 Tool 处理。迁移时有两条路：
+
+1. **推荐路径**：直接改写成 `@Tool`
+2. **平滑路径**：继续使用 `@Action`，SDK 会在内部自动转换成 Tool 声明
+
+如果你是新写插件，或者愿意顺手整理语义，推荐直接使用 `@Tool`，并把旧的激活条件、前置要求整理到 `brief_description` / `detailed_description` 中。
 
 ### 旧写法
 
@@ -328,7 +333,46 @@ class HelloAction(BaseAction):
         return True, "发送了问候消息"
 ```
 
-### 新写法
+### 推荐新写法（直接迁移到 Tool）
+
+```python
+@Tool(
+    "hello_greeting",
+    brief_description="向用户发送问候消息",
+    detailed_description=(
+        "当对话需要寒暄、欢迎或礼貌回应时使用。\n"
+        "参数说明：\n"
+        "- stream_id：string，必填。当前聊天流 ID。\n"
+        "- greeting_message：string，可选。要追加的问候消息。"
+    ),
+    parameters=[
+        ToolParameterInfo(
+            name="stream_id",
+            param_type=ToolParamType.STRING,
+            description="当前聊天流 ID",
+            required=True,
+        ),
+        ToolParameterInfo(
+            name="greeting_message",
+            param_type=ToolParamType.STRING,
+            description="要发送的问候消息",
+            required=False,
+            default="",
+        ),
+    ],
+)
+async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **kwargs):
+    del kwargs
+    config_result = await self.ctx.config.get("greeting.message")
+    base_message = config_result if isinstance(config_result, str) else "嗨！"
+    message = base_message + greeting_message
+    await self.ctx.send.text(message, stream_id)
+    return {"success": True, "message": "发送了问候消息"}
+```
+
+### 兼容新写法（继续使用 Action）
+
+如果你希望先把旧插件跑起来，再慢慢收敛语义，也可以先保留 `@Action`：
 
 ```python
 @Action(
@@ -341,27 +385,29 @@ class HelloAction(BaseAction):
     parallel_action=False,
 )
 async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **kwargs):
+    del kwargs
     config_result = await self.ctx.config.get("greeting.message")
     base_message = config_result if isinstance(config_result, str) else "嗨！"
-    message = base_message + greeting_message
-    await self.ctx.send.text(message, stream_id)
+    await self.ctx.send.text(base_message + greeting_message, stream_id)
     return True, "发送了问候消息"
 ```
+
+这条路径的本质是“先保留旧声明方式，但 Host 实际收到的是一个转换后的 Tool”。
 
 ### Action 迁移对照表
 
 | 旧系统 | 新系统 |
 |--------|--------|
-| `class MyAction(BaseAction):` | `@Action("my_action", ...)` 方法装饰器 |
-| `action_name = "xxx"` | `@Action("xxx", ...)` 第一个参数 |
-| `action_description = "xxx"` | `@Action(..., description="xxx")` |
-| `activation_type = ActionActivationType.ALWAYS` | `activation_type=ActivationType.ALWAYS` |
-| `activation_keywords = [...]` | `activation_keywords=[...]` |
-| `random_activation_probability = 0.5` | `activation_probability=0.5` |
-| `action_parameters = {...}` | `action_parameters={...}` |
-| `action_require = [...]` | `action_require=[...]` |
-| `associated_types = [...]` | `associated_types=[...]` |
-| `parallel_action = False` | `parallel_action=False` |
+| `class MyAction(BaseAction):` | 推荐：`@Tool("my_action", ...)`；兼容：`@Action("my_action", ...)` |
+| `action_name = "xxx"` | `@Tool("xxx", ...)` / `@Action("xxx", ...)` 第一个参数 |
+| `action_description = "xxx"` | 推荐写入 `brief_description=`；兼容写法仍可用 `description=` |
+| `activation_type = ActionActivationType.ALWAYS` | 推荐写入 `detailed_description`；兼容写法仍可用 `activation_type=` |
+| `activation_keywords = [...]` | 推荐写入 `detailed_description`；兼容写法仍可用 `activation_keywords=` |
+| `random_activation_probability = 0.5` | 推荐写入 `detailed_description`；兼容写法仍可用 `activation_probability=0.5` |
+| `action_parameters = {...}` | 推荐迁移为 `parameters=[ToolParameterInfo(...)]` 或 Tool 参数 Schema |
+| `action_require = [...]` | 推荐写入 `detailed_description`；兼容写法仍可用 `action_require=` |
+| `associated_types = [...]` | 推荐写入 `detailed_description`；兼容写法仍可用 `associated_types=` |
+| `parallel_action = False` | 推荐作为实现约束写入文档；兼容写法仍可用 `parallel_action=False` |
 | `self.action_data.get("param")` | 方法参数：`param: str = ""` 或 `kwargs.get("param")` |
 | `self.chat_id`（等同于 `self.chat_stream.session_id`） | 方法参数：`stream_id: str = ""`（概念相同，旧系统叫 `chat_id`） |
 | `self.get_config(key, default)` | `await self.ctx.config.get(key)` **(注意：异步)** |
@@ -371,6 +417,8 @@ async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **
 | `return True, "结果"` | `return True, "结果"` **(保持不变)** |
 
 ### ActivationType 枚举对照
+
+只有在继续使用兼容 `@Action` 写法时，才需要关心这一组映射；如果已经直接迁移到 `@Tool`，建议把这些条件整理成清晰的工具描述文本，而不是继续依赖旧 Action 语义。
 
 | 旧枚举（`ActionActivationType`） | 新枚举（`ActivationType`） |
 |----------------------------------|---------------------------|
