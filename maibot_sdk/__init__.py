@@ -10,6 +10,7 @@
 """
 
 from .components import API, Action, Command, EventHandler, HookHandler, MessageGateway, Tool, WorkflowStep
+from .config import Field, PluginConfigBase
 from .context import PluginContext
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
@@ -26,6 +27,8 @@ __all__ = [
     "HookHandler",
     "MessageGateway",
     "WorkflowStep",
+    "PluginConfigBase",
+    "Field",
     "PluginContext",
     "CONFIG_RELOAD_SCOPE_SELF",
     "ON_BOT_CONFIG_RELOAD",

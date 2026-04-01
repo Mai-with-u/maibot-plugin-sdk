@@ -30,6 +30,14 @@ class ComponentCapability:
             plugin_name=plugin_name,
         )
 
+    async def get_plugin_config_schema(self, plugin_name: str) -> Any:
+        """获取指定插件的配置 Schema。"""
+
+        return await self._ctx.call_capability(
+            "component.get_plugin_config_schema",
+            plugin_name=plugin_name,
+        )
+
     async def list_loaded_plugins(self) -> Any:
         """列出已加载的插件"""
         return await self._ctx.call_capability("component.list_loaded_plugins")

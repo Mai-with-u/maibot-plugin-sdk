@@ -1,20 +1,29 @@
-"""MaiBot 插件基类
+"""MaiBot 插件基类。
 
 所有 SDK 插件必须继承此基类。
-插件通过装饰器声明组件，通过 self.ctx 访问能力代理。
+插件通过装饰器声明组件，通过 ``self.ctx`` 访问能力代理。
 """
 
-from collections.abc import Callable, Iterable
+import logging
+from collections.abc import Callable, Iterable, Mapping
 from inspect import isawaitable, iscoroutinefunction
 from typing import Any, ClassVar
 
 from .components import collect_components
+from .config import (
+    PluginConfigBase,
+    build_plugin_default_config,
+    generate_plugin_config_schema,
+    is_plugin_config_class,
+    merge_plugin_config_data,
+    validate_plugin_config,
+)
 from .context import PluginContext
 from .types import normalize_config_reload_subscription
 
 
 class MaiBotPlugin:
-    """SDK 插件基类
+    """SDK 插件基类。
 
     用法示例：
 
@@ -43,11 +52,171 @@ class MaiBotPlugin:
     :meth:`on_config_update` 接收。
     """
 
+    config_model: ClassVar[type[PluginConfigBase] | None] = None
+    """插件配置模型类。
+
+    插件作者可通过继承 :class:`PluginConfigBase` 声明配置结构，并将模型类
+    赋值给该属性。Runner 会据此自动生成默认配置、补齐缺失字段，并向 WebUI
+    暴露可渲染的配置 Schema。
+    """
+
     def __init__(self) -> None:
         """初始化插件基类状态。"""
         self._ctx: PluginContext | None = None
         self._dynamic_api_components: dict[str, dict[str, Any]] = {}
         self._dynamic_api_handlers: dict[str, Callable[..., Any]] = {}
+        self._plugin_config_data: dict[str, Any] = {}
+        self._plugin_config_instance: PluginConfigBase | None = None
+
+    def _get_logger(self) -> logging.Logger:
+        """获取当前插件可用的日志记录器。
+
+        Returns:
+            logging.Logger: 优先返回运行时上下文中的插件日志器；若上下文尚未注入，
+            则回退到 SDK 模块级日志器。
+        """
+
+        if self._ctx is not None:
+            return self._ctx.logger
+        return logging.getLogger("maibot_sdk.plugin")
+
+    @classmethod
+    def get_config_model(cls) -> type[PluginConfigBase] | None:
+        """返回当前插件声明的配置模型类。
+
+        Returns:
+            Optional[Type[PluginConfigBase]]: 配置模型类；未声明时返回 ``None``。
+        """
+
+        candidate = cls.config_model
+        return candidate if is_plugin_config_class(candidate) else None
+
+    @classmethod
+    def has_config_model(cls) -> bool:
+        """判断当前插件是否声明了配置模型。
+
+        Returns:
+            bool: 若已声明 ``config_model``，返回 ``True``。
+        """
+
+        return cls.get_config_model() is not None
+
+    @classmethod
+    def build_default_config(cls) -> dict[str, Any]:
+        """构造当前插件的默认配置字典。
+
+        Returns:
+            Dict[str, Any]: 默认配置字典；未声明配置模型时返回空字典。
+        """
+
+        config_class = cls.get_config_model()
+        if config_class is None:
+            return {}
+        return build_plugin_default_config(config_class)
+
+    @classmethod
+    def build_config_schema(
+        cls,
+        *,
+        plugin_id: str = "",
+        plugin_name: str = "",
+        plugin_version: str = "",
+        plugin_description: str = "",
+        plugin_author: str = "",
+    ) -> dict[str, Any]:
+        """构造当前插件的 WebUI 配置 Schema。
+
+        Args:
+            plugin_id: 插件 ID。
+            plugin_name: 插件名称。
+            plugin_version: 插件版本。
+            plugin_description: 插件描述。
+            plugin_author: 插件作者。
+
+        Returns:
+            Dict[str, Any]: 插件配置 Schema；未声明配置模型时返回空字典。
+        """
+
+        config_class = cls.get_config_model()
+        if config_class is None:
+            return {}
+        return generate_plugin_config_schema(
+            config_class,
+            plugin_id=plugin_id,
+            plugin_name=plugin_name,
+            plugin_version=plugin_version,
+            plugin_description=plugin_description,
+            plugin_author=plugin_author,
+        )
+
+    def normalize_plugin_config(self, config_data: Mapping[str, Any] | None) -> tuple[dict[str, Any], bool]:
+        """根据配置模型补齐并规范化插件配置。
+
+        Args:
+            config_data: 原始配置数据。
+
+        Returns:
+            tuple[Dict[str, Any], bool]: 规范化后的配置字典，以及是否产生了自动补齐
+            或归一化变更。
+        """
+
+        raw_config: dict[str, Any] = dict(config_data) if isinstance(config_data, Mapping) else {}
+        config_class = type(self).get_config_model()
+        if config_class is None:
+            return raw_config, False
+
+        default_config = type(self).build_default_config()
+        merged_config, changed = merge_plugin_config_data(default_config, raw_config)
+        validated_config = validate_plugin_config(config_class, merged_config)
+        normalized_config = validated_config.model_dump(mode="python")
+        return normalized_config, changed or normalized_config != merged_config
+
+    def set_plugin_config(self, config: dict[str, Any]) -> None:
+        """设置当前插件配置，并在需要时构造强类型配置实例。
+
+        Args:
+            config: 当前最新配置字典。
+        """
+
+        normalized_config, _ = self.normalize_plugin_config(config)
+        self._plugin_config_data = normalized_config
+
+        config_class = type(self).get_config_model()
+        if config_class is None:
+            self._plugin_config_instance = None
+            return
+
+        try:
+            self._plugin_config_instance = validate_plugin_config(config_class, normalized_config)
+        except Exception as exc:
+            self._plugin_config_instance = None
+            self._get_logger().warning(f"插件配置校验失败，将仅保留原始配置字典: {exc}")
+
+    @property
+    def config(self) -> PluginConfigBase:
+        """返回当前插件的强类型配置实例。
+
+        Returns:
+            PluginConfigBase: 当前插件的配置模型实例。
+
+        Raises:
+            RuntimeError: 未声明配置模型或配置尚未完成注入时抛出。
+        """
+
+        if not type(self).has_config_model():
+            raise RuntimeError("当前插件未声明 config_model，无法通过 config 属性访问强类型配置")
+        if self._plugin_config_instance is None:
+            raise RuntimeError("当前插件配置尚未完成注入")
+        return self._plugin_config_instance
+
+    def get_plugin_config_data(self) -> dict[str, Any]:
+        """返回当前插件持有的原始配置字典副本。
+
+        Returns:
+            Dict[str, Any]: 原始配置字典副本。
+        """
+
+        return dict(self._plugin_config_data)
 
     @property
     def ctx(self) -> PluginContext:
@@ -70,6 +239,45 @@ class MaiBotPlugin:
             ctx: 当前插件对应的运行时上下文。
         """
         self._ctx = ctx
+
+    def get_default_config(self) -> dict[str, Any]:
+        """返回当前插件的默认配置。
+
+        Returns:
+            Dict[str, Any]: 默认配置字典。
+        """
+
+        return type(self).build_default_config()
+
+    def get_webui_config_schema(
+        self,
+        *,
+        plugin_id: str = "",
+        plugin_name: str = "",
+        plugin_version: str = "",
+        plugin_description: str = "",
+        plugin_author: str = "",
+    ) -> dict[str, Any]:
+        """返回当前插件的 WebUI 配置 Schema。
+
+        Args:
+            plugin_id: 插件 ID。
+            plugin_name: 插件名称。
+            plugin_version: 插件版本。
+            plugin_description: 插件描述。
+            plugin_author: 插件作者。
+
+        Returns:
+            Dict[str, Any]: 当前插件的 WebUI 配置 Schema。
+        """
+
+        return type(self).build_config_schema(
+            plugin_id=plugin_id,
+            plugin_name=plugin_name,
+            plugin_version=plugin_version,
+            plugin_description=plugin_description,
+            plugin_author=plugin_author,
+        )
 
     def get_components(self) -> list[dict[str, Any]]:
         """收集所有被装饰器标记的组件信息

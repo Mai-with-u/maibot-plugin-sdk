@@ -1,7 +1,7 @@
 """maibot-plugin-sdk 基础测试"""
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -12,9 +12,11 @@ from maibot_sdk import (
     Action,
     Command,
     EventHandler,
+    Field,
     HookHandler,
     MaiBotPlugin,
     MessageGateway,
+    PluginConfigBase,
     Tool,
     WorkflowStep,
 )
@@ -87,6 +89,54 @@ class SamplePlugin(MaiBotPlugin):
         return {"action": "continue"}
 
     async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        del scope
+        del config_data
+        del version
+
+
+class DemoPluginSection(PluginConfigBase):
+    """插件基础配置节。"""
+
+    __ui_label__ = "插件设置"
+
+    enabled: bool = Field(default=True, description="是否启用插件")
+    retry_count: int = Field(default=3, description="最大重试次数", ge=0)
+
+
+class DemoFeatureSection(PluginConfigBase):
+    """功能配置节。"""
+
+    __ui_label__ = "功能设置"
+
+    endpoint: str = Field(default="https://example.com", description="目标地址")
+    tags: list[str] = Field(default_factory=lambda: ["demo"], description="标签列表")
+
+
+class DemoPluginConfig(PluginConfigBase):
+    """演示插件配置。"""
+
+    plugin: DemoPluginSection = Field(default_factory=DemoPluginSection)
+    feature: DemoFeatureSection = Field(default_factory=DemoFeatureSection)
+
+
+class ConfigurablePlugin(MaiBotPlugin):
+    """用于验证配置模型能力的测试插件。"""
+
+    config_model = DemoPluginConfig
+
+    async def on_load(self) -> None:
+        """处理插件加载。"""
+
+        return None
+
+    async def on_unload(self) -> None:
+        """处理插件卸载。"""
+
+        return None
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        """处理配置热重载事件。"""
+
         del scope
         del config_data
         del version
@@ -207,6 +257,48 @@ def test_context_has_all_capabilities():
 
     assert isinstance(ctx.logger, logging.Logger)
     assert ctx.logger.name == "plugin.__test__"
+
+
+def test_plugin_default_config_generation() -> None:
+    """声明了配置模型的插件应能生成默认配置。"""
+
+    plugin = ConfigurablePlugin()
+
+    assert plugin.get_default_config() == {
+        "plugin": {"enabled": True, "retry_count": 3},
+        "feature": {"endpoint": "https://example.com", "tags": ["demo"]},
+    }
+
+
+def test_plugin_config_schema_generation() -> None:
+    """插件应能基于配置模型生成 WebUI Schema。"""
+
+    plugin = ConfigurablePlugin()
+    schema = plugin.get_webui_config_schema(
+        plugin_id="demo.plugin",
+        plugin_name="演示插件",
+        plugin_version="1.2.3",
+        plugin_description="用于测试 Schema 生成",
+        plugin_author="MaiBot",
+    )
+
+    assert schema["plugin_id"] == "demo.plugin"
+    assert schema["plugin_info"]["name"] == "演示插件"
+    assert schema["sections"]["plugin"]["fields"]["enabled"]["type"] == "boolean"
+    assert schema["sections"]["feature"]["fields"]["tags"]["type"] == "array"
+
+
+def test_plugin_set_config_builds_typed_model() -> None:
+    """设置配置后，插件应能暴露强类型配置对象。"""
+
+    plugin = ConfigurablePlugin()
+    plugin.set_plugin_config({"plugin": {"enabled": False}, "feature": {"endpoint": "https://maibot.io"}})
+
+    config = cast(DemoPluginConfig, plugin.config)
+    assert config.plugin.enabled is False
+    assert config.plugin.retry_count == 3
+    assert config.feature.endpoint == "https://maibot.io"
+    assert config.feature.tags == ["demo"]
 
 
 class SampleGatewayPlugin(MaiBotPlugin):
