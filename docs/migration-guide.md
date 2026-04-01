@@ -177,7 +177,7 @@ from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 | 旧接入层没有统一的适配器声明装饰器 | `from maibot_sdk import Adapter` |
 | `from src.common.logger import get_logger` | `self.ctx.logger.info(msg)` 或 `logging.getLogger(__name__)` |
 
-> **重要**：新系统中，插件**不得**导入任何 `src.*` 模块。这会被 Runner 的 sys.path 隔离机制阻止。
+> **重要**：新插件仍然不建议依赖主程序内部 `src.*` 模块，应优先改用 `maibot_sdk` 暴露的能力接口。旧版 `src.plugin_system` 导入兼容仍会保留一段时间，但它仅用于迁移过渡，不应继续作为新代码的目标接口。
 
 ---
 
