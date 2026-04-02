@@ -801,25 +801,18 @@ from maibot_sdk import HookHandler
 from maibot_sdk.types import HookMode, HookOrder
 
 @HookHandler(
-    "heart_fc.heart_flow_cycle_start",
+    "chat.receive.before_process",
     name="content_filter",
     description="内容过滤",
     mode=HookMode.BLOCKING,
     order=HookOrder.EARLY,
     timeout_ms=5000,      # 超时 5 秒
 )
-async def filter_content(self, session_id="", cycle_id="", **kwargs):
+async def filter_content(self, message=None, **kwargs):
     """过滤不当内容。"""
-    if not session_id:
+    if not isinstance(message, dict):
         return {"action": "abort"}
-    return {
-        "action": "continue",
-        "modified_kwargs": {
-            "session_id": session_id,
-            "cycle_id": cycle_id,
-            **kwargs,
-        },
-    }
+    return {"action": "continue"}
 ```
 
 ### HookHandler 参数说明
@@ -830,10 +823,22 @@ async def filter_content(self, session_id="", cycle_id="", **kwargs):
 | `name` | str | 可选组件名称；留空时默认使用方法名 |
 | `mode` | HookMode | `BLOCKING`=串行控制点，`OBSERVE`=并发观察者 |
 | `order` | HookOrder | 同一模式内的顺序槽位：EARLY/NORMAL/LATE |
-| `timeout_ms` | int | 超时毫秒数，0=不限时 |
+| `timeout_ms` | int | 超时毫秒数，0=使用当前 Hook 默认值 |
 | `error_policy` | ErrorPolicy | 异常策略：ABORT（终止）/ SKIP（跳过）/ LOG（记录） |
 
 Host 的实际执行顺序为：`BLOCKING` 先于 `OBSERVE`，`EARLY` 先于 `NORMAL` 先于 `LATE`，同槽位内内置插件优先于第三方插件。
+
+迁移时需要注意两点：
+
+1. Hook 名称现在必须存在于运行时中心表里，未知 Hook 会直接导致插件注册失败。
+2. 当前内置的高价值 Hook 点包括：
+   `chat.receive.before_process`、`chat.receive.after_process`、`chat.command.before_execute`、`chat.command.after_execute`、
+   `emoji.maisaka.before_select`、`emoji.maisaka.after_select`、`emoji.register.after_build_description`、
+   `emoji.register.after_build_emotion`、`jargon.query.before_search`、`jargon.query.after_search`、
+   `jargon.extract.before_persist`、`jargon.inference.before_finalize`、`expression.select.before_select`、
+   `expression.select.after_selection`、`expression.learn.after_extract`、`expression.learn.before_upsert`、
+   `send_service.after_build_message`、`send_service.before_send`、`send_service.after_send`、
+   `maisaka.planner.before_request`、`maisaka.planner.after_response`。
 
 ---
 

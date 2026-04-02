@@ -20,6 +20,7 @@ from maibot_sdk.capabilities.knowledge import KnowledgeCapability
 from maibot_sdk.capabilities.llm import LLMCapability
 from maibot_sdk.capabilities.message import MessageCapability
 from maibot_sdk.capabilities.person import PersonCapability
+from maibot_sdk.capabilities.render import RenderCapability
 from maibot_sdk.capabilities.send import SendCapability
 from maibot_sdk.capabilities.tool import ToolCapability
 
@@ -65,6 +66,7 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "person.get_id": "person_id",
     "person.get_id_by_name": "person_id",
     "person.get_value": "value",
+    "render.html2png": "result",
     "tool.get_definitions": "tools",
 }
 
@@ -113,22 +115,24 @@ class PluginContext:
         self._plugin_id: str = plugin_id
         self._rpc_call: RpcCallFn | None = rpc_call
         self._logger: stdlib_logging.Logger | None = None
+        current_ctx: Any = self
 
         # 能力代理
-        self.api: APICapability = APICapability(self)
-        self.gateway: GatewayCapability = GatewayCapability(self)
-        self.send: SendCapability = SendCapability(self)
-        self.db: DatabaseCapability = DatabaseCapability(self)
-        self.llm: LLMCapability = LLMCapability(self)
-        self.config: ConfigCapability = ConfigCapability(self)
-        self.emoji: EmojiCapability = EmojiCapability(self)
-        self.message: MessageCapability = MessageCapability(self)
-        self.frequency: FrequencyCapability = FrequencyCapability(self)
-        self.component: ComponentCapability = ComponentCapability(self)
-        self.chat: ChatCapability = ChatCapability(self)
-        self.person: PersonCapability = PersonCapability(self)
-        self.knowledge: KnowledgeCapability = KnowledgeCapability(self)
-        self.tool: ToolCapability = ToolCapability(self)
+        self.api: APICapability = APICapability(current_ctx)
+        self.gateway: GatewayCapability = GatewayCapability(current_ctx)
+        self.send: SendCapability = SendCapability(current_ctx)
+        self.db: DatabaseCapability = DatabaseCapability(current_ctx)
+        self.llm: LLMCapability = LLMCapability(current_ctx)
+        self.config: ConfigCapability = ConfigCapability(current_ctx)
+        self.emoji: EmojiCapability = EmojiCapability(current_ctx)
+        self.message: MessageCapability = MessageCapability(current_ctx)
+        self.frequency: FrequencyCapability = FrequencyCapability(current_ctx)
+        self.component: ComponentCapability = ComponentCapability(current_ctx)
+        self.chat: ChatCapability = ChatCapability(current_ctx)
+        self.person: PersonCapability = PersonCapability(current_ctx)
+        self.render: RenderCapability = RenderCapability(current_ctx)
+        self.knowledge: KnowledgeCapability = KnowledgeCapability(current_ctx)
+        self.tool: ToolCapability = ToolCapability(current_ctx)
 
     @property
     def plugin_id(self) -> str:

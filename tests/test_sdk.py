@@ -245,6 +245,7 @@ def test_context_has_all_capabilities():
         "component",
         "chat",
         "person",
+        "render",
         "knowledge",
         "tool",
         "logger",
@@ -391,6 +392,7 @@ def test_capability_classes_importable():
     from maibot_sdk.capabilities.llm import LLMCapability
     from maibot_sdk.capabilities.message import MessageCapability
     from maibot_sdk.capabilities.person import PersonCapability
+    from maibot_sdk.capabilities.render import RenderCapability
     from maibot_sdk.capabilities.send import SendCapability
     from maibot_sdk.capabilities.tool import ToolCapability
 
@@ -410,6 +412,7 @@ def test_capability_classes_importable():
             LLMCapability,
             MessageCapability,
             PersonCapability,
+            RenderCapability,
             SendCapability,
             ToolCapability,
         ]
@@ -583,6 +586,51 @@ def test_send_custom_sends_compat_field_aliases():
     assert captured["data"] == {"x": 1}
     assert captured["message_type"] == "notice"
     assert captured["content"] == {"x": 1}
+
+
+def test_render_capability_unwraps_result() -> None:
+    """ctx.render.html2png 应自动解包 Host 返回的 result 字段。"""
+
+    from maibot_sdk.context import PluginContext
+
+    captured: dict[str, object] = {}
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.call"
+        assert payload is not None
+        captured.update(payload["args"])
+        return {
+            "success": True,
+            "result": {
+                "image_base64": "abc",
+                "mime_type": "image/png",
+                "width": 100,
+                "height": 200,
+            },
+        }
+
+    async def main() -> dict[str, object]:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        return await ctx.render.html2png(
+            "<body><div id='card'>hello</div></body>",
+            selector="#card",
+            viewport={"width": 1200, "height": 800},
+            device_scale_factor=1.5,
+            allow_network=True,
+        )
+
+    result = asyncio.run(main())
+
+    assert result == {
+        "image_base64": "abc",
+        "mime_type": "image/png",
+        "width": 100,
+        "height": 200,
+    }
+    assert captured["selector"] == "#card"
+    assert captured["viewport"] == {"width": 1200, "height": 800}
+    assert captured["device_scale_factor"] == 1.5
+    assert captured["allow_network"] is True
 
 
 def test_chat_capability_passes_platform_argument():

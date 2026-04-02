@@ -494,41 +494,41 @@ async def filter_spam(self, **kwargs):
 `HookHandler` 用于订阅主程序真实执行路径上的命名 Hook 点。主程序在任意位置调用
 `await manager.invoke_hook("hook.name", **kwargs)` 时，所有订阅该 Hook 的插件处理器都会被 Host 调度执行。
 
+当前 Host 会在插件注册阶段校验 Hook 声明：
+
+1. Hook 名称必须已经注册到运行时中心表。
+2. `mode` 必须符合该 Hook 的能力约束。
+3. `error_policy=ABORT` 只有在该 Hook 允许 `abort` 时才能声明。
+
+声明不合法时，插件会直接注册失败，不会再出现“插件加载成功但 Hook 没生效”的半成功状态。
+
 ```python
 from maibot_sdk import HookHandler
 from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 
 @HookHandler(
-    "heart_fc.heart_flow_cycle_start",
+    "chat.receive.before_process",
     name="keyword_guard",
     mode=HookMode.BLOCKING,
     order=HookOrder.EARLY,
     timeout_ms=5000,
     error_policy=ErrorPolicy.SKIP,
 )
-async def guard_cycle_start(self, session_id="", cycle_id="", **kwargs):
-    if not session_id:
+async def guard_inbound_message(self, message=None, **kwargs):
+    if not isinstance(message, dict):
         return {"action": "abort"}
-    return {
-        "action": "continue",
-        "modified_kwargs": {
-            "session_id": session_id,
-            "cycle_id": cycle_id,
-            **kwargs,
-        },
-    }
+    return {"action": "continue"}
 
 @HookHandler(
-    "heart_fc.heart_flow_cycle_start",
+    "send_service.after_send",
     name="analytics_observer",
     mode=HookMode.OBSERVE,
     order=HookOrder.LATE,
 )
-async def collect_analytics(self, session_id="", cycle_id="", **kwargs):
-    await self.ctx.db.query(
-        model_name="HookLog",
-        query_type="insert",
-        data={"session_id": session_id, "cycle_id": cycle_id},
+async def collect_send_metrics(self, message=None, sent=False, **kwargs):
+    await self.ctx.db.save(
+        "hook_log",
+        {"message_id": message.get("message_id", ""), "sent": bool(sent)},
     )
 ```
 
@@ -543,6 +543,32 @@ async def collect_analytics(self, session_id="", cycle_id="", **kwargs):
 | `order` | `HookOrder` | `NORMAL` | 同一模式内的顺序槽位：`EARLY` / `NORMAL` / `LATE` |
 | `timeout_ms` | `int` | `0` | 超时毫秒数，`0` 表示使用当前 Hook 的默认值 |
 | `error_policy` | `ErrorPolicy` | `SKIP` | 异常处理策略 |
+
+**当前内置 Hook 清单**：
+
+| Hook 名称 | 说明 | 允许 `abort` | 允许改参 |
+|----|------|----|----|
+| `chat.receive.before_process` | 入站消息执行 `SessionMessage.process()` 前 | 是 | 是 |
+| `chat.receive.after_process` | 入站消息轻量预处理完成后 | 是 | 是 |
+| `chat.command.before_execute` | 命令匹配成功、正式执行前 | 是 | 是 |
+| `chat.command.after_execute` | 命令执行结束后 | 否 | 是 |
+| `emoji.maisaka.before_select` | Maisaka 选择表情前 | 是 | 是 |
+| `emoji.maisaka.after_select` | Maisaka 选出表情后 | 是 | 是 |
+| `emoji.register.after_build_description` | 表情包描述生成完成后 | 是 | 是 |
+| `emoji.register.after_build_emotion` | 表情包情绪标签生成完成后 | 是 | 是 |
+| `jargon.query.before_search` | Maisaka 黑话查询前 | 是 | 是 |
+| `jargon.query.after_search` | Maisaka 黑话查询完成后 | 是 | 是 |
+| `jargon.extract.before_persist` | 黑话条目写库前 | 是 | 是 |
+| `jargon.inference.before_finalize` | 黑话推断结果写回前 | 是 | 是 |
+| `expression.select.before_select` | 表达方式选择前 | 是 | 是 |
+| `expression.select.after_selection` | 表达方式选择完成后 | 是 | 是 |
+| `expression.learn.after_extract` | 表达方式学习解析候选后 | 是 | 是 |
+| `expression.learn.before_upsert` | 表达方式写库前 | 是 | 是 |
+| `send_service.after_build_message` | 出站 `SessionMessage` 构建完成后 | 是 | 是 |
+| `send_service.before_send` | 调用 Platform IO 发送前 | 是 | 是 |
+| `send_service.after_send` | 发送流程完成后 | 否 | 否 |
+| `maisaka.planner.before_request` | Maisaka 规划器请求模型前 | 否 | 是 |
+| `maisaka.planner.after_response` | Maisaka 收到模型响应后 | 否 | 是 |
 
 **Host 执行顺序**：
 
@@ -566,7 +592,9 @@ async def collect_analytics(self, session_id="", cycle_id="", **kwargs):
 |----|------|
 | `ABORT` | 异常时终止当前 Hook 调用 |
 | `SKIP` | 记录日志，跳过此步骤继续 |
-| `LOG` | 记录日志，并继续后续步骤 |
+| `LOG` | 当前实现中与 `SKIP` 一致，保留为更明确的语义声明 |
+
+运行时当前会把这份 Hook 清单公开给 WebUI 后端路由 `/plugins/runtime/hooks`，便于面板或调试工具直接读取动态中心表。
 
 ### MessageGateway
 
