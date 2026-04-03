@@ -1,8 +1,8 @@
 # MaiBot Plugin SDK
 
-MaiBot 插件开发的唯一依赖。提供插件基类、组件装饰器、能力代理和类型定义。
+MaiBot 插件开发的唯一依赖。提供插件基类、配置模型、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 14 种能力代理、日志接口、6 种正式组件装饰器、1 种兼容装饰器、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 15 种能力代理、日志接口、6 种正式组件装饰器、1 种兼容装饰器、配置模型、消息模型、生命周期、调试与发布。
 >
 > **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
@@ -81,6 +81,7 @@ def create_plugin():
 | `ctx.component` | 插件与组件管理 |
 | `ctx.chat` | 聊天流查询 |
 | `ctx.person` | 用户信息查询 |
+| `ctx.render` | 将 HTML 渲染为 PNG 图片 |
 | `ctx.knowledge` | LPMM 知识库搜索 |
 | `ctx.tool` | LLM 工具定义查询 |
 | `ctx.logger` | 插件日志（标准 logging.Logger） |
@@ -168,17 +169,51 @@ def create_plugin():
 - `route_type="receive"` 或 `"duplex"` 的网关可通过 `ctx.gateway.route_message()` 注入入站消息
 - 插件应在链路可用时调用 `ctx.gateway.update_state(..., ready=True)`，在断开或卸载时上报 `ready=False`
 
+## 配置模型
+
+如果你希望 Runner 自动补齐默认配置、向 WebUI 暴露结构化 Schema，并在插件内以强类型对象读取配置，可以声明 `config_model`：
+
+```python
+from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
+
+
+class PluginSection(PluginConfigBase):
+    """插件基础配置。"""
+
+    __ui_label__ = "插件设置"
+
+    enabled: bool = Field(default=True, description="是否启用插件")
+    greeting: str = Field(default="你好！", description="默认问候语")
+
+
+class MyPluginConfig(PluginConfigBase):
+    """插件完整配置。"""
+
+    plugin: PluginSection = Field(default_factory=PluginSection)
+
+
+class MyPlugin(MaiBotPlugin):
+    config_model = MyPluginConfig
+
+    async def on_load(self) -> None:
+        self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
+```
+
+配置来源仍然是插件目录下的 `config.toml`。当插件声明了 `config_model` 后，Runner / Host 可以基于模型生成默认配置和 WebUI Schema，插件代码则可以通过 `self.config` 访问校验后的强类型配置对象；需要临时读取原始配置值时，也仍可继续使用 `await self.ctx.config.get(...)`。
+
 ## 兼容说明
 
 - Runner 会在调用 `on_load()` 之前先注入 `PluginContext` 并完成 capability bootstrap，因此插件可以在 `on_load()` 中直接调用 `self.ctx.send.*`、`self.ctx.db.*` 等能力，无需自行等待“注册完成”信号。
 - SDK 插件必须实现 `on_load()`、`on_unload()` 和 `on_config_update(scope, config_data, version)` 三个生命周期方法；未实现时 Runner 会拒绝加载。
 - `HookHandler` 现在基于命名 Hook 点注册，不再依赖固定的 workflow stage；插件通过 `hook`、`mode`、`order` 描述自己的订阅位置。
-- `PluginContext` 当前暴露 14 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`。
+- `PluginContext` 当前暴露 15 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`。
 - `ctx.gateway.route_message()` / `ctx.gateway.update_state()` 分别对应主程序的入站路由和网关状态上报接口；只有处于 `ready=True` 的消息网关才会被主程序接收入站消息或纳入出站路由。
 - `ctx.api` 支持查询、调用其他插件公开的 API，也支持用 `register_dynamic_api()` / `sync_dynamic_apis()` 动态更新当前插件的 API 集合。
+- 如果插件声明了 `config_model`，Runner 会在注入配置时按模型补齐默认值并构造 `self.config` 强类型对象；Host / WebUI 也可复用 `get_default_config()` 与 `get_webui_config_schema()` 导出的配置元数据。
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
 - `ctx.db.count(model_name, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
 - 对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 等接口，SDK 会自动把 Host 返回的单字段包装结果解包为插件更直观的值、列表或字典；兼容层异步 API 也保持相同语义。
+- `ctx.render.html2png()` 可将 HTML 模板渲染为 PNG 图片，适合卡片、榜单或分享图等需要图片化输出的场景。
 - 兼容层 `emoji_api.get_random()` / `emoji_api.get_by_description()` 会返回归一化后的字典结果，而不是旧版 tuple 结构；迁移旧插件时请按字段读取。
 - `ctx.chat.*` 查询接口支持显式传入 `platform`，不再被固定到默认平台。
 - `ctx.llm.generate*()` 会同时兼容 `model` 和 `model_name` 字段；插件侧优先读取 `model` 即可。

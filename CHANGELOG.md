@@ -8,6 +8,27 @@
 ## [Unreleased]
 
 
+## [2.3.0] - 2026-04-03
+
+### 新增
+
+- 新增 `RenderCapability` 与 `ctx.render.html2png()`，支持将 HTML 内容交由 Host 渲染为 PNG，并自动解包返回结果
+- 新增 `PluginConfigBase`、`Field` 与 `MaiBotPlugin.config_model`，支持以 Pydantic 模型声明插件配置、生成默认配置、校验运行时配置并导出 WebUI Schema
+- `MaiBotPlugin` 新增 `config` 强类型属性、`get_default_config()` 与 `get_webui_config_schema()` 等配置辅助方法，便于 Runner、Host 和插件统一复用配置元数据
+
+### 文档
+
+- 更新 `README.md`，补充 `ctx.render`、配置模型、`self.config` 强类型访问与当前能力清单
+- 更新 `docs/guide.md`，补充配置模型声明、`Render` 能力代理说明，并同步生命周期与配置热更新文档
+- 更新 `docs/migration-guide.md`，明确新插件应优先依赖 `maibot_sdk`，并补充从 `ConfigField` / `config_schema` 迁移到 `PluginConfigBase` / `Field` / `config_model` 的推荐路径
+
+### 测试
+
+- 补充 `ctx.render.html2png()` 返回值解包回归测试
+- 补充配置模型默认值生成、Schema 生成与强类型配置访问回归测试
+- 验证 SDK 目录下 `uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 可通过
+
+
 ## [2.2.0] - 2026-03-31
 
 ### 新增

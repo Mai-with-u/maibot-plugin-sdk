@@ -10,6 +10,7 @@
 - [快速开始](#快速开始)
 - [插件结构](#插件结构)
 - [插件基类](#插件基类)
+  - [配置模型](#配置模型)
 - [组件装饰器](#组件装饰器)
   - [API](#api)
   - [Action](#action)
@@ -31,6 +32,7 @@
   - [Component -- 组件管理](#component----组件管理)
   - [Chat -- 聊天流](#chat----聊天流)
   - [Person -- 用户信息](#person----用户信息)
+  - [Render -- 渲染](#render----渲染)
   - [Knowledge -- 知识库](#knowledge----知识库)
   - [Tool -- 工具定义](#tool----工具定义)
   - [Logger -- 日志](#logger----日志)
@@ -55,7 +57,7 @@ pip install maibot-plugin-sdk
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import API, Command, EventHandler, HookHandler, MaiBotPlugin, MessageGateway, Tool
+from maibot_sdk import API, Command, EventHandler, Field, HookHandler, MaiBotPlugin, MessageGateway, PluginConfigBase, Tool
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
@@ -178,6 +180,7 @@ def create_plugin():
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `config_reload_subscriptions` | `Iterable[str]` | 订阅全局配置热更新广播，仅支持 `bot` / `model` |
+| `config_model` | `type[PluginConfigBase] \| None` | 可选的配置模型类，用于默认配置、配置校验与 WebUI Schema 生成 |
 
 ### 生命周期回调
 
@@ -206,6 +209,56 @@ class ConfigAwarePlugin(MaiBotPlugin):
 ```
 
 插件自身目录下的 `config.toml` 更新不需要声明订阅，Runner 会固定通过 `on_config_update(scope="self", ...)` 通知。
+
+### 配置模型
+
+如果插件希望以强类型方式声明配置、自动补齐默认值，并给 Host / WebUI 提供结构化 Schema，可以在插件类上声明 `config_model`：
+
+```python
+from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
+
+
+class PluginSection(PluginConfigBase):
+    """插件基础配置。"""
+
+    __ui_label__ = "插件设置"
+
+    enabled: bool = Field(default=True, description="是否启用插件")
+    greeting: str = Field(
+        default="你好！",
+        description="默认问候语",
+        json_schema_extra={
+            "label": "问候语",
+            "placeholder": "请输入默认问候语",
+        },
+    )
+
+
+class GreetingPluginConfig(PluginConfigBase):
+    """插件完整配置。"""
+
+    plugin: PluginSection = Field(default_factory=PluginSection)
+
+
+class GreetingPlugin(MaiBotPlugin):
+    config_model = GreetingPluginConfig
+
+    async def on_load(self) -> None:
+        self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
+```
+
+配置模型启用后，SDK 会提供以下行为：
+
+- `get_default_config()`：根据模型默认值构造默认配置字典。
+- `get_webui_config_schema()`：根据模型与 `Field(..., json_schema_extra=...)` 元数据生成 WebUI Schema。
+- `self.config`：返回已经校验并补齐默认值后的强类型配置对象。
+- `get_plugin_config_data()`：返回当前插件持有的原始配置字典副本。
+
+说明：
+
+- 运行时的配置来源仍然是插件目录下的 `config.toml`。
+- `Field(..., json_schema_extra=...)` 可携带 `label`、`hint`、`placeholder`、`x-widget`、`x-icon`、`depends_on`、`depends_value`、`step` 等 UI 元数据。
+- 未声明 `config_model` 时，插件仍然可以只使用 `await self.ctx.config.get(...)` 读取配置。
 
 ---
 
@@ -672,7 +725,7 @@ class NapCatGatewayPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露 14 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`knowledge`、`tool`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露 15 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
 
 ### API -- 插件 API
 
@@ -948,6 +1001,16 @@ config = self.ctx.config
 
 `config.get()`、`config.get_plugin()` 和 `config.get_all()` 都会直接返回配置值或配置字典，不需要手动从 RPC 结果中读取 `value` 字段。
 
+如果插件声明了 `config_model`，除了 `ctx.config` 之外，还可以通过 `self.config` 读取校验后的强类型配置对象：
+
+```python
+class MyPlugin(MaiBotPlugin):
+    config_model = GreetingPluginConfig
+
+    async def on_load(self) -> None:
+        self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
+```
+
 示例：
 
 ```python
@@ -983,6 +1046,7 @@ class MyPlugin(MaiBotPlugin):
 
 - `scope="self"` 表示插件自身的 `config.toml` 更新。
 - `scope="bot"` / `scope="model"` 表示主程序全局配置广播。
+- 如果插件声明了 `config_model`，Runner 会在调用 `on_config_update(scope="self", ...)` 之前先按模型补齐缺失字段并刷新 `self.config`。
 - 配置更新不会自动重启插件；只要 Host 发来的是配置更新事件，Runner 会直接调用 `on_config_update()`，适合保留内存态或长连接状态。
 
 ### Emoji -- 表情包
@@ -1125,6 +1189,41 @@ pid = await self.ctx.person.get_id("qq", "12345")
 # 获取昵称
 name = await self.ctx.person.get_value(pid, "nickname") or "未知"
 ```
+
+### Render -- 渲染
+
+```python
+render = self.ctx.render
+```
+
+| 方法 | 说明 |
+|------|------|
+| `await render.html2png(html, **kwargs)` | 将 HTML 内容渲染为 PNG 图片 |
+
+常用参数包括：
+
+- `selector`：需要截图的目标选择器，默认是 `body`
+- `viewport`：视口大小，例如 `{"width": 1200, "height": 800}`
+- `device_scale_factor`：设备像素比
+- `full_page`：是否截取整页
+- `omit_background`：是否去掉默认背景
+- `wait_until` / `wait_for_selector` / `wait_for_timeout_ms`：控制页面稳定时机
+- `allow_network`：是否允许页面访问外部网络资源
+
+示例：
+
+```python
+card = await self.ctx.render.html2png(
+    "<body><div id='card'>Hello MaiBot</div></body>",
+    selector="#card",
+    viewport={"width": 960, "height": 540},
+    device_scale_factor=2.0,
+)
+
+await self.ctx.send.image(card["image_base64"], stream_id)
+```
+
+`render.html2png()` 会直接返回 Host 解包后的结果字典，通常包含 `image_base64`、`mime_type`、`width` 和 `height` 等字段。
 
 ### Knowledge -- 知识库
 
@@ -1303,7 +1402,7 @@ from maibot_sdk.types import (
 1. Runner 发现 plugins/my_plugin/plugin.py
 2. Runner 调用 create_plugin() 获取插件实例
 3. Runner 注入 PluginContext (self._ctx)
-4. Runner 应用插件自身配置（如 config.toml）
+4. Runner 应用插件自身配置（如 `config.toml`，若声明 `config_model` 还会构造强类型配置实例）
 5. Runner 向 Host bootstrap capability 令牌
 6. Runner 调用 get_components() / get_config_reload_subscriptions() 收集组件与订阅声明
 7. Runner 将组件声明发送给 Host 注册
@@ -1323,6 +1422,7 @@ from maibot_sdk.types import (
 `PluginContext` 在 `on_load()` 之前已经完成注入，插件配置也已经应用，且 Host 已为当前插件签发 capability 令牌、完成组件注册。因此以下操作在 `on_load()` 中是安全的：
 
 - 调用 `self.ctx.send.*`、`self.ctx.db.*`、`self.ctx.config.*` 等能力
+- 读取 `self.config` 强类型配置（如果插件声明了 `config_model`）
 - 创建需要依赖配置内容的内存缓存
 - 执行一次性初始化检查或探测
 - 对消息网关插件调用 `self.ctx.gateway.update_state(..., ready=True)` 上报链路就绪

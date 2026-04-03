@@ -91,7 +91,7 @@ Runner 子进程（独立进程）
 | "我直接把平台事件塞进内部链路" | "我通过 @Adapter + self.ctx.adapter.receive_external_message() 注入主消息链" |
 | "每个组件是一个独立类" | "每个组件是插件类上的一个被装饰的方法" |
 | "我手动注册组件到列表里" | "装饰器自动收集，无需手动注册" |
-| "配置通过 ConfigField + config_schema 定义" | "配置通过 config.toml + self.ctx.config 读取" |
+| "配置通过 ConfigField + config_schema 定义" | "配置仍来自 config.toml；推荐用 PluginConfigBase + Field + config_model 声明结构，并通过 self.config / self.ctx.config 读取" |
 
 ---
 
@@ -111,7 +111,7 @@ Runner 子进程（独立进程）
 4. ~~`get_plugin_components()` 手动注册~~ → 自动收集（删除该方法）
 5. ~~`self.send_text()` / `self.send_emoji()` 等基类方法~~ → `self.ctx.send.text()` / `self.ctx.send.emoji()`
 6. ~~`self.get_config(key)` 基类方法~~ → `await self.ctx.config.get(key)`
-7. ~~`ConfigField` + `config_schema` 配置声明~~ → `config.toml` 手动编写
+7. ~~`ConfigField` + `config_schema` 配置声明~~ → `PluginConfigBase` + `Field` + `config_model`（推荐）或仅保留 `config.toml`
 8. ~~`self.action_data` / `self.matched_groups` 属性~~ → 方法参数 `**kwargs`
 9. 如果旧插件承担平台接入职责：~~直接调用内部消息入口 / 手写平台桥接~~ → `@Adapter` + `send_to_platform()` + `self.ctx.adapter.receive_external_message()`
 
@@ -144,7 +144,7 @@ from src.common.logger import get_logger
 ### 新系统导入
 
 ```python
-from maibot_sdk import Adapter, MaiBotPlugin, Action, Command, Tool, EventHandler
+from maibot_sdk import Action, Adapter, Command, EventHandler, Field, MaiBotPlugin, PluginConfigBase, Tool
 from maibot_sdk.types import (
     ActivationType,       # 对应旧版 ActionActivationType
     ChatMode,             # 保持不变
@@ -168,7 +168,7 @@ from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 | `from src.plugin_system import BaseTool` | `from maibot_sdk import Tool` (装饰器) |
 | `from src.plugin_system import BaseEventHandler` | `from maibot_sdk import EventHandler` (装饰器) |
 | `from src.plugin_system import ComponentInfo` | **删除** — 自动收集 |
-| `from src.plugin_system import ConfigField` | **删除** — 配置不再在代码中声明 |
+| `from src.plugin_system import ConfigField` | `from maibot_sdk import Field, PluginConfigBase`（推荐）或删除后仅保留 `config.toml` |
 | `from src.plugin_system import ActionActivationType` | `from maibot_sdk.types import ActivationType` |
 | `from src.plugin_system.base.component_types import ToolInfo` | **删除** — 内部使用 |
 | `from src.plugin_system.base.component_types import ComponentType` | **删除** — 内部使用（SDK 自动处理） |
@@ -295,7 +295,7 @@ def create_plugin():
 | 适配器声明 | 无统一入口 | `@Adapter(...)` 类装饰器 + `get_adapter_info()` 自动收集 |
 | 插件名称 | `plugin_name = "xxx"` 类属性 | `_manifest.json` 中的 `name` 字段 |
 | 依赖声明 | `dependencies` / `python_dependencies` 类属性 | `_manifest.json` 中声明 |
-| 配置声明 | `config_schema` + `ConfigField` | 只需要 `config.toml` 文件 |
+| 配置声明 | `config_schema` + `ConfigField` | `config.toml` + `config_model`（推荐）或仅使用 `self.ctx.config` |
 | 配置热更 | 无 | 新增 `on_config_update()` 回调 |
 
 ---
@@ -846,9 +846,13 @@ Host 的实际执行顺序为：`BLOCKING` 先于 `OBSERVE`，`EARLY` 先于 `NO
 
 ### 核心变化
 
-旧系统使用**代码声明**配置（`ConfigField` + `config_schema`），系统自动生成 `config.toml`。
+旧系统使用 **`ConfigField` + `config_schema`** 在代码中声明配置，系统据此生成配置文件和 WebUI 表单。
 
-新系统中，`config.toml` 由开发者**手动编写**。插件通过 `self.ctx.config` 异步读取配置。
+新版 SDK 中，配置仍然来自插件目录下的 `config.toml`，但现在推荐新增一层 **`PluginConfigBase` + `Field` + `config_model`**：
+
+1. `config.toml` 仍然是运行时实际配置来源。
+2. `await self.ctx.config.get(...)` 仍然可用，适合按需异步读取原始配置值。
+3. `config_model` 可为配置提供默认值、类型校验、缺失字段补齐，以及 WebUI Schema 生成能力。
 
 ### 旧系统配置声明
 
@@ -871,9 +875,10 @@ config_schema = {
 }
 ```
 
-### 新系统配置方式
+### 新系统推荐写法
 
-**config.toml**（手动编写，放在插件目录下）：
+**config.toml**（仍然保留，放在插件目录下）：
+
 ```toml
 [plugin]
 config_version = "1.0.0"
@@ -884,190 +889,118 @@ message = "你好！"
 enable_emoji = true
 ```
 
-**在代码中读取配置**：
+**在代码中声明配置模型**：
+
 ```python
-# 旧系统（同步）
-message = self.get_config("greeting.message", "默认值")
+from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
 
-# 新系统（异步）
-message = await self.ctx.config.get("greeting.message")
-if message is None:
-    message = "默认值"
 
-# 获取插件全部配置
-all_config = await self.ctx.config.get_plugin()
+class PluginSection(PluginConfigBase):
+    """插件基础配置。"""
 
-# 获取当前插件的完整配置快照
-current_plugin_config = await self.ctx.config.get_all()
+    __ui_label__ = "插件开关"
 
-# 获取其他插件的配置
+    enabled: bool = Field(default=True, description="是否启用")
+    config_version: str = Field(default="1.0.0", description="版本")
+
+
+class GreetingSection(PluginConfigBase):
+    """问候设置。"""
+
+    __ui_label__ = "问候设置"
+
+    message: str = Field(
+        default="你好！",
+        description="默认问候语",
+        json_schema_extra={
+            "label": "问候语",
+            "placeholder": "请输入默认问候语",
+        },
+    )
+    enable_emoji: bool = Field(default=True, description="是否启用表情")
+
+
+class HelloPluginConfig(PluginConfigBase):
+    """插件完整配置。"""
+
+    plugin: PluginSection = Field(default_factory=PluginSection)
+    greeting: GreetingSection = Field(default_factory=GreetingSection)
+
+
+class HelloPlugin(MaiBotPlugin):
+    config_model = HelloPluginConfig
+```
+
+**在代码中读取配置**：
+
+```python
+# 推荐：使用强类型配置对象
+message = self.config.greeting.message
+enable_emoji = self.config.greeting.enable_emoji
+
+# 按需读取原始配置时，仍可继续使用 ctx.config
+raw_message = await self.ctx.config.get("greeting.message", "默认值")
+
+# 获取插件全部配置字典
+all_config = await self.ctx.config.get_all()
+
+# 获取指定插件配置
 other_plugin_config = await self.ctx.config.get_plugin("other_plugin")
 ```
 
-### 配置相关 API 对照
+### 配置相关 API / 模型对照
 
 | 旧系统 | 新系统 |
 |--------|--------|
-| `self.get_config("key", default)` | `await self.ctx.config.get("key")` |
-| `self.config["section"]["key"]` | `await self.ctx.config.get("section.key")` |
-| `ConfigField(...)` 声明 | 手动编写 `config.toml` |
-| `config_schema` 字典 | 不再需要 |
-| `config_section_descriptions` | 不再需要 |
-| `config_layout`（可选的 `ConfigLayout`） | 不再需要（WebUI 自动推断布局） |
-| 自动生成 config.toml | 手动编写 config.toml |
-| 配置版本自动迁移 | 开发者自行处理（可在 `on_config_update` 中实现） |
+| `self.get_config("key", default)` | `await self.ctx.config.get("key", default)` |
+| `self.config["section"]["key"]` | `self.config.section.key`（声明 `config_model` 时）或 `await self.ctx.config.get("section.key")` |
+| `ConfigField(...)` 声明 | `Field(...)`（放在 `PluginConfigBase` 中） |
+| `config_schema` 字典 | `config_model = MyPluginConfig` |
+| `config_section_descriptions` | 配置节模型上的 `__ui_label__` / `__ui_icon__` / `__ui_order__` |
+| 手动拼 WebUI Schema | `get_webui_config_schema(...)` |
+| 默认值散落在字典里 | `PluginConfigBase` 字段默认值 |
+| 配置版本自动迁移 | 开发者在 `on_config_update()` 中自行处理 |
 
-> **注意**：新系统的 `self.ctx.config.get()` 是 **异步** 的（返回 `Awaitable`），必须使用 `await`。旧系统的 `self.get_config()` 是同步的。
+> **注意**：`self.ctx.config.get()` 是 **异步** 的，必须使用 `await`。而 `self.config` 是 Runner 注入并校验后的强类型配置对象，只在你声明了 `config_model` 时可用。
 
 ### WebUI 配置可视化
 
-旧系统中，`ConfigField` 携带了丰富的前端渲染元数据（`label`、`hint`、`placeholder`、`icon`、`input_type`、`choices`、`min/max/step`、`depends_on`、`item_type/item_fields` 等），WebUI 通过 `get_webui_config_schema()` 方法获取这些信息来动态生成配置表单。
+声明 `config_model` 后，Runner / Host 可直接调用 `get_webui_config_schema(...)` 生成 WebUI 所需的配置 Schema。与旧系统 `ConfigField` 对应关系如下：
 
-新系统中，**WebUI 会自动从 `config.toml` 文件推断 Schema**：
+- 字段默认值、描述：直接来自 `Field(default=..., description=...)`
+- 分组标题、排序、图标：来自配置节模型的 `__ui_label__`、`__ui_order__`、`__ui_icon__`
+- `label`、`hint`、`placeholder`、`icon`、`input_type`、`depends_on`、`depends_value`、`step` 等 UI 元数据：来自 `Field(..., json_schema_extra=...)`
+- `Literal[...]` 可自动生成 `choices`
+- `list[PluginConfigBase]` 可生成对象数组字段 Schema
 
-| 值类型 | 自动推断的控件 |
-|--------|-------------|
-| `bool` (`true`/`false`) | Switch 开关 |
-| `int` / `float` | Number 数字输入框 |
-| `string` | Text 文本输入框 |
-| `list` | List 列表编辑器（自动推断元素类型） |
-| `dict` / 嵌套表 | JSON 代码编辑器 |
+示例：
 
-**自动推断的局限性**：由于 `config.toml` 不包含 UI 元数据，以下旧系统特性在自动推断模式下不可用：
-
-- ❌ 自定义 `label`（显示为字段名原文）
-- ❌ `hint` / `placeholder` / `icon` / `description`
-- ❌ `slider` 控件（数值只会显示为 number 输入框）
-- ❌ `select` 下拉选择（即使有有限选项）
-- ❌ `password` 类型掩码
-- ❌ `depends_on` 条件显示
-- ❌ `choices` 枚举约束
-- ❌ `min/max/step` 范围约束
-- ❌ `collapsed` / `order` 排序
-
-**增强方案 — `config_schema.json`**：如果你需要这些富 UI 特性，可以在插件目录下创建 `config_schema.json` 文件来声明完整的 Schema，格式与旧系统 `get_webui_config_schema()` 的返回值一致：
-
-```json
-{
-  "plugin_id": "my_plugin",
-  "plugin_info": {
-    "name": "我的插件",
-    "version": "1.0.0",
-    "description": "插件描述",
-    "author": "作者"
-  },
-  "sections": {
-    "plugin": {
-      "name": "plugin",
-      "title": "插件开关",
-      "description": null,
-      "icon": null,
-      "collapsed": false,
-      "order": 1,
-      "fields": {
-        "enabled": {
-          "name": "enabled",
-          "type": "bool",
-          "default": true,
-          "description": "是否启用插件",
-          "label": "启用",
-          "ui_type": "switch",
-          "required": false,
-          "hidden": false,
-          "disabled": false,
-          "order": 0
-        }
-      }
+```python
+mode: Literal["auto", "manual", "hybrid"] = Field(
+    default="auto",
+    description="运行模式",
+    json_schema_extra={
+        "label": "模式",
+        "x-widget": "select",
+        "hint": "建议保持 auto",
     },
-    "settings": {
-      "name": "settings",
-      "title": "设置",
-      "description": "高级设置项",
-      "icon": "Settings",
-      "collapsed": false,
-      "order": 2,
-      "fields": {
-        "timeout": {
-          "name": "timeout",
-          "type": "float",
-          "default": 30.0,
-          "description": "请求超时秒数",
-          "label": "超时时间",
-          "ui_type": "slider",
-          "min": 1,
-          "max": 120,
-          "step": 1,
-          "hint": "建议 10-60 秒",
-          "required": false,
-          "hidden": false,
-          "disabled": false,
-          "order": 0
-        },
-        "api_key": {
-          "name": "api_key",
-          "type": "str",
-          "default": "",
-          "description": "API 密钥",
-          "label": "API Key",
-          "ui_type": "password",
-          "placeholder": "请输入你的 API Key",
-          "required": true,
-          "hidden": false,
-          "disabled": false,
-          "order": 1
-        },
-        "mode": {
-          "name": "mode",
-          "type": "str",
-          "default": "auto",
-          "description": "运行模式",
-          "label": "模式",
-          "ui_type": "select",
-          "choices": ["auto", "manual", "hybrid"],
-          "required": false,
-          "hidden": false,
-          "disabled": false,
-          "order": 2
-        }
-      }
-    }
-  },
-  "layout": {
-    "type": "auto",
-    "tabs": []
-  }
-}
+)
+
+timeout: int = Field(
+    default=30,
+    description="请求超时秒数",
+    ge=1,
+    json_schema_extra={
+        "label": "超时时间",
+        "x-widget": "slider",
+        "min": 1,
+        "max": 120,
+        "step": 1,
+    },
+)
 ```
 
-**`config_schema.json` 完整字段参考**（与旧系统 `ConfigField` 一一对应）：
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `name` | string | 字段名 |
-| `type` | string | 值类型：`bool`/`str`/`int`/`float`/`list`/`dict` |
-| `default` | any | 默认值 |
-| `description` | string | 字段描述 |
-| `label` | string | 前端显示标签 |
-| `ui_type` | string | 控件类型：`switch`/`number`/`slider`/`select`/`text`/`textarea`/`password`/`list`/`json` |
-| `hint` | string | 提示文字 |
-| `placeholder` | string | 占位文字 |
-| `icon` | string | 图标名称 |
-| `hidden` | bool | 是否隐藏 |
-| `disabled` | bool | 是否禁用 |
-| `order` | int | 排列顺序 |
-| `required` | bool | 是否必填 |
-| `choices` | array | 选择项列表（配合 `select`） |
-| `min` / `max` / `step` | number | 数值范围和步进（配合 `slider`/`number`） |
-| `input_type` | string | HTML input type（`text`/`password`/`textarea`/`number`/`color`/`code`/`file`/`json`） |
-| `rows` | int | textarea 行数 |
-| `group` | string | 分组名称 |
-| `depends_on` | string | 条件依赖字段名 |
-| `depends_value` | any | 条件依赖值 |
-| `item_type` | string | 列表元素类型：`string`/`number`/`object` |
-| `item_fields` | object | 当 `item_type=object` 时的子字段定义 |
-| `min_items` / `max_items` | int | 列表长度约束 |
-
-> **提示**：如果不需要富 UI 特性，只需提供 `config.toml` 即可，WebUI 会自动推断出基础表单。`config_schema.json` 是**可选**的增强方案。
+如果你暂时不想声明 `config_model`，也可以只保留 `config.toml` + `self.ctx.config` 的最小迁移方案；只是这样无法获得强类型配置对象与自动生成的 WebUI Schema。
 
 ---
 
@@ -1590,7 +1523,7 @@ msg.modify_plain_text("新文本")
 - `from src.plugin_system import BasePlugin, register_plugin, ...` → `from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler`
 - `from src.plugin_system import ActionActivationType` → `from maibot_sdk.types import ActivationType`
 - `from src.plugin_system import BaseAction, BaseCommand, BaseTool, BaseEventHandler` → 删除，改用装饰器
-- `from src.plugin_system import ConfigField, ComponentInfo` → 删除
+- `from src.plugin_system import ConfigField, ComponentInfo` → 删除；如需结构化配置，改为 `PluginConfigBase` + `Field`
 - `from src.plugin_system.base.component_types import ...` → 删除
 - `from src.plugin_system.base.config_types import section_meta` → 删除
 - `from src.common.logger import get_logger` → 删除，使用 `self.ctx.logger.info()` 或 `logging.getLogger(__name__)`
@@ -1600,6 +1533,7 @@ msg.modify_plain_text("新文本")
 - `@register_plugin` 装饰器 → 删除
 - `class MyPlugin(BasePlugin):` → `class MyPlugin(MaiBotPlugin):`
 - 删除类属性：`plugin_name`, `enable_plugin`, `dependencies`, `python_dependencies`, `config_file_name`, `config_schema`, `config_section_descriptions`
+- 如需强类型配置，可新增 `config_model = MyPluginConfig`
 - 删除 `get_plugin_components()` 方法
 - 在文件末尾添加：`def create_plugin(): return MyPlugin()`
 
@@ -1646,9 +1580,9 @@ msg.modify_plain_text("新文本")
 - 新系统中所有组件都是插件类的方法，直接使用 `self` 访问插件实例和状态
 
 ### 8. 配置文件
-- 删除代码中的 `config_schema` 和 `ConfigField` 声明
-- 根据原 config_schema 生成一份等效的 `config.toml` 文件
-- 代码中 `self.get_config(key)` → `await self.ctx.config.get(key)`
+- 根据原 `config_schema` 生成一份等效的 `config.toml` 文件
+- 推荐把 `ConfigField` 迁移为 `PluginConfigBase` + `Field`，并在插件类上声明 `config_model`
+- 代码中 `self.get_config(key)` → `await self.ctx.config.get(key)`；若已声明 `config_model`，也可改为 `self.config.section.key`
 
 ### 9. API 调用替换
 - `await self.send_text(text)` → `await self.ctx.send.text(text, stream_id)`
