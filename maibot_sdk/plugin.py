@@ -4,15 +4,17 @@
 插件通过装饰器声明组件，通过 ``self.ctx`` 访问能力代理。
 """
 
-import logging
 from collections.abc import Callable, Iterable, Mapping
 from inspect import isawaitable, iscoroutinefunction
 from typing import Any, ClassVar
+
+import logging
 
 from .components import collect_components
 from .config import (
     PluginConfigBase,
     build_plugin_default_config,
+    extract_plugin_config_version,
     generate_plugin_config_schema,
     is_plugin_config_class,
     merge_plugin_config_data,
@@ -166,6 +168,12 @@ class MaiBotPlugin:
             return raw_config, False
 
         default_config = type(self).build_default_config()
+        extract_plugin_config_version(default_config)
+        if not raw_config:
+            validated_default_config = validate_plugin_config(config_class, default_config)
+            return validated_default_config.model_dump(mode="python"), bool(default_config)
+
+        extract_plugin_config_version(raw_config)
         merged_config, changed = merge_plugin_config_data(default_config, raw_config)
         validated_config = validate_plugin_config(config_class, merged_config)
         normalized_config = validated_config.model_dump(mode="python")

@@ -9,24 +9,34 @@
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Mapping
 from typing import Any, ClassVar, TypeVar, cast, get_args, get_origin
+
+import inspect
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 
 __all__ = [
     "Field",
+    "PluginConfigVersionError",
     "PluginConfigBase",
     "build_plugin_default_config",
+    "extract_plugin_config_version",
     "generate_plugin_config_schema",
     "is_plugin_config_class",
     "merge_plugin_config_data",
+    "rebuild_plugin_config_data",
     "validate_plugin_config",
 ]
 
 PluginConfigT = TypeVar("PluginConfigT", bound="PluginConfigBase")
+_PLUGIN_CONFIG_SECTION_NAME = "plugin"
+_PLUGIN_CONFIG_VERSION_FIELD_NAME = "config_version"
+
+
+class PluginConfigVersionError(ValueError):
+    """插件配置版本不合法时抛出的异常。"""
 
 
 class PluginConfigBase(BaseModel):
@@ -83,6 +93,35 @@ def build_plugin_default_config(config_class: type[PluginConfigT]) -> dict[str, 
     return config_instance.model_dump(mode="python")
 
 
+def extract_plugin_config_version(config_data: Mapping[str, Any]) -> str:
+    """提取插件配置中的版本号。
+
+    Args:
+        config_data: 插件配置字典。
+
+    Returns:
+        str: ``plugin.config_version`` 的规范化字符串值。
+
+    Raises:
+        PluginConfigVersionError: 当缺少 ``[plugin]`` 配置节或 ``config_version``
+            字段为空时抛出。
+    """
+
+    plugin_section = config_data.get(_PLUGIN_CONFIG_SECTION_NAME)
+    if not isinstance(plugin_section, Mapping):
+        raise PluginConfigVersionError(
+            "插件配置文件缺少 [plugin] 配置节，且必须提供 plugin.config_version 版本号"
+        )
+
+    version_value = plugin_section.get(_PLUGIN_CONFIG_VERSION_FIELD_NAME)
+    normalized_version = str(version_value or "").strip()
+    if not normalized_version:
+        raise PluginConfigVersionError(
+            "插件配置文件缺少 plugin.config_version 版本号，当前版本策略不再兼容无版本配置"
+        )
+    return normalized_version
+
+
 def merge_plugin_config_data(
     default_config: Mapping[str, Any],
     current_config: Mapping[str, Any],
@@ -100,6 +139,28 @@ def merge_plugin_config_data(
     merged_config = _deep_copy_mapping(current_config)
     changed = _fill_missing_fields(merged_config, default_config)
     return merged_config, changed
+
+
+def rebuild_plugin_config_data(
+    default_config: Mapping[str, Any],
+    current_config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """基于默认结构重建插件配置。
+
+    该方法用于版本升级场景：以最新默认配置为骨架，仅迁移仍然存在的旧字段值，
+    从而达到“补齐新增字段、移除废弃字段、保留用户已有值”的效果。
+
+    Args:
+        default_config: 最新默认配置内容。
+        current_config: 旧版本配置内容。
+
+    Returns:
+        dict[str, Any]: 按最新结构重建后的配置字典。
+    """
+
+    rebuilt_config = _deep_copy_mapping(default_config)
+    _overlay_existing_fields(rebuilt_config, current_config)
+    return rebuilt_config
 
 
 def validate_plugin_config(config_class: type[PluginConfigT], config_data: Mapping[str, Any]) -> PluginConfigT:
@@ -509,6 +570,33 @@ def _fill_missing_fields(target: dict[str, Any], defaults: Mapping[str, Any]) ->
                 changed = True
 
     return changed
+
+
+def _overlay_existing_fields(target: dict[str, Any], source: Mapping[str, Any]) -> None:
+    """将旧配置中的已有字段覆盖到新配置骨架中。
+
+    Args:
+        target: 以最新默认配置构造出的目标配置字典。
+        source: 旧版本配置字典。
+    """
+
+    for key, source_value in source.items():
+        if key not in target:
+            continue
+        if key == _PLUGIN_CONFIG_VERSION_FIELD_NAME:
+            continue
+
+        target_value = target[key]
+        if isinstance(target_value, dict) and isinstance(source_value, Mapping):
+            _overlay_existing_fields(target_value, source_value)
+            continue
+
+        if isinstance(source_value, Mapping):
+            target[key] = _deep_copy_mapping(source_value)
+        elif isinstance(source_value, list):
+            target[key] = _deep_copy_list(source_value)
+        else:
+            target[key] = source_value
 
 
 def _optional_str(value: Any) -> str | None:

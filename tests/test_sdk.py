@@ -1,7 +1,8 @@
 """maibot-plugin-sdk 基础测试"""
 
-import asyncio
 from typing import Any, cast
+
+import asyncio
 
 import pytest
 
@@ -20,6 +21,7 @@ from maibot_sdk import (
     Tool,
     WorkflowStep,
 )
+from maibot_sdk.config import PluginConfigVersionError
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
@@ -89,6 +91,14 @@ class SamplePlugin(MaiBotPlugin):
         return {"action": "continue"}
 
     async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        """处理配置热重载事件。
+
+        Args:
+            scope: 配置作用域。
+            config_data: 当前配置数据。
+            version: 配置版本。
+        """
+
         del scope
         del config_data
         del version
@@ -99,6 +109,7 @@ class DemoPluginSection(PluginConfigBase):
 
     __ui_label__ = "插件设置"
 
+    config_version: str = Field(default="2.0.0", description="配置版本号")
     enabled: bool = Field(default=True, description="是否启用插件")
     retry_count: int = Field(default=3, description="最大重试次数", ge=0)
 
@@ -266,7 +277,7 @@ def test_plugin_default_config_generation() -> None:
     plugin = ConfigurablePlugin()
 
     assert plugin.get_default_config() == {
-        "plugin": {"enabled": True, "retry_count": 3},
+        "plugin": {"config_version": "2.0.0", "enabled": True, "retry_count": 3},
         "feature": {"endpoint": "https://example.com", "tags": ["demo"]},
     }
 
@@ -293,13 +304,28 @@ def test_plugin_set_config_builds_typed_model() -> None:
     """设置配置后，插件应能暴露强类型配置对象。"""
 
     plugin = ConfigurablePlugin()
-    plugin.set_plugin_config({"plugin": {"enabled": False}, "feature": {"endpoint": "https://maibot.io"}})
+    plugin.set_plugin_config(
+        {
+            "plugin": {"config_version": "2.0.0", "enabled": False},
+            "feature": {"endpoint": "https://maibot.io"},
+        }
+    )
 
     config = cast(DemoPluginConfig, plugin.config)
+    assert config.plugin.config_version == "2.0.0"
     assert config.plugin.enabled is False
     assert config.plugin.retry_count == 3
     assert config.feature.endpoint == "https://maibot.io"
     assert config.feature.tags == ["demo"]
+
+
+def test_plugin_set_config_requires_version() -> None:
+    """声明式插件配置在存在内容时必须提供版本号。"""
+
+    plugin = ConfigurablePlugin()
+
+    with pytest.raises(PluginConfigVersionError, match="config_version"):
+        plugin.set_plugin_config({"plugin": {"enabled": False}, "feature": {"endpoint": "https://maibot.io"}})
 
 
 class SampleGatewayPlugin(MaiBotPlugin):
