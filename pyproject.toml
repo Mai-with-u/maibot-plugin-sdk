@@ -1,6 +1,6 @@
 [project]
 name = "maibot-plugin-sdk"
-version = "2.3.0"
+version = "2.4.0"
 description = "MaiBot 插件开发 SDK"
 readme = "README.md"
 license = "LGPL-3.0-only"
@@ -30,6 +30,7 @@ dependencies = [
 dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "pyright>=1.1.390",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
 ]
@@ -61,6 +62,11 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 exclude = ["^tests/"]
+
+[tool.pyright]
+include = ["maibot_sdk"]
+exclude = ["tests"]
+pythonVersion = "3.10"
 
 [[tool.mypy.overrides]]
 module = "maibot_sdk.compat.*"

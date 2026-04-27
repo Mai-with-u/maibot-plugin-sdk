@@ -163,8 +163,8 @@ class LegacyPluginAdapter:
             self._update_global_config_cache(normalized_scope, config_data)
             self._sync_config_cache()
 
-        if hasattr(self._legacy, "on_config_update"):
-            handler = self._legacy.on_config_update
+        handler = getattr(self._legacy, "on_config_update", None)
+        if callable(handler):
             try:
                 signature = inspect.signature(handler)
                 parameters = list(signature.parameters.values())
@@ -187,7 +187,7 @@ class LegacyPluginAdapter:
                 ret = handler(config_data)
             else:
                 ret = handler()
-            if hasattr(ret, "__await__"):
+            if inspect.isawaitable(ret):
                 await ret
 
     def get_components(self) -> list[dict[str, Any]]:

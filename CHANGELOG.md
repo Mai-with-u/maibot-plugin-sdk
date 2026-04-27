@@ -8,6 +8,29 @@
 ## [Unreleased]
 
 
+## [2.4.0] - 2026-04-27
+
+### 新增
+
+- 新增 `LLMProvider` 装饰器，用于插件声明可注册到 Host LLM 客户端注册表的 Provider `client_type`
+- 新增 `LLMProviderBase` 推荐基类，提供 `dispatch(operation, request)` 分发入口，便于插件按 `response`、`embedding`、`audio_transcription` 组织 Provider 实现
+- 新增 `LLMProviderInfo` 类型，支持 SDK 收集并向 Runner 上报被装饰器标记的 Provider 声明
+
+### 变更
+
+- SDK 开发依赖新增 `pyright`，并补充 Pyright 配置，使 SDK 包源码可直接运行 `uv run pyright`
+- 同步发布版本号到 `2.4.0`，对齐 `pyproject.toml`、`maibot_sdk.__version__`、`uv.lock` 与测试断言
+
+### 文档
+
+- 更新 `README.md` 与 `docs/guide.md`，补充 LLM Provider 插件的 manifest 静态声明、装饰器用法、请求字段、返回字段与冲突加载策略
+
+### 测试
+
+- 补充 `LLMProvider` 装饰器收集与 `LLMProviderBase.dispatch()` 回归测试
+- 验证 SDK 目录下 `uv run ruff check .`、`uv run ruff format --check .`、`uv run pyright`、`uv run mypy .` 可通过
+
+
 ## [2.3.0] - 2026-04-03
 
 ### 新增

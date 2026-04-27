@@ -449,6 +449,16 @@ class MessageGatewayComponentInfo(ComponentInfo):
     scope: str = Field(default="", description="可选的路由作用域")
 
 
+class LLMProviderInfo(BaseModel):
+    """LLM Provider 声明信息。"""
+
+    client_type: str = Field(description="客户端类型标识，对应模型配置中的 api_providers[].client_type")
+    name: str = Field(default="", description="Provider 展示名称")
+    description: str = Field(default="", description="Provider 描述")
+    version: str = Field(default="1.0.0", description="Provider 实现版本")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Provider 元数据")
+
+
 # ─── 通用响应 ──────────────────────────────────────────────────────
 
 

@@ -2,7 +2,7 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、配置模型、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 15 种能力代理、日志接口、6 种正式组件装饰器、1 种兼容装饰器、配置模型、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 15 种能力代理、日志接口、7 种正式声明装饰器、1 种兼容装饰器、配置模型、消息模型、生命周期、调试与发布。
 >
 > **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
@@ -62,6 +62,8 @@ def create_plugin():
 如果你是在迁移旧插件，`Action` 装饰器仍然可以继续使用；但它现在只是兼容入口，SDK 内部会把它转换成 Tool 声明，新的插件建议直接使用 `@Tool`。
 
 如果你在编写平台接入插件，请使用 `@MessageGateway` 声明消息网关组件，并通过 `self.ctx.gateway.route_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `MessageGateway` 章节。
+
+如果你在编写新的 LLM Provider 插件，请在 `_manifest.json` 顶层 `llm_providers` 中静态声明 `client_type`，并在插件方法上使用 `@LLMProvider("同一个 client_type")`。Runner 会校验 manifest 与装饰器声明完全一致；不同插件声明同一个 `client_type` 时，冲突双方都会被阻止加载。完整请求/返回字段见 [插件开发指南](docs/guide.md) 中的 `LLMProvider` 章节。
 
 ## 能力一览
 
@@ -220,6 +222,7 @@ class MyPlugin(MaiBotPlugin):
 - 旧版同步 `component_manage_api` / `plugin_manage_api` 查询函数会返回最近一次运行时同步到本地的插件快照；如果需要实时状态，优先使用新的异步 `ctx.component.*` 能力。
 - 插件热重载采用“验证通过后切换”的安全策略。正常插件开发无需感知 generation 细节，但在 reload 失败时，旧插件实例会继续提供服务。
 - `ctx.component.load_plugin()` / `ctx.component.reload_plugin()` 在新运行时里只会在切换成功后返回成功；如果新 Runner 预热失败并回滚，SDK 会收到失败结果，而不是“已回滚但仍返回成功”的假阳性。
+- `@LLMProvider` 可声明新的模型 Provider `client_type`；Provider 插件必须同时在 manifest 的 `llm_providers` 中静态声明，遗漏或冲突会导致整个插件不加载。
 
 ## 插件目录结构
 
@@ -244,6 +247,7 @@ uv sync --extra dev
 
 uv run ruff check .           # lint
 uv run ruff format --check .  # 格式检查
+uv run pyright                # 类型检查
 uv run mypy .                 # 类型检查
 uv run pytest -v              # 测试
 ```

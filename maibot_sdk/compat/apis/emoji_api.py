@@ -40,6 +40,8 @@ def _normalize_emoji_result(result: Any) -> dict[str, Any] | None:
             "description": result[1],
             "emotion": result[2],
         }
+    if isinstance(result, (tuple, list)):
+        return None
 
     if all(hasattr(result, field_name) for field_name in ("base64", "description", "emotion")):
         return {

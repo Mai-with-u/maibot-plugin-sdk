@@ -1,6 +1,6 @@
 """组件声明装饰器
 
-用于在插件类中声明 Tool/Command/EventHandler/HookHandler/MessageGateway 等组件。
+用于在插件类中声明 Tool/Command/EventHandler/HookHandler/MessageGateway/LLMProvider 等能力。
 兼容入口 `Action` 仍然保留，但会在内部转换为 Tool 声明。
 """
 
@@ -19,6 +19,7 @@ from .types import (
     HookHandlerComponentInfo,
     HookMode,
     HookOrder,
+    LLMProviderInfo,
     MessageGatewayComponentInfo,
     MessageGatewayRouteType,
     ToolComponentInfo,
@@ -31,6 +32,7 @@ _Decorator = Callable[[Callable[..., Any]], Callable[..., Any]]
 
 # 标记属性名，用于在方法上附加组件信息
 _COMPONENT_INFO_ATTR = "__maibot_component_info__"
+_LLM_PROVIDER_INFO_ATTR = "__maibot_llm_provider_info__"
 
 
 def _normalize_tool_descriptions(
@@ -622,6 +624,52 @@ def MessageGateway(
     return decorator
 
 
+def LLMProvider(
+    client_type: str,
+    *,
+    name: str = "",
+    description: str = "",
+    version: str = "1.0.0",
+    **metadata: Any,
+) -> _Decorator:
+    """声明 LLM Provider。
+
+    Args:
+        client_type: 客户端类型标识，对应模型配置中的 ``api_providers[].client_type``。
+        name: Provider 展示名称；留空时使用 ``client_type``。
+        description: Provider 描述。
+        version: Provider 实现版本。
+        **metadata: 额外元数据。
+
+    Returns:
+        _Decorator: 用于修饰插件方法的装饰器。
+    """
+    normalized_client_type = str(client_type or "").strip()
+    if not normalized_client_type:
+        raise ValueError("LLMProvider 的 client_type 不能为空")
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        """将 LLM Provider 元数据附着到目标函数。
+
+        Args:
+            func: 被声明为 LLM Provider 的插件方法。
+
+        Returns:
+            Callable[..., Any]: 原始函数对象。
+        """
+        info = LLMProviderInfo(
+            client_type=normalized_client_type,
+            name=str(name or normalized_client_type).strip(),
+            description=description,
+            version=str(version or "1.0.0").strip() or "1.0.0",
+            metadata=metadata,
+        )
+        setattr(func, _LLM_PROVIDER_INFO_ATTR, info)
+        return func
+
+    return decorator
+
+
 def collect_components(instance: object) -> list[dict[str, Any]]:
     """从插件实例中收集所有被装饰器标记的组件信息
 
@@ -648,3 +696,34 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
                 }
             )
     return components
+
+
+def collect_llm_providers(instance: object) -> list[dict[str, Any]]:
+    """从插件实例中收集所有被装饰器标记的 LLM Provider。
+
+    Args:
+        instance: 插件实例。
+
+    Returns:
+        list[dict[str, Any]]: LLM Provider 声明字典列表。
+    """
+    providers: list[dict[str, Any]] = []
+    for attr_name in dir(instance):
+        try:
+            attr = getattr(instance, attr_name)
+        except Exception:
+            continue
+        if callable(attr) and hasattr(attr, _LLM_PROVIDER_INFO_ATTR):
+            info = getattr(attr, _LLM_PROVIDER_INFO_ATTR)
+            provider_metadata = dict(info.metadata)
+            provider_metadata.setdefault("handler_name", attr_name)
+            providers.append(
+                {
+                    "client_type": info.client_type,
+                    "name": info.name,
+                    "description": info.description,
+                    "version": info.version,
+                    "metadata": provider_metadata,
+                }
+            )
+    return providers

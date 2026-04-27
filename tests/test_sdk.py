@@ -1,5 +1,7 @@
 """maibot-plugin-sdk 基础测试"""
 
+# ruff: noqa: I001
+
 from typing import Any, cast
 
 import asyncio
@@ -15,6 +17,8 @@ from maibot_sdk import (
     EventHandler,
     Field,
     HookHandler,
+    LLMProvider,
+    LLMProviderBase,
     MaiBotPlugin,
     MessageGateway,
     PluginConfigBase,
@@ -89,6 +93,14 @@ class SamplePlugin(MaiBotPlugin):
 
         del kwargs
         return {"action": "continue"}
+
+    @LLMProvider("example.provider", name="Example Provider", description="测试 Provider")
+    async def handle_llm_provider(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
+        """处理测试 LLM Provider 请求。"""
+
+        return {
+            "content": f"{operation}:{request.get('prompt', '')}",
+        }
 
     async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
         """处理配置热重载事件。
@@ -168,6 +180,32 @@ def test_collect_components():
     assert "test_tool" in names
     assert "test_event" in names
     assert "test_hook" in names
+
+
+def test_collect_llm_providers():
+    plugin = SamplePlugin()
+    providers = plugin.get_llm_providers()
+
+    assert len(providers) == 1
+    assert providers[0]["client_type"] == "example.provider"
+    assert providers[0]["name"] == "Example Provider"
+    assert providers[0]["metadata"]["handler_name"] == "handle_llm_provider"
+
+
+def test_llm_provider_base_dispatch():
+    class DemoProvider(LLMProviderBase):
+        async def get_response(self, request: dict[str, Any]) -> dict[str, Any]:
+            """生成测试响应。"""
+
+            return {"content": str(request.get("prompt", ""))}
+
+    async def main() -> dict[str, Any]:
+        provider = DemoProvider()
+        return await provider.dispatch("response", {"prompt": "hello"})
+
+    result = asyncio.run(main())
+
+    assert result["content"] == "hello"
 
 
 def test_component_types():
@@ -448,7 +486,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.3.0"
+    assert maibot_sdk.__version__ == "2.4.0"
 
 
 def test_component_capability_normalizes_lowercase_component_type():

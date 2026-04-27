@@ -4,13 +4,15 @@
 插件通过装饰器声明组件，通过 ``self.ctx`` 访问能力代理。
 """
 
+# ruff: noqa: I001
+
 from collections.abc import Callable, Iterable, Mapping
 from inspect import isawaitable, iscoroutinefunction
 from typing import Any, ClassVar
 
 import logging
 
-from .components import collect_components
+from .components import collect_components, collect_llm_providers
 from .config import (
     PluginConfigBase,
     build_plugin_default_config,
@@ -295,6 +297,14 @@ class MaiBotPlugin:
         components = collect_components(self)
         components.extend(self.get_dynamic_api_components())
         return components
+
+    def get_llm_providers(self) -> list[dict[str, Any]]:
+        """收集所有被装饰器标记的 LLM Provider 信息。
+
+        Returns:
+            list[dict[str, Any]]: 可直接同步到 Host 的 LLM Provider 声明列表。
+        """
+        return collect_llm_providers(self)
 
     @staticmethod
     def _build_dynamic_api_key(name: str, version: str) -> str:

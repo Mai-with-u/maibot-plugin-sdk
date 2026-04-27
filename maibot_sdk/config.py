@@ -7,6 +7,8 @@
 3. WebUI 可基于模型生成插件配置页面需要的 Schema。
 """
 
+# ruff: noqa: I001
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -109,16 +111,12 @@ def extract_plugin_config_version(config_data: Mapping[str, Any]) -> str:
 
     plugin_section = config_data.get(_PLUGIN_CONFIG_SECTION_NAME)
     if not isinstance(plugin_section, Mapping):
-        raise PluginConfigVersionError(
-            "插件配置文件缺少 [plugin] 配置节，且必须提供 plugin.config_version 版本号"
-        )
+        raise PluginConfigVersionError("插件配置文件缺少 [plugin] 配置节，且必须提供 plugin.config_version 版本号")
 
     version_value = plugin_section.get(_PLUGIN_CONFIG_VERSION_FIELD_NAME)
     normalized_version = str(version_value or "").strip()
     if not normalized_version:
-        raise PluginConfigVersionError(
-            "插件配置文件缺少 plugin.config_version 版本号，当前版本策略不再兼容无版本配置"
-        )
+        raise PluginConfigVersionError("插件配置文件缺少 plugin.config_version 版本号，当前版本策略不再兼容无版本配置")
     return normalized_version
 
 

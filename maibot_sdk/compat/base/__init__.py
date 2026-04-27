@@ -11,7 +11,9 @@ from maibot_sdk.compat.base.base_plugin import BasePlugin
 from maibot_sdk.compat.base.base_tool import BaseTool
 from maibot_sdk.compat.base.component_types import (
     ActionActivationType,
+    ActionInfo,
     ChatMode,
+    CommandInfo,
     ComponentInfo,
     ComponentType,
     CustomEventHandlerResult,

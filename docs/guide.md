@@ -19,6 +19,7 @@
   - [EventHandler](#eventhandler)
   - [HookHandler](#hookhandler)
   - [MessageGateway](#messagegateway)
+  - [LLMProvider](#llmprovider)
 - [能力代理](#能力代理)
   - [API -- 插件 API](#api----插件-api)
   - [Gateway -- 消息网关](#gateway----消息网关)
@@ -57,7 +58,7 @@ pip install maibot-plugin-sdk
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import API, Command, EventHandler, Field, HookHandler, MaiBotPlugin, MessageGateway, PluginConfigBase, Tool
+from maibot_sdk import API, Command, EventHandler, Field, HookHandler, LLMProvider, MaiBotPlugin, MessageGateway, PluginConfigBase, Tool
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
@@ -135,6 +136,7 @@ def create_plugin():
 ```
 plugins/
   my_plugin/
+    _manifest.json   # 插件清单；声明依赖、能力和 LLM Provider（按 Host 版本要求）
     plugin.py        # 入口文件（必需）
     config.toml      # 插件配置（可选）
     README.md        # 插件说明（可选）
@@ -142,7 +144,7 @@ plugins/
     ...
 ```
 
-`plugin.py` 是唯一约定的文件名。其他文件按需添加。
+`plugin.py` 是唯一约定的入口文件名。启用 Manifest v2 的运行时会读取 `_manifest.json`，其中 LLM Provider 必须做静态声明；普通插件未使用 LLM Provider 时可按当前 Host 要求保留现有清单结构。
 
 ---
 
@@ -266,7 +268,7 @@ class GreetingPlugin(MaiBotPlugin):
 
 组件是插件对外暴露的功能单元。通过装饰器声明组件，Runner 在加载插件时自动收集并注册到 Host。
 
-当前 SDK 对外推荐 6 种正式组件装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
+当前 SDK 对外推荐 7 种正式声明装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`、`LLMProvider`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
 
 ### API
 
@@ -718,6 +720,134 @@ class NapCatGatewayPlugin(MaiBotPlugin):
 - `route_type="receive"` 的网关只参与入站注入。
 - `route_type="duplex"` 的网关同时承担入站和出站职责。
 - 仅声明 `@MessageGateway` 还不够；插件还需要在链路可用时调用 `ctx.gateway.update_state(..., ready=True)`，主程序才会把它纳入实际路由。
+
+### LLMProvider
+
+`@LLMProvider` 用于声明插件提供新的 LLM Provider `client_type`。主程序会把该 `client_type` 注册到 LLM 客户端注册表中，因此现有 `LLMService` / 模型任务配置不需要改调用方式；只要模型配置里的 `api_providers[].client_type` 指向插件声明的值，就会通过插件 Provider 发起请求。
+
+LLM Provider 必须同时满足两处声明：
+
+1. `_manifest.json` 顶层 `llm_providers` 中静态声明 `client_type`。
+2. 插件代码中使用 `@LLMProvider("同一个 client_type")` 修饰处理方法。
+
+Runner 会校验 manifest 与装饰器收集结果完全一致。任意一边漏写、拼写不一致或同一插件内重复声明，插件都会拒绝加载。不同插件声明同一个 `client_type` 时，冲突双方都会被阻止加载。
+
+Manifest 示例：
+
+```json
+{
+  "llm_providers": [
+    {
+      "client_type": "example.provider",
+      "name": "Example Provider",
+      "description": "示例 LLM Provider",
+      "version": "1.0.0"
+    }
+  ]
+}
+```
+
+`llm_providers` 支持字段：
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `client_type` | `str` | (必填) | Provider 客户端类型，必须与模型配置 `api_providers[].client_type` 一致 |
+| `name` | `str` | `""` | Provider 展示名称 |
+| `description` | `str` | `""` | Provider 描述 |
+| `version` | `str` | `"1.0.0"` | Provider 实现版本 |
+
+不要在 manifest 的 `llm_providers` 中写 `handler_name` 或 `metadata`；处理函数由 `@LLMProvider` 装饰器自动收集。
+
+最小代码示例：
+
+```python
+from typing import Any
+
+from maibot_sdk import LLMProvider, MaiBotPlugin
+
+
+class ExampleLLMPlugin(MaiBotPlugin):
+    async def on_load(self) -> None:
+        return None
+
+    async def on_unload(self) -> None:
+        return None
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        del scope
+        del config_data
+        del version
+
+    @LLMProvider("example.provider", name="Example Provider", description="示例 LLM Provider")
+    async def handle_llm_provider(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
+        if operation == "response":
+            return {"content": "你好，我来自插件 Provider"}
+        if operation == "embedding":
+            return {"embedding": [0.0, 0.1, 0.2]}
+        if operation == "audio_transcription":
+            return {"content": "音频转写结果"}
+        raise ValueError(f"不支持的 LLM Provider 操作类型: {operation}")
+
+
+def create_plugin() -> ExampleLLMPlugin:
+    return ExampleLLMPlugin()
+```
+
+处理方法固定接收两个关键字参数：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `operation` | `str` | 请求类型：`response`、`embedding`、`audio_transcription` |
+| `request` | `dict[str, Any]` | Host 序列化后的请求内容，包含 `model_info`、`extra_params` 和 `api_provider` |
+
+不同 `operation` 的主要请求字段：
+
+| operation | 主要字段 |
+|-----------|----------|
+| `response` | `message_list`、`tool_options`、`max_tokens`、`temperature`、`response_format`、`extra_params`、`model_info`、`api_provider` |
+| `embedding` | `embedding_input`、`extra_params`、`model_info`、`api_provider` |
+| `audio_transcription` | `audio_base64`、`max_tokens`、`extra_params`、`model_info`、`api_provider` |
+
+返回值必须是可序列化字典。Host 会识别以下字段并恢复为统一响应：
+
+| 字段 | 说明 |
+|------|------|
+| `content` / `response` | 文本响应或音频转写文本 |
+| `reasoning_content` / `reasoning` | 推理内容 |
+| `embedding` | 嵌入向量，`list[float]` |
+| `tool_calls` | 工具调用快照 |
+| `usage` | token 使用量字典 |
+| `raw_data` | 原始响应数据 |
+
+如果 Provider 逻辑较多，可以继承 `LLMProviderBase`，把分发逻辑交给 `dispatch()`：
+
+```python
+from typing import Any
+
+from maibot_sdk import LLMProvider, LLMProviderBase, MaiBotPlugin
+
+
+class ExampleProvider(LLMProviderBase):
+    async def get_response(self, request: dict[str, Any]) -> dict[str, Any]:
+        del request
+        return {"content": "来自 Provider 类的响应"}
+
+
+class ExampleLLMPlugin(MaiBotPlugin):
+    def __init__(self) -> None:
+        super().__init__()
+        self.provider = ExampleProvider()
+
+    @LLMProvider("example.provider")
+    async def handle_llm_provider(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
+        return await self.provider.dispatch(operation, request)
+```
+
+说明：
+
+- `LLMProviderBase` 只是推荐基类，不参与注册；真正的注册入口始终是 `@LLMProvider`。
+- 插件 Provider 暂不支持 Host 侧自定义流式处理器或响应解析器。
+- Provider 插件卸载、禁用或热重载失败时，Host 会注销该插件拥有的 `client_type`，新请求会按主程序模型回退策略尝试下一个可用模型。
 
 ---
 
@@ -1523,7 +1653,7 @@ uv run pytest -v
 
 ```bash
 uv sync --extra dev
-# 包含 ruff、mypy、pytest、pytest-asyncio
+# 包含 ruff、pyright、mypy、pytest、pytest-asyncio
 ```
 
 ### 类型检查
@@ -1531,6 +1661,8 @@ uv sync --extra dev
 SDK 附带 `py.typed` 标记，支持静态类型检查：
 
 ```bash
+uv run pyright
+uv run mypy .
 uv run mypy my_plugin/
 ```
 
