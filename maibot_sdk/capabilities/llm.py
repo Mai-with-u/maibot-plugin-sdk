@@ -129,7 +129,7 @@ class LLMCapability:
             批量文本通常包含 ``results``。
         """
 
-        return await self._ctx.call_capability(
+        result = await self._ctx.call_capability(
             "llm.embed",
             text=text,
             texts=texts,
@@ -139,6 +139,9 @@ class LLMCapability:
             max_concurrent=max_concurrent,
             **kwargs,
         )
+        if isinstance(result, dict):
+            return result
+        return {}
 
     async def get_available_models(self) -> List[str]:
         """获取可用模型列表。

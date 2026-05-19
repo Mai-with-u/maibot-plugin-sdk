@@ -486,7 +486,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.4.0"
+    assert maibot_sdk.__version__ == "2.5.0"
 
 
 def test_component_capability_normalizes_lowercase_component_type():
