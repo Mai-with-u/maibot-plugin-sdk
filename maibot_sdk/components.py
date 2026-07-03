@@ -16,6 +16,7 @@ from .types import (
     ErrorPolicy,
     EventHandlerComponentInfo,
     EventType,
+    HomeCardComponentInfo,
     HookHandlerComponentInfo,
     HookMode,
     HookOrder,
@@ -523,6 +524,53 @@ def HookHandler(
             order=order,
             timeout_ms=timeout_ms,
             error_policy=error_policy,
+            metadata=metadata,
+        )
+        setattr(func, _COMPONENT_INFO_ATTR, info)
+        return func
+
+    return decorator
+
+
+def HomeCard(
+    name: str,
+    title: str,
+    content: Any = "",
+    *,
+    description: str = "",
+    link_url: str = "",
+    link_label: str = "",
+    icon: str = "",
+    width: str = "medium",
+    order: int = 1000,
+    **metadata: Any,
+) -> _Decorator:
+    """声明 WebUI 首页卡片。
+
+    卡片内容会以声明式数据交给 WebUI 渲染。为安全起见，WebUI 不执行
+    插件提供的 HTML 或 JavaScript；需要富文本时建议使用 Markdown 字符串。
+    """
+
+    normalized_name = str(name or "").strip()
+    if not normalized_name:
+        raise ValueError("HomeCard 的 name 不能为空")
+    normalized_title = str(title or "").strip()
+    if not normalized_title:
+        raise ValueError("HomeCard 的 title 不能为空")
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        """将首页卡片元数据附着到目标函数。"""
+
+        info = HomeCardComponentInfo(
+            name=normalized_name,
+            title=normalized_title,
+            description=description,
+            content=content,
+            link_url=str(link_url or "").strip(),
+            link_label=str(link_label or "").strip(),
+            icon=str(icon or "").strip(),
+            width=str(width or "medium").strip().lower() or "medium",
+            order=int(order),
             metadata=metadata,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)

@@ -5,7 +5,9 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [2.7.0] - 2026-07-03
+
+- 支持插件添加首页卡片
 
 ## [2.6.0] - 2026-06-26
 

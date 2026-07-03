@@ -20,6 +20,7 @@
   - [EventHandler](#eventhandler)
   - [HookHandler](#hookhandler)
   - [MessageGateway](#messagegateway)
+  - [HomeCard](#homecard)
   - [LLMProvider](#llmprovider)
 - [能力代理](#能力代理)
   - [API -- 插件 API](#api----插件-api)
@@ -57,10 +58,19 @@ Python >= 3.10。
 pip install maibot-plugin-sdk
 ```
 
+本地联调 SDK 时，可在启动 MaiBot 前设置：
+
+```powershell
+$env:MAIBOT_PLUGIN_SDK_PATH = "C:\GitHub\MaiBot-dev\maibot-plugin-sdk"
+uv run python bot.py
+```
+
+MaiBot Runner 会优先从该路径导入 `maibot_sdk`，并使用本地 `pyproject.toml` 中的版本号进行兼容性检查。构建本地 SDK 分发包可执行 `uv sync --extra dev`、`uv run pytest`、`uv build`。
+
 安装后即可在代码中导入：
 
 ```python
-from maibot_sdk import API, Command, EventHandler, Field, HookHandler, LLMProvider, MaiBotPlugin, MessageGateway, PluginConfigBase, Tool
+from maibot_sdk import API, Command, EventHandler, Field, HomeCard, HookHandler, LLMProvider, MaiBotPlugin, MessageGateway, PluginConfigBase, Tool
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
@@ -305,7 +315,7 @@ runtime_path = self.ctx.paths.runtime_dir / "render.png"
 
 组件是插件对外暴露的功能单元。通过装饰器声明组件，Runner 在加载插件时自动收集并注册到 Host。
 
-当前 SDK 对外推荐 7 种正式声明装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`、`LLMProvider`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
+当前 SDK 对外推荐 8 种正式声明装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`、`HomeCard`、`LLMProvider`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
 
 ### API
 
@@ -759,6 +769,74 @@ class NapCatGatewayPlugin(MaiBotPlugin):
 - `route_type="receive"` 的网关只参与入站注入。
 - `route_type="duplex"` 的网关同时承担入站和出站职责。
 - 仅声明 `@MessageGateway` 还不够；插件还需要在链路可用时调用 `ctx.gateway.update_state(..., ready=True)`，主程序才会把它纳入实际路由。
+
+### HomeCard
+
+`@HomeCard` 用于给 WebUI 首页声明插件扩展卡片。卡片随插件加载注册，插件禁用、卸载或重载后会自动从首页候选卡片中移除。
+
+```python
+from maibot_sdk import HomeCard, MaiBotPlugin
+
+
+class StatusCardPlugin(MaiBotPlugin):
+    async def on_load(self) -> None:
+        return None
+
+    async def on_unload(self) -> None:
+        return None
+
+    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+        del scope
+        del config_data
+        del version
+
+    @HomeCard(
+        "status",
+        title="插件状态",
+        description="显示插件当前摘要",
+        content=[
+            {"type": "markdown", "content": "**运行中**，最近一次同步成功。"},
+            {"type": "stat", "label": "今日任务", "value": "12", "detail": "失败 0 次"},
+            {"type": "actions", "actions": [{"label": "打开配置", "url": "/plugin-config?plugin=demo.status"}]},
+        ],
+        link_url="/plugin-config?plugin=demo.status",
+        link_label="插件配置",
+        width="medium",
+        order=100,
+    )
+    async def home_card_marker(self) -> None:
+        return None
+```
+
+**参数列表**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `name` | `str` | (必填) | 卡片组件名称，同一插件内唯一 |
+| `title` | `str` | (必填) | 首页显示标题 |
+| `content` | `str \| dict \| list[dict]` | `""` | 卡片内容。字符串按 Markdown 渲染；列表按内容块渲染 |
+| `description` | `str` | `""` | 卡片描述 |
+| `link_url` | `str` | `""` | 可选跳转链接，支持 WebUI 内部路径、`http(s)`、`mailto` |
+| `link_label` | `str` | `""` | 跳转按钮文案 |
+| `icon` | `str` | `""` | 可选图标名，供 WebUI 展示扩展 |
+| `width` | `str` | `"medium"` | 卡片宽度：`small` = 2/10、`medium` = 3/10、`large` = 5/10、`wide` = 7/10、`full` = 10/10 |
+| `order` | `int` | `1000` | 默认排序值，越小越靠前 |
+| `**metadata` | `dict[str, Any]` | `{}` | 附加元数据 |
+
+内容块当前建议使用：
+
+- `{"type": "markdown", "content": "..."}`
+- `{"type": "text", "content": "..."}`
+- `{"type": "stat", "label": "...", "value": "...", "detail": "..."}`
+- `{"type": "key_value", "entries": {"键": "值"}}`
+- `{"type": "list", "items": ["..."]}`
+- `{"type": "actions", "actions": [{"label": "...", "url": "/path"}]}`
+
+安全说明：
+
+- WebUI 不执行插件提供的 HTML、JavaScript 或内联事件；Markdown 中的 HTML 会按普通文本处理。
+- 链接会被 Host 和 WebUI 双重校验，仅允许内部路径、`http(s)` 和 `mailto`。
+- 首页卡片只能由插件或 WebUI 内置功能提供；用户本地 WebUI 只保存隐藏、恢复和拖拽排序等显示偏好。
 
 ### LLMProvider
 

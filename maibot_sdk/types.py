@@ -15,6 +15,7 @@ _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "COMMAND": "COMMAND",
     "EVENT_HANDLER": "EVENT_HANDLER",
     "HOOK_HANDLER": "HOOK_HANDLER",
+    "HOME_CARD": "HOME_CARD",
     "MESSAGE_GATEWAY": "MESSAGE_GATEWAY",
     "TOOL": "TOOL",
     "action": "ACTION",
@@ -22,6 +23,7 @@ _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "command": "COMMAND",
     "event_handler": "EVENT_HANDLER",
     "hook_handler": "HOOK_HANDLER",
+    "home_card": "HOME_CARD",
     "message_gateway": "MESSAGE_GATEWAY",
     "tool": "TOOL",
 }
@@ -159,6 +161,7 @@ class ComponentType(str, Enum):
     TOOL = "TOOL"
     EVENT_HANDLER = "EVENT_HANDLER"
     HOOK_HANDLER = "HOOK_HANDLER"
+    HOME_CARD = "HOME_CARD"
     MESSAGE_GATEWAY = "MESSAGE_GATEWAY"
 
     @classmethod
@@ -447,6 +450,19 @@ class MessageGatewayComponentInfo(ComponentInfo):
     protocol: str = Field(default="", description="可选的协议或接入方言名称")
     account_id: str = Field(default="", description="可选的账号 ID 或 self_id")
     scope: str = Field(default="", description="可选的路由作用域")
+
+
+class HomeCardComponentInfo(ComponentInfo):
+    """WebUI 首页卡片组件信息。"""
+
+    type: ComponentType = ComponentType.HOME_CARD
+    title: str = Field(description="卡片标题")
+    content: Any = Field(default="", description="卡片内容，建议使用 Markdown 字符串或结构化内容块")
+    link_url: str = Field(default="", description="点击跳转地址，可为 WebUI 内部路径或 http(s) 外链")
+    link_label: str = Field(default="", description="跳转按钮文案")
+    icon: str = Field(default="", description="可选图标名")
+    width: str = Field(default="medium", description="卡片宽度：small/medium/large/wide/full")
+    order: int = Field(default=1000, description="默认排序值，越小越靠前")
 
 
 class LLMProviderInfo(BaseModel):

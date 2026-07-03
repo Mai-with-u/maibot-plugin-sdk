@@ -16,6 +16,7 @@ from maibot_sdk import (
     Command,
     EventHandler,
     Field,
+    HomeCard,
     HookHandler,
     LLMProvider,
     LLMProviderBase,
@@ -94,6 +95,20 @@ class SamplePlugin(MaiBotPlugin):
 
         del kwargs
         return {"action": "continue"}
+
+    @HomeCard(
+        "status_card",
+        title="状态卡片",
+        content="**插件运行中**",
+        link_url="/plugin-config?plugin=demo",
+        link_label="打开配置",
+        width="wide",
+        order=20,
+    )
+    async def home_card_marker(self) -> None:
+        """声明首页卡片。"""
+
+        return None
 
     @LLMProvider("example.provider", name="Example Provider", description="测试 Provider")
     async def handle_llm_provider(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
@@ -253,6 +268,7 @@ def test_collect_components():
     assert "test_tool" in names
     assert "test_event" in names
     assert "test_hook" in names
+    assert "status_card" in names
 
 
 def test_collect_llm_providers():
@@ -294,6 +310,11 @@ def test_component_types():
     assert component_map["test_tool"]["type"] == ComponentType.TOOL.value
     assert component_map["test_event"]["type"] == ComponentType.EVENT_HANDLER.value
     assert component_map["test_hook"]["type"] == ComponentType.HOOK_HANDLER.value
+    assert component_map["status_card"]["type"] == ComponentType.HOME_CARD.value
+    assert component_map["status_card"]["metadata"]["title"] == "状态卡片"
+    assert component_map["status_card"]["metadata"]["content"] == "**插件运行中**"
+    assert component_map["status_card"]["metadata"]["link_url"] == "/plugin-config?plugin=demo"
+    assert component_map["status_card"]["metadata"]["width"] == "wide"
 
 
 def test_hook_handler_metadata():
@@ -634,7 +655,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.6.0"
+    assert maibot_sdk.__version__ == "2.7.0"
 
 
 def test_llm_generate_omits_unset_generation_options():
