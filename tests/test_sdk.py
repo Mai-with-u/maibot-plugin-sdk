@@ -75,7 +75,12 @@ class SamplePlugin(MaiBotPlugin):
         del kwargs
         return True, "done", 2
 
-    @Tool("test_tool", parameters=[ToolParameterInfo(name="q", param_type=ToolParamType.STRING)])
+    @Tool(
+        "test_tool",
+        parameters=[ToolParameterInfo(name="q", param_type=ToolParamType.STRING)],
+        core_tool=True,
+        visibility="visible",
+    )
     async def handle_tool(self, **kwargs: Any) -> str:
         """处理测试工具。"""
 
@@ -270,6 +275,11 @@ def test_collect_components():
     assert "test_hook" in names
     assert "status_card" in names
 
+    tool_component = next(component for component in components if component["name"] == "test_tool")
+    assert tool_component["metadata"]["core_tool"] is True
+    assert tool_component["metadata"]["visibility"] == "visible"
+    assert "metadata" not in tool_component["metadata"]
+
 
 def test_collect_llm_providers():
     plugin = SamplePlugin()
@@ -302,7 +312,7 @@ def test_component_types():
     components = plugin.get_components()
     component_map = {c["name"]: c for c in components}
     assert component_map["test_action"]["type"] == ComponentType.TOOL.value
-    action_metadata = component_map["test_action"]["metadata"]["metadata"]
+    action_metadata = component_map["test_action"]["metadata"]
     assert action_metadata["legacy_action"] is True
     assert action_metadata["legacy_component_type"] == ComponentType.ACTION.value
     assert component_map["test_api"]["type"] == ComponentType.API.value
@@ -655,7 +665,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.7.0"
+    assert maibot_sdk.__version__ == "2.7.1"
 
 
 def test_llm_generate_omits_unset_generation_options():

@@ -9,14 +9,25 @@
 - PluginContext / PluginPaths: 插件运行时上下文与标准路径
 """
 
-from .components import API, Action, Command, EventHandler, HomeCard, HookHandler, LLMProvider, MessageGateway, Tool, WorkflowStep
+from .components import (
+    API,
+    Action,
+    Command,
+    EventHandler,
+    HomeCard,
+    HookHandler,
+    LLMProvider,
+    MessageGateway,
+    Tool,
+    WorkflowStep,
+)
 from .config import Field, PluginConfigBase
 from .context import PluginContext, PluginPaths
 from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.7.0"
+__version__ = "2.7.1"
 
 __all__ = [
     "MaiBotPlugin",

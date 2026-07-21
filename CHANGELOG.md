@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.7.1] - 2026-07-22
+
+### 修复
+
+- 修复组件装饰器的自定义 metadata 被重复嵌套的问题，`core_tool`、`visibility` 等字段现在直接写入组件 metadata 顶层
+
 ## [2.7.0] - 2026-07-03
 
 - 支持插件添加首页卡片

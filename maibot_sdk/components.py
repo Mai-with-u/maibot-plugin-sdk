@@ -726,7 +726,7 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
     Returns:
         组件信息字典列表，每个字典可直接序列化为 ComponentDeclaration
     """
-    components = []
+    components: list[dict[str, Any]] = []
     for attr_name in dir(instance):
         try:
             attr = getattr(instance, attr_name)
@@ -734,8 +734,12 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
             continue
         if callable(attr) and hasattr(attr, _COMPONENT_INFO_ATTR):
             info = getattr(attr, _COMPONENT_INFO_ATTR)
-            component_metadata = info.model_dump(mode="json", exclude={"name", "type"})
-            component_metadata.setdefault("handler_name", attr_name)
+            declared_metadata = info.model_dump(mode="json", exclude={"name", "type", "metadata"})
+            component_metadata = {
+                **info.metadata,
+                **declared_metadata,
+                "handler_name": attr_name,
+            }
             components.append(
                 {
                     "name": info.name,
