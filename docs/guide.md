@@ -673,6 +673,9 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 | `maisaka.replyer.before_request` | Maisaka replyer 构建模型请求参数前 | 否 | 是 |
 | `maisaka.replyer.before_model_request` | Maisaka replyer 构造完最终 `messages` 后、请求模型前 | 否 | 是 |
 | `maisaka.replyer.after_response` | Maisaka replyer 收到模型响应后 | 否 | 是 |
+| `maisaka.reply.before_post_process` | Maisaka 最终可见回复执行文本后处理前 | 否 | 是 |
+
+`maisaka.reply.before_post_process` 提供 `response`、`session_id`、`reply_message_id`、`reply_tool_args`、`skip_post_process`、`enable_splitter` 和 `enable_chinese_typo`。阻塞处理器可通过 `modified_kwargs` 按单次回复改写正文、完全跳过文本后处理，或分别关闭拆分与中文错别字注入；策略字段必须保持布尔类型。该 Hook 不影响富回复附件组装。
 
 **Host 执行顺序**：
 

@@ -839,7 +839,8 @@ Host 的实际执行顺序为：`BLOCKING` 先于 `OBSERVE`，`EARLY` 先于 `NO
    `expression.select.after_selection`、`expression.learn.after_extract`、`expression.learn.before_upsert`、
    `send_service.after_build_message`、`send_service.before_send`、`send_service.after_send`、
    `maisaka.planner.before_request`、`maisaka.planner.after_response`、
-   `maisaka.replyer.before_request`、`maisaka.replyer.before_model_request`、`maisaka.replyer.after_response`。
+   `maisaka.replyer.before_request`、`maisaka.replyer.before_model_request`、`maisaka.replyer.after_response`、
+   `maisaka.reply.before_post_process`。
 
 ---
 
