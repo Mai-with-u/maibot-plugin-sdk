@@ -665,7 +665,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.7.1"
+    assert maibot_sdk.__version__ == "2.8.0"
 
 
 def test_llm_generate_omits_unset_generation_options():
@@ -1085,6 +1085,33 @@ def test_capabilities_unwrap_host_wrapper_results():
     assert result["talk_value"] == 0.75
     assert result["tools"] == [{"name": "demo"}]
     assert result["send_ok"] is True
+
+
+def test_send_capability_preserves_details_when_requested():
+    from maibot_sdk.context import PluginContext
+
+    captured_args: list[dict[str, object]] = []
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.call"
+        assert payload is not None
+        captured_args.append(payload["args"])
+        return {"success": True, "sent": True, "message_id": "platform-message-1"}
+
+    async def main() -> tuple[object, object]:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        default_result = await ctx.send.text("hello", "stream-1")
+        detailed_result = await ctx.send.text("hello", "stream-1", return_details=True)
+        return default_result, detailed_result
+
+    default_result, detailed_result = asyncio.run(main())
+
+    assert default_result is True
+    assert detailed_result == {"sent": True, "message_id": "platform-message-1"}
+    assert captured_args == [
+        {"text": "hello", "stream_id": "stream-1", "return_details": False},
+        {"text": "hello", "stream_id": "stream-1", "return_details": True},
+    ]
 
 
 def test_emoji_delete_forwards_keep_desc_argument():

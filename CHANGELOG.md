@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.8.0] - 2026-08-10
+
+### 新增
+
+- 所有 `ctx.send.*` 方法新增可选的 `return_details=True`，用于取得发送状态和平台确认的最终消息 ID；默认调用仍返回布尔值
+
 ## [2.7.1] - 2026-07-22
 
 ### 修复

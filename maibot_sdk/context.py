@@ -93,6 +93,16 @@ _BOOLEAN_SUCCESS_CAPABILITIES = {
     "send.text",
 }
 
+_DETAILED_SEND_CAPABILITIES = {
+    "send.command",
+    "send.custom",
+    "send.emoji",
+    "send.forward",
+    "send.hybrid",
+    "send.image",
+    "send.text",
+}
+
 _ALLOWED_RAW_HOST_METHODS = frozenset(
     {
         "cap.call",
@@ -252,10 +262,19 @@ class PluginContext:
             },
             timeout_ms=timeout_ms,
         )
-        return self._normalize_capability_result(capability, result)
+        return self._normalize_capability_result(
+            capability,
+            result,
+            return_details=bool(kwargs.get("return_details", False)),
+        )
 
     @staticmethod
-    def _normalize_capability_result(capability: str, result: Any) -> Any:
+    def _normalize_capability_result(
+        capability: str,
+        result: Any,
+        *,
+        return_details: bool = False,
+    ) -> Any:
         """将 Host 侧 RPC 包装结果还原成插件更直观的返回值。"""
         if not isinstance(result, dict) or "success" not in result:
             return result
@@ -264,6 +283,12 @@ class PluginContext:
             result_key = _CAPABILITY_RESULT_KEYS[capability]
             if result_key in result:
                 return result[result_key]
+
+        if capability in _DETAILED_SEND_CAPABILITIES and return_details:
+            return {
+                "sent": bool(result.get("sent", result.get("success"))),
+                "message_id": result.get("message_id"),
+            }
 
         if capability in _BOOLEAN_SUCCESS_CAPABILITIES:
             return bool(result.get("success"))

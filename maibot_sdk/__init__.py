@@ -9,6 +9,7 @@
 - PluginContext / PluginPaths: 插件运行时上下文与标准路径
 """
 
+from .capabilities.send import SendResult
 from .components import (
     API,
     Action,
@@ -27,7 +28,7 @@ from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.7.1"
+__version__ = "2.8.0"
 
 __all__ = [
     "MaiBotPlugin",
@@ -46,6 +47,7 @@ __all__ = [
     "Field",
     "PluginContext",
     "PluginPaths",
+    "SendResult",
     "CONFIG_RELOAD_SCOPE_SELF",
     "ON_BOT_CONFIG_RELOAD",
     "ON_MODEL_CONFIG_RELOAD",

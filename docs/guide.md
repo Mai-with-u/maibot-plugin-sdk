@@ -1088,13 +1088,22 @@ send = self.ctx.send
 | `await send.hybrid(segments, stream_id)` | `segments: list[dict]` | 发送图文混合消息 |
 | `await send.custom(custom_type, data, stream_id)` | `custom_type: str`, `data: Any` | 发送自定义类型消息 |
 
-说明：`send.custom()` 会同时携带 `custom_type/data` 和 `message_type/content` 两套字段名，用于兼容不同版本的 Host 实现。插件侧只需要继续传 `custom_type` 与 `data`。
+默认情况下，所有发送方法继续返回 `bool`。需要取得平台确认的最终消息 ID 时，显式传入
+`return_details=True`，返回值为 `{"sent": bool, "message_id": str | None}`。平台未提供最终 ID
+时 `message_id` 为 `None`，不会回退为 Host 发送前生成的临时 ID。
+
+`send.custom()` 会同时携带 `custom_type/data` 和 `message_type/content` 两套字段名，用于兼容不同版本的 Host 实现。插件侧只需要继续传 `custom_type` 与 `data`。
 
 示例：
 
 ```python
 # 发送文本
 await self.ctx.send.text("你好", stream_id)
+
+# 请求详细结果
+result = await self.ctx.send.text("你好", stream_id, return_details=True)
+if result["sent"]:
+    self.ctx.logger.info("平台消息 ID: %s", result["message_id"])
 
 # 发送图片（base64）
 import base64
