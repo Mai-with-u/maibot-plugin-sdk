@@ -194,6 +194,7 @@ class PluginSection(PluginConfigBase):
     }
 
     enabled: bool = Field(default=True, description="是否启用插件")
+    config_version: str = Field(default="1.0.0", description="配置版本号")
     greeting: str = Field(
         default="你好！",
         description="默认问候语",
@@ -223,7 +224,11 @@ class MyPlugin(MaiBotPlugin):
         self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
 ```
 
-配置来源仍然是插件目录下的 `config.toml`。当插件声明了 `config_model` 后，Runner / Host 可以基于模型生成默认配置和 WebUI Schema，插件代码则可以通过 `self.config` 访问校验后的强类型配置对象；需要临时读取原始配置值时，也仍可继续使用 `await self.ctx.config.get(...)`。
+配置来源仍然是插件目录下的 `config.toml`。`PluginSection` 和非空 `config_version` 是声明
+`config_model` 时的强制契约，SDK 会在默认配置构建和校验阶段直接报错。当插件声明了
+`config_model` 后，Runner / Host 可以基于模型生成默认配置和 WebUI Schema，插件代码则可以通过
+`self.config` 访问校验后的强类型配置对象；需要临时读取原始配置值时，也仍可继续使用
+`await self.ctx.config.get(...)`。
 
 ## 兼容说明
 
@@ -252,9 +257,16 @@ class MyPlugin(MaiBotPlugin):
 
 ```
 my_plugin/
+    _manifest.json     # 插件清单，可声明 WebUI 页面
     plugin.py          # 插件入口，包含 create_plugin()
     config.toml        # 可选配置
+    webui/
+        dist/
+            index.js   # 可选：WebUI 页面 ESM 入口
 ```
+
+插件 WebUI 页面规范、Manifest 示例和 `mount(container, context)` 入口约定见
+[`docs/guide.md`](docs/guide.md) 的“插件 WebUI 页面”章节。
 
 ## 环境要求
 

@@ -5,6 +5,20 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.9.0] - 未发布
+
+### 新增
+
+- 新增 `WebUiPageInfo` 和 `WebUiExtensionsInfo`，对齐 MaiBot Manifest v2 的插件 WebUI 页面声明格式。
+- 新增页面入口、路由、图标、权限、API 白名单和页面 ID 去重校验，并支持转换为 Manifest JSON 数据。
+- 新增 WebUI 页面 TypeScript 上下文类型、Vite + Vue 3 构建示例和 `WEBUI_PAGE_VIEW_PERMISSION` 常量。
+
+### 修复
+
+- 插件配置模型缺少 `[plugin].config_version` 时，在默认配置构建和配置校验阶段直接报错。
+- WebUI 页面 API 白名单与实际 `@API` 组件不一致时，Host 会在插件加载阶段输出带上下文的 warning。
+- WebUI 页面请求支持 `debug=true` 链路诊断，并在成功响应中返回 `request_id`。
+
 ## [2.8.0] - 2026-08-10
 
 ### 新增

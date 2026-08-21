@@ -9,6 +9,7 @@
 - [环境准备](#环境准备)
 - [快速开始](#快速开始)
 - [插件结构](#插件结构)
+- [插件 WebUI 页面](#插件-webui-页面)
 - [插件基类](#插件基类)
   - [配置模型](#配置模型)
   - [运行时路径](#运行时路径)
@@ -158,6 +159,146 @@ plugins/
 
 `plugin.py` 是唯一约定的入口文件名。启用 Manifest v2 的运行时会读取 `_manifest.json`，其中 LLM Provider 必须做静态声明；普通插件未使用 LLM Provider 时可按当前 Host 要求保留现有清单结构。
 
+## 插件 WebUI 页面
+
+MaiBot Host 支持插件在“扩展与集成”区域注册自定义 WebUI 页面。SDK 提供
+`WebUiPageInfo` 和 `WebUiExtensionsInfo` 类型，用于在 Python 代码中校验页面声明并生成
+`_manifest.json` 所需的数据；页面本身仍由插件前端构建产物提供。
+
+### 目录结构
+
+```text
+plugins/my_plugin/
+├── _manifest.json
+├── plugin.py
+└── webui/
+    └── dist/
+        └── index.js
+```
+
+入口文件必须位于插件自己的 `webui/dist/` 目录，只允许 `.js` 或 `.mjs` 文件。Host 不会加载
+插件目录之外的脚本，也不会执行通过 Manifest 传入的任意 HTML。
+
+### Manifest 声明
+
+在 `_manifest.json` 的 `extensions.webui_pages` 中添加页面：
+
+```json
+{
+  "extensions": {
+    "webui_pages": [
+      {
+        "id": "hello",
+        "title": "Hello World 页面",
+        "route": "hello",
+        "entry": "webui/dist/index.js",
+        "component": "mount",
+        "icon": "puzzle",
+        "order": 120,
+        "permissions": ["webui.page:view"],
+        "api": {
+          "greet": "webui.hello.greet"
+        }
+      }
+    ]
+  }
+}
+```
+
+字段约束与 `maibot_sdk.types.WebUiPageInfo` 一致：`id` 和 `route` 是单段小写 slug，
+`entry` 必须是 `webui/dist/` 下的 ESM 文件，`component` 当前固定为 `mount`。`permissions`
+用于页面访问权限声明，`api` 是页面操作名到插件 `@API` 组件名的白名单映射；未列入白名单的
+插件 API 不会被页面代理调用。
+
+`webui_pages` 是 Host 的 Manifest 协议，不依赖 SDK 的具体版本。SDK 2.9.0 提供的
+`WebUiPageInfo` 只是用于校验和生成声明的辅助模型；使用 SDK 2.8.0 或更早版本的插件也可以
+直接手写上述 JSON，不需要通过 `try-import` 维护两套页面协议。Host 在插件加载后会把页面
+`api` 白名单与实际收集到的 `@API(name=...)` 组件逐项比对；发现拼写错误时会记录包含插件、页面、
+operation 和 API 名称的 warning，插件仍会完成加载，但对应页面调用会返回 404。
+
+页面查看权限可直接使用 SDK 常量 `WEBUI_PAGE_VIEW_PERMISSION`，其值为
+`webui.page:view`。当前 Host 会校验页面声明并执行认证边界；更细粒度的权限授权仍取决于
+Host 的权限配置，插件不应把任意用户输入拼接到权限名称中。
+
+Host 当前内置并允许安全回退的图标名称包括：`bar-chart-3`、`box`、`database`、`file-text`、
+`gauge`、`puzzle`、`settings`、`store`、`wrench`。未知名称会显示 `puzzle`，Manifest 中不允许
+传入 SVG、HTML 或任意组件代码。
+
+也可以使用 SDK 模型生成声明，避免在代码中重复拼写协议字段：
+
+```python
+from maibot_sdk import WebUiExtensionsInfo, WebUiPageInfo
+
+extensions = WebUiExtensionsInfo(
+    webui_pages=[
+        WebUiPageInfo(
+            id="hello",
+            title="Hello World 页面",
+            route="hello",
+            entry="webui/dist/index.js",
+            permissions=["webui.page:view"],
+            api={"greet": "webui.hello.greet"},
+        )
+    ]
+)
+manifest_extensions = extensions.to_manifest()
+```
+
+### 页面入口约定
+
+页面入口需要导出 `mount(container, context)` 函数。`container` 是 Host 创建的 DOM 容器，
+`context.pluginId` 是插件 ID，`context.request(operation, options)` 会调用 Manifest `api`
+白名单中的插件 API。`mount` 可以返回清理函数，页面离开或插件热重载时 Host 会调用该函数：
+
+```javascript
+export function mount(container, context) {
+  const title = document.createElement('h1')
+  title.textContent = 'Hello World 页面'
+  container.append(title)
+
+  return () => title.remove()
+}
+```
+
+复杂页面应在清理函数中释放所有自己创建的资源，例如：
+
+```javascript
+export function mount(container, context) {
+  const timer = window.setInterval(() => update(container), 5000)
+  const onResize = () => update(container)
+  const controller = new AbortController()
+  window.addEventListener('resize', onResize)
+  void context.request('greet', { signal: controller.signal })
+
+  return () => {
+    window.clearInterval(timer)
+    window.removeEventListener('resize', onResize)
+    controller.abort()
+  }
+}
+```
+
+每个页面都是独立的 `mount` 实例；切换页面会先调用当前页面的清理函数，页面之间不共享
+Host 的局部 DOM、React/Vue 组件状态或生命周期。需要跨页面共享数据时，优先使用插件后端 API，
+或使用带插件命名空间的 `localStorage` / `BroadcastChannel`，并自行处理版本和清理策略。
+
+页面 API 请求由 Host 代理到插件 Runner，并执行认证、页面白名单、插件启用状态和 JSON 响应校验。
+插件页面只能使用 Host 提供的同源资源和 API，不应依赖跨域脚本或把密钥写入前端构建产物。
+调试跨层失败时可传入 `context.request('greet', { debug: true })`；此时返回
+`{ data, request_id }`，Host 日志会用同一 ID 标记该次调用。默认请求仍直接返回 `data`，
+不增加调试字段，避免改变既有响应结构。
+
+### 开发与热重载
+
+官方 Vite + Vue 3 最小构建模板位于 SDK 仓库的 `examples/webui-vite/`。执行
+`npm install && npm run build` 后，产物会写入示例插件的 `webui/dist/index.js`；不要把
+`node_modules`、开发服务器地址或密钥复制进插件目录。
+
+开发时可直接修改 `webui/dist/index.js`，刷新 WebUI 后重新读取页面入口。修改 `_manifest.json`
+或插件 Python 文件会触发插件 Runner 的安全热重载；页面菜单和 API 白名单会随成功加载的插件
+重新发现。当前热重载不会替代前端构建工具，使用 Vite 等工具时仍需把最终产物输出到
+`webui/dist/`。
+
 ---
 
 ## 插件基类
@@ -287,6 +428,16 @@ class GreetingPlugin(MaiBotPlugin):
 说明：
 
 - 运行时的配置来源仍然是插件目录下的 `config.toml`。
+- `PluginSection` 是强制配置节，必须包含非空的 `config_version` 字段，例如：
+
+  ```python
+  class PluginSection(PluginConfigBase):
+      enabled: bool = Field(default=True, description="是否启用插件")
+      config_version: str = Field(default="1.0.0", description="配置版本号")
+  ```
+
+  SDK 会在 `build_default_config()` 和 `validate_plugin_config()` 阶段直接抛出清晰的配置错误；
+  不要等到 IPC 注册请求失败后再排查。没有配置模型的插件不需要增加这段配置。
 - 配置节标题、排序、图标可通过 `__ui_label__`、`__ui_order__`、`__ui_icon__` 设置；如需按 WebUI 语言切换配置节标题或说明，可设置 `__ui_i18n__`，键名使用 `title` / `description`。
 - `Field(..., json_schema_extra=...)` 可携带 `label`、`hint`、`placeholder`、`x-widget`、`x-icon`、`depends_on`、`depends_value`、`step` 等 UI 元数据。
 - `Literal[...]` 会自动生成 `choices`；若字段类型为 `list[Literal[...]]`，生成的 Schema 会继续使用 `type: "select"`，并额外输出 `multiple: true`。
@@ -1735,6 +1886,8 @@ from maibot_sdk.types import (
     EventHandlerComponentInfo,  # EventHandler 组件信息
     HookHandlerComponentInfo,   # HookHandler 组件信息
     MessageGatewayComponentInfo, # 消息网关组件信息
+    WebUiPageInfo,        # 插件 WebUI 页面声明
+    WebUiExtensionsInfo,  # 插件 WebUI 扩展集合
     CapabilityResult,    # 能力调用结果
 )
 ```

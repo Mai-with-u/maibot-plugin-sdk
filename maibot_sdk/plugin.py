@@ -116,7 +116,11 @@ class MaiBotPlugin:
         config_class = cls.get_config_model()
         if config_class is None:
             return {}
-        return build_plugin_default_config(config_class)
+        default_config = build_plugin_default_config(config_class)
+        # 顶层插件配置必须显式声明 [plugin].config_version，
+        # 在构造默认配置时失败可以避免运行到 IPC 注册阶段才暴露错误。
+        extract_plugin_config_version(default_config)
+        return default_config
 
     @classmethod
     def build_config_schema(
@@ -144,6 +148,7 @@ class MaiBotPlugin:
         config_class = cls.get_config_model()
         if config_class is None:
             return {}
+        extract_plugin_config_version(build_plugin_default_config(config_class))
         return generate_plugin_config_schema(
             config_class,
             plugin_id=plugin_id,

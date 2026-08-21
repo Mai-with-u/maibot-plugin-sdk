@@ -27,7 +27,7 @@ from maibot_sdk import (
     Tool,
     WorkflowStep,
 )
-from maibot_sdk.config import PluginConfigVersionError, generate_plugin_config_schema
+from maibot_sdk.config import PluginConfigVersionError, generate_plugin_config_schema, validate_plugin_config
 from maibot_sdk.messages import MaiMessages
 from maibot_sdk.types import (
     ActivationType,
@@ -183,6 +183,30 @@ class DemoPluginConfig(PluginConfigBase):
 
     plugin: DemoPluginSection = Field(default_factory=DemoPluginSection)
     feature: DemoFeatureSection = Field(default_factory=DemoFeatureSection)
+
+
+class MissingPluginSectionConfig(PluginConfigBase):
+    """缺少顶层 plugin 配置节的非法插件配置。"""
+
+    enabled: bool = Field(default=True, description="是否启用插件")
+
+
+class EmptyPluginConfigVersionSection(PluginConfigBase):
+    """config_version 为空的非法插件配置节。"""
+
+    config_version: str = Field(default="", description="配置版本号")
+
+
+class MissingPluginSection(MaiBotPlugin):
+    """用于验证插件顶层配置契约的测试插件。"""
+
+    config_model = MissingPluginSectionConfig
+
+
+class EmptyPluginConfigVersion(MaiBotPlugin):
+    """用于验证空配置版本契约的测试插件。"""
+
+    config_model = EmptyPluginConfigVersionSection
 
 
 class DemoObjectItemConfig(PluginConfigBase):
@@ -441,6 +465,27 @@ def test_plugin_default_config_generation() -> None:
     }
 
 
+def test_plugin_default_config_requires_plugin_section() -> None:
+    """插件顶层配置缺少 plugin 节时应在构建默认配置阶段失败。"""
+
+    with pytest.raises(PluginConfigVersionError, match=r"\[plugin\].*config_version"):
+        MissingPluginSection.build_default_config()
+
+
+def test_plugin_default_config_requires_non_empty_config_version() -> None:
+    """插件顶层配置的 config_version 为空时应在构建阶段失败。"""
+
+    with pytest.raises(PluginConfigVersionError, match="config_version"):
+        EmptyPluginConfigVersion.build_default_config()
+
+
+def test_validate_plugin_config_requires_plugin_section() -> None:
+    """配置模型校验也应在 Pydantic 校验前拒绝缺少版本节的数据。"""
+
+    with pytest.raises(PluginConfigVersionError, match=r"\[plugin\].*config_version"):
+        validate_plugin_config(DemoPluginConfig, {"feature": {"endpoint": "https://example.com"}})
+
+
 def test_plugin_config_schema_generation() -> None:
     """插件应能基于配置模型生成 WebUI Schema。"""
 
@@ -665,7 +710,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.8.0"
+    assert maibot_sdk.__version__ == "2.9.0"
 
 
 def test_llm_generate_omits_unset_generation_options():
