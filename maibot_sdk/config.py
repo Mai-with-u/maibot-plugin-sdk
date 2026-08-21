@@ -175,6 +175,7 @@ def validate_plugin_config(config_class: type[PluginConfigT], config_data: Mappi
         PluginConfigT: 校验并归一化后的配置模型实例。
     """
 
+    extract_plugin_config_version(config_data)
     return config_class.model_validate(dict(config_data))
 
 

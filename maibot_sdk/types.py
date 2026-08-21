@@ -5,9 +5,11 @@
 
 from copy import deepcopy
 from enum import Enum
+from pathlib import PurePosixPath
+from re import compile as re_compile
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "ACTION": "ACTION",
@@ -31,10 +33,15 @@ _REMOVED_COMPONENT_TYPE_ALIASES = {"WORKFLOW_STEP", "workflow_step"}
 CONFIG_RELOAD_SCOPE_SELF = "self"
 ON_BOT_CONFIG_RELOAD = "bot"
 ON_MODEL_CONFIG_RELOAD = "model"
+WEBUI_PAGE_VIEW_PERMISSION = "webui.page:view"
 _CONFIG_RELOAD_SUBSCRIPTION_ALIASES: dict[str, str] = {
     "bot": ON_BOT_CONFIG_RELOAD,
     "model": ON_MODEL_CONFIG_RELOAD,
 }
+_WEBUI_PAGE_ID_PATTERN = re_compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_WEBUI_PAGE_ENTRY_PREFIX = "webui/dist/"
+_WEBUI_PAGE_ENTRY_SUFFIXES = {".js", ".mjs"}
+_WEBUI_ICON_NAME_PATTERN = re_compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
 def _normalize_schema_type_name(raw_type: Any) -> str:
@@ -463,6 +470,128 @@ class HomeCardComponentInfo(ComponentInfo):
     icon: str = Field(default="", description="可选图标名")
     width: str = Field(default="medium", description="卡片宽度：small/medium/large/wide/full")
     order: int = Field(default=1000, description="默认排序值，越小越靠前")
+
+
+class WebUiPageInfo(BaseModel):
+    """插件 WebUI 页面声明，与 Host 的 Manifest v2 页面协议对齐。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    id: str = Field(description="插件内唯一页面 ID")
+    title: str = Field(min_length=1, max_length=80, description="页面展示标题")
+    route: str = Field(description="页面相对路由 slug")
+    entry: str = Field(description="页面 ESM 入口相对路径")
+    component: str = Field(default="mount", description="页面入口导出名称")
+    icon: str | None = Field(default=None, description="Host 图标名称")
+    order: int = Field(default=0, ge=0, le=100000, description="页面菜单排序")
+    permissions: list[str] = Field(default_factory=list, description="页面权限声明")
+    api: dict[str, str] = Field(default_factory=dict, description="页面 API 操作白名单")
+
+    @staticmethod
+    def _validate_slug(value: str, field_name: str) -> str:
+        """校验页面 ID、路由和 API 操作使用的安全 slug。"""
+
+        if not _WEBUI_PAGE_ID_PATTERN.fullmatch(value):
+            raise ValueError(f"{field_name} 必须使用小写字母、数字、下划线或横线，且长度不超过 64 个字符")
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, value: str) -> str:
+        return cls._validate_slug(value, "页面 ID")
+
+    @field_validator("route")
+    @classmethod
+    def _validate_route(cls, value: str) -> str:
+        return cls._validate_slug(value, "页面路由")
+
+    @field_validator("entry")
+    @classmethod
+    def _validate_entry(cls, value: str) -> str:
+        """限制入口为插件自身 ``webui/dist`` 目录中的 ESM 文件。"""
+
+        path = PurePosixPath(value)
+        if (
+            "\x00" in value
+            or "\\" in value
+            or value.startswith("/")
+            or any(part == ".." for part in path.parts)
+            or not value.startswith(_WEBUI_PAGE_ENTRY_PREFIX)
+            or path.suffix.lower() not in _WEBUI_PAGE_ENTRY_SUFFIXES
+        ):
+            raise ValueError("页面入口必须是 webui/dist/ 下的 .js 或 .mjs 相对路径")
+        return value
+
+    @field_validator("component")
+    @classmethod
+    def _validate_component(cls, value: str) -> str:
+        if value != "mount":
+            raise ValueError("当前仅支持导出名称 mount")
+        return value
+
+    @field_validator("icon")
+    @classmethod
+    def _validate_icon(cls, value: str | None) -> str | None:
+        if value is not None and not _WEBUI_ICON_NAME_PATTERN.fullmatch(value):
+            raise ValueError("图标名称只能包含字母、数字、下划线和横线")
+        return value
+
+    @field_validator("permissions")
+    @classmethod
+    def _validate_permissions(cls, value: list[str]) -> list[str]:
+        """校验权限名称，并按声明顺序去除重复项。"""
+
+        normalized_permissions: list[str] = []
+        for permission in value:
+            normalized_permission = permission.strip()
+            if not normalized_permission:
+                raise ValueError("permissions 中不能包含空权限名")
+            if normalized_permission not in normalized_permissions:
+                normalized_permissions.append(normalized_permission)
+        return normalized_permissions
+
+    @field_validator("api")
+    @classmethod
+    def _validate_api(cls, value: dict[str, str]) -> dict[str, str]:
+        """校验页面操作名及其对应的插件 API 组件名。"""
+
+        normalized_api: dict[str, str] = {}
+        for operation, component_name in value.items():
+            normalized_operation = cls._validate_slug(operation, "API 操作名")
+            normalized_component_name = component_name.strip()
+            if not normalized_component_name:
+                raise ValueError("API 组件名不能为空")
+            normalized_api[normalized_operation] = normalized_component_name
+        return normalized_api
+
+    def to_manifest(self) -> dict[str, Any]:
+        """转换为可直接写入 ``extensions.webui_pages`` 的 JSON 数据。"""
+
+        return self.model_dump(mode="json", exclude_none=True)
+
+
+class WebUiExtensionsInfo(BaseModel):
+    """插件 Manifest 中的 WebUI 扩展声明。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    webui_pages: list[WebUiPageInfo] = Field(default_factory=list, description="WebUI 页面列表")
+
+    @model_validator(mode="after")
+    def _validate_unique_page_ids(self) -> "WebUiExtensionsInfo":
+        """确保同一插件内页面 ID 唯一。"""
+
+        page_ids: set[str] = set()
+        for page in self.webui_pages:
+            if page.id in page_ids:
+                raise ValueError(f"存在重复的 WebUI 页面 ID: {page.id}")
+            page_ids.add(page.id)
+        return self
+
+    def to_manifest(self) -> dict[str, Any]:
+        """转换为可直接写入 Manifest 的 ``extensions`` 对象。"""
+
+        return {"webui_pages": [page.to_manifest() for page in self.webui_pages]}
 
 
 class LLMProviderInfo(BaseModel):

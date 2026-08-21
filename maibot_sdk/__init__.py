@@ -26,9 +26,16 @@ from .config import Field, PluginConfigBase
 from .context import PluginContext, PluginPaths
 from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
-from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
+from .types import (
+    CONFIG_RELOAD_SCOPE_SELF,
+    ON_BOT_CONFIG_RELOAD,
+    ON_MODEL_CONFIG_RELOAD,
+    WEBUI_PAGE_VIEW_PERMISSION,
+    WebUiExtensionsInfo,
+    WebUiPageInfo,
+)
 
-__version__ = "2.8.0"
+__version__ = "2.9.0"
 
 __all__ = [
     "MaiBotPlugin",
@@ -51,4 +58,7 @@ __all__ = [
     "CONFIG_RELOAD_SCOPE_SELF",
     "ON_BOT_CONFIG_RELOAD",
     "ON_MODEL_CONFIG_RELOAD",
+    "WEBUI_PAGE_VIEW_PERMISSION",
+    "WebUiPageInfo",
+    "WebUiExtensionsInfo",
 ]
