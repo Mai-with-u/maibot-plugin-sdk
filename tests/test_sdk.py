@@ -665,7 +665,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.8.0"
+    assert maibot_sdk.__version__ == "2.8.1"
 
 
 def test_llm_generate_omits_unset_generation_options():
@@ -682,28 +682,34 @@ def test_llm_generate_omits_unset_generation_options():
 
     async def main() -> None:
         ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
-        await ctx.llm.generate("hello", model="utils")
-        await ctx.llm.generate("hello", model="utils", temperature=0.4, max_tokens=4096)
-        await ctx.llm.generate_with_tools("hello", tools=[], model="utils")
-        await ctx.llm.generate_with_tools("hello", tools=[], model="utils", temperature=0.4, max_tokens=4096)
+        await ctx.llm.generate("hello")
+        await ctx.llm.generate("hello", model="deepseek-v4-flash", temperature=0.4, max_tokens=4096)
+        await ctx.llm.generate_with_tools("hello", tools=[], task_name="planner")
+        await ctx.llm.generate_with_tools("hello", tools=[], model_name="glm-5.2")
 
     asyncio.run(main())
 
     assert captured[0] == (
         "llm.generate",
-        {"prompt": "hello", "model": "utils"},
+        {"prompt": "hello", "model": "", "task_name": "utils"},
     )
     assert captured[1] == (
         "llm.generate",
-        {"prompt": "hello", "model": "utils", "temperature": 0.4, "max_tokens": 4096},
+        {
+            "prompt": "hello",
+            "model": "deepseek-v4-flash",
+            "task_name": "utils",
+            "temperature": 0.4,
+            "max_tokens": 4096,
+        },
     )
     assert captured[2] == (
         "llm.generate_with_tools",
-        {"prompt": "hello", "tools": [], "model": "utils"},
+        {"prompt": "hello", "tools": [], "model": "", "task_name": "planner"},
     )
     assert captured[3] == (
         "llm.generate_with_tools",
-        {"prompt": "hello", "tools": [], "model": "utils", "temperature": 0.4, "max_tokens": 4096},
+        {"prompt": "hello", "tools": [], "model": "", "task_name": "utils", "model_name": "glm-5.2"},
     )
 
 

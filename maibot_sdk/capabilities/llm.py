@@ -45,15 +45,20 @@ class LLMCapability:
         model: str = "",
         temperature: float | None = None,
         max_tokens: int | None = None,
+        *,
+        task_name: str = "utils",
+        model_name: str = "",
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """生成文本。
 
         Args:
             prompt: 提示文本或消息列表。
-            model: 模型名称；空字符串表示使用默认模型。
+            model: 具体模型名称；空字符串表示使用任务的模型选择策略。
             temperature: 温度参数；省略时使用 Host 模型配置。
             max_tokens: 最大 token 数；省略时使用 Host 模型配置。
+            task_name: Host 模型任务名，默认使用 ``utils``。
+            model_name: 具体模型名称，``model`` 的明确别名。
 
         Returns:
             Dict[str, Any]: 统一的 LLM 响应字典。
@@ -62,7 +67,10 @@ class LLMCapability:
         payload.update(
             prompt=prompt,
             model=model,
+            task_name=task_name,
         )
+        if model_name:
+            payload["model_name"] = model_name
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens is not None:
@@ -80,6 +88,9 @@ class LLMCapability:
         model: str = "",
         temperature: float | None = None,
         max_tokens: int | None = None,
+        *,
+        task_name: str = "utils",
+        model_name: str = "",
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """执行带工具调用的文本生成。
@@ -87,9 +98,11 @@ class LLMCapability:
         Args:
             prompt: 提示文本或消息列表。
             tools: 工具定义列表。
-            model: 模型名称。
+            model: 具体模型名称；空字符串表示使用任务的模型选择策略。
             temperature: 温度参数；省略时使用 Host 模型配置。
             max_tokens: 最大 token 数；省略时使用 Host 模型配置。
+            task_name: Host 模型任务名，默认使用 ``utils``。
+            model_name: 具体模型名称，``model`` 的明确别名。
 
         Returns:
             Dict[str, Any]: 统一的 LLM 响应字典。
@@ -99,7 +112,10 @@ class LLMCapability:
             prompt=prompt,
             tools=tools,
             model=model,
+            task_name=task_name,
         )
+        if model_name:
+            payload["model_name"] = model_name
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens is not None:

@@ -525,6 +525,29 @@ async def handle_search(self, query: str, **kwargs):
     ...
 ```
 
+**返回值与结束 Planner**：
+
+Tool 可以返回字符串、字典或其他可序列化值。推荐返回字典，并使用 `success` 表示执行是否成功、使用 `content` 或 `message` 提供给 LLM 阅读的结果。
+
+当某次工具调用已经完成全部工作、不需要 Planner 根据工具结果继续规划时，可以在成功结果中返回 `stop_after_execution: True`：
+
+```python
+@Tool("complete_task", description="完成任务并记录最终结果")
+async def handle_complete_task(self, **kwargs):
+    await save_final_result()
+    return {
+        "success": True,
+        "message": "任务已完成",
+        "stop_after_execution": True,
+    }
+```
+
+- `stop_after_execution` 必须是布尔值；其他类型会被 Host 视为插件返回协议错误。
+- 只有工具执行成功且该字段为 `True` 时才会结束 Planner；失败结果中的结束请求会被忽略，以便 Planner 处理错误或重试。
+- 如果模型在同一轮请求了多个普通工具，Host 会先完成当前工具批次，再结束 Planner 并等待新消息。
+- `wait` 等已有暂停工具仍保留原本的优先暂停语义。
+- 该字段不停止 MaiBot、插件或聊天流，只结束当前 Planner 处理批次。旧版 Host 不识别该字段时会继续规划，因此插件不应依赖旧版 Host 提供此行为。
+
 ### EventHandler
 
 EventHandler 监听消息链中的事件。可以选择阻塞消息链（拦截模式）或异步触发。
@@ -1189,13 +1212,38 @@ llm = self.ctx.llm
 
 | 方法 | 说明 |
 |------|------|
-| `await llm.generate(prompt, model="", temperature=None, max_tokens=None)` | 文本生成 |
+| `await llm.generate(prompt, model="", temperature=None, max_tokens=None, task_name="utils", model_name="")` | 文本生成 |
 | `await llm.generate_with_tools(prompt, tools, ...)` | 带工具调用的生成 |
 | `await llm.embed(text=..., texts=...)` | 生成文本嵌入向量 |
 | `await llm.transcribe_audio(audio=..., audio_base64=...)` | 调用 Host 当前 `voice` 任务进行 ASR 语音识别 |
-| `await llm.get_available_models()` | 获取可用模型列表，返回 `list[str]` |
+| `await llm.get_available_models()` | 获取可用模型任务名列表，返回 `list[str]`；方法名为历史兼容名称 |
 
 `temperature` 和 `max_tokens` 省略或传入 `None` 时，会使用 Host 模型配置；只有显式传入具体值时才会覆盖配置。
+
+模型路由参数的含义如下：
+
+- `task_name` 指定 `model_task_config` 下的任务，默认使用 `utils`；未指定具体模型时，由该任务的模型列表执行选择策略。
+- `model` 指定 `[[models]]` 中配置的具体模型名称。
+- `model_name` 是 `model` 的明确别名。不要同时给二者传入不同值，否则 Host 会拒绝请求。
+
+```python
+# 使用 utils 任务的模型选择策略
+result = await self.ctx.llm.generate(prompt="整理这段文本")
+
+# 绕过任务选择策略，直达具体模型
+result = await self.ctx.llm.generate(
+    prompt="整理这段文本",
+    model_name="deepseek-v4-flash",
+)
+
+# 使用 planner 任务的默认参数，但直达指定模型
+result = await self.ctx.llm.generate_with_tools(
+    prompt="完成这项任务",
+    tools=tools,
+    task_name="planner",
+    model="deepseek-v4-flash",
+)
+```
 
 **generate 返回值**：
 

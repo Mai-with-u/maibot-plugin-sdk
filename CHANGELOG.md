@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.8.1] - 2026-09-13
+
+### 新增
+
+- `ctx.llm.generate()` 与 `generate_with_tools()` 新增仅关键字参数 `task_name` 和 `model_name`，明确区分模型任务与具体模型；默认使用 `utils` 任务
+
 ## [2.8.0] - 2026-08-10
 
 ### 新增
