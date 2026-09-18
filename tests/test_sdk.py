@@ -665,11 +665,11 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.8.1"
+    assert maibot_sdk.__version__ == "2.8.2"
 
 
 def test_llm_generate_omits_unset_generation_options():
-    """省略生成参数时由 Host 使用模型配置。"""
+    """省略生成参数时由 Host 使用模型配置，且不发送未指定的任务名。"""
     from maibot_sdk.context import PluginContext
 
     captured: list[tuple[str, dict[str, Any]]] = []
@@ -691,14 +691,13 @@ def test_llm_generate_omits_unset_generation_options():
 
     assert captured[0] == (
         "llm.generate",
-        {"prompt": "hello", "model": "", "task_name": "utils"},
+        {"prompt": "hello", "model": ""},
     )
     assert captured[1] == (
         "llm.generate",
         {
             "prompt": "hello",
             "model": "deepseek-v4-flash",
-            "task_name": "utils",
             "temperature": 0.4,
             "max_tokens": 4096,
         },
@@ -709,8 +708,40 @@ def test_llm_generate_omits_unset_generation_options():
     )
     assert captured[3] == (
         "llm.generate_with_tools",
-        {"prompt": "hello", "tools": [], "model": "", "task_name": "utils", "model_name": "glm-5.2"},
+        {"prompt": "hello", "tools": [], "model": "", "model_name": "glm-5.2"},
     )
+
+
+def test_llm_generate_omits_task_name_for_legacy_compatibility():
+    """未显式指定任务时不得发送 task_name，否则 Host 会把任务名当作模型名。"""
+    from maibot_sdk.context import PluginContext
+
+    captured: list[tuple[str, dict[str, Any]]] = []
+
+    async def fake_rpc_call(method: str, plugin_id: str = "", payload: dict | None = None):
+        assert method == "cap.call"
+        assert payload is not None
+        captured.append((payload["capability"], dict(payload["args"])))
+        return {"success": True, "response": "ok", "reasoning": "", "model_name": "m"}
+
+    async def main() -> None:
+        ctx = PluginContext(plugin_id="demo", rpc_call=fake_rpc_call)
+        # 旧插件把模型任务名传给 model，Host 依赖 task_name 缺失来识别这类调用。
+        await ctx.llm.generate("hello", model="replyer")
+        await ctx.llm.generate_with_tools("hello", tools=[], model="utils")
+
+    asyncio.run(main())
+
+    assert captured[0] == (
+        "llm.generate",
+        {"prompt": "hello", "model": "replyer"},
+    )
+    assert "task_name" not in captured[0][1]
+    assert captured[1] == (
+        "llm.generate_with_tools",
+        {"prompt": "hello", "tools": [], "model": "utils"},
+    )
+    assert "task_name" not in captured[1][1]
 
 
 def test_llm_transcribe_audio_encodes_bytes():

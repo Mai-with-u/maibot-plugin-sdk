@@ -28,7 +28,7 @@ from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.8.1"
+__version__ = "2.8.2"
 
 __all__ = [
     "MaiBotPlugin",

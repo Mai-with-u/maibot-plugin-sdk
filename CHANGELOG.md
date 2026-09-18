@@ -5,11 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.8.2] - 2026-09-18
+
+### 修复
+
+- 修复 2.8.1 中 `ctx.llm.generate()` 与 `generate_with_tools()` 无条件发送 `task_name="utils"` 导致旧插件传入的模型任务名（如 `model="replyer"`）被 Host 当作具体模型名解析、直接报「未找到模型」的兼容性问题；现在仅在插件显式指定 `task_name` 时才发送该字段
+
 ## [2.8.1] - 2026-09-13
 
 ### 新增
 
-- `ctx.llm.generate()` 与 `generate_with_tools()` 新增仅关键字参数 `task_name` 和 `model_name`，明确区分模型任务与具体模型；默认使用 `utils` 任务
+- `ctx.llm.generate()` 与 `generate_with_tools()` 新增仅关键字参数 `task_name` 和 `model_name`，明确区分模型任务与具体模型；省略 `task_name` 时由 Host 判定 `model` 含义（该版本中 `task_name` 默认发送 `utils`，已在 2.8.2 修复）
 
 ## [2.8.0] - 2026-08-10
 

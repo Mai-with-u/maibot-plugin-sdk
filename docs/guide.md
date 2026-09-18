@@ -1212,7 +1212,7 @@ llm = self.ctx.llm
 
 | 方法 | 说明 |
 |------|------|
-| `await llm.generate(prompt, model="", temperature=None, max_tokens=None, task_name="utils", model_name="")` | 文本生成 |
+| `await llm.generate(prompt, model="", temperature=None, max_tokens=None, *, task_name=None, model_name="")` | 文本生成 |
 | `await llm.generate_with_tools(prompt, tools, ...)` | 带工具调用的生成 |
 | `await llm.embed(text=..., texts=...)` | 生成文本嵌入向量 |
 | `await llm.transcribe_audio(audio=..., audio_base64=...)` | 调用 Host 当前 `voice` 任务进行 ASR 语音识别 |
@@ -1222,13 +1222,19 @@ llm = self.ctx.llm
 
 模型路由参数的含义如下：
 
-- `task_name` 指定 `model_task_config` 下的任务，默认使用 `utils`；未指定具体模型时，由该任务的模型列表执行选择策略。
-- `model` 指定 `[[models]]` 中配置的具体模型名称。
-- `model_name` 是 `model` 的明确别名。不要同时给二者传入不同值，否则 Host 会拒绝请求。
+- `task_name` 指定 `model_task_config` 下的任务；传入时 `model` 与 `model_name` 都只表示具体模型名。省略时由 Host 判定 `model` 的含义。
+- `model` 在省略 `task_name` 时先按模型任务名解析，未命中任务名再当作 `[[models]]` 中配置的具体模型名；空字符串表示使用默认任务。
+- `model_name` 一律表示 `[[models]]` 中配置的具体模型名，即使它与某个任务同名也会直选该模型。
+- 不要同时给 `model` 和 `model_name` 传入不同值，否则 Host 会拒绝请求。
+
+只指定 `model_name` 时，Host 使用默认任务（`utils`）的参数与模型选择策略，并直达指定模型。需要指定其他任务时显式传入 `task_name`。
 
 ```python
-# 使用 utils 任务的模型选择策略
+# 使用默认任务的模型选择策略
 result = await self.ctx.llm.generate(prompt="整理这段文本")
+
+# 把模型任务名传给 model（旧插件写法，Host 仍按任务名解析）
+result = await self.ctx.llm.generate(prompt="整理这段文本", model="replyer")
 
 # 绕过任务选择策略，直达具体模型
 result = await self.ctx.llm.generate(

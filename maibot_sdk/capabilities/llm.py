@@ -29,7 +29,14 @@ def _normalize_llm_result(result: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class LLMCapability:
-    """LLM 调用能力。"""
+    """LLM 调用能力。
+
+    ``generate`` 与 ``generate_with_tools`` 的模型路由规则：
+
+    - 只传 ``model``：Host 先按模型任务名解析，未命中再当作具体模型名，兼容旧插件；
+    - 传 ``task_name``：使用该任务，``model`` 与 ``model_name`` 都只表示具体模型名；
+    - 传 ``model_name``：一律直选具体模型，即使它与某个任务同名。
+    """
 
     def __init__(self, ctx: PluginContext):
         """初始化 LLM 能力代理。
@@ -46,7 +53,7 @@ class LLMCapability:
         temperature: float | None = None,
         max_tokens: int | None = None,
         *,
-        task_name: str = "utils",
+        task_name: str | None = None,
         model_name: str = "",
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -54,10 +61,10 @@ class LLMCapability:
 
         Args:
             prompt: 提示文本或消息列表。
-            model: 具体模型名称；空字符串表示使用任务的模型选择策略。
+            model: 具体模型名称或模型任务名；空字符串表示使用默认任务。
             temperature: 温度参数；省略时使用 Host 模型配置。
             max_tokens: 最大 token 数；省略时使用 Host 模型配置。
-            task_name: Host 模型任务名，默认使用 ``utils``。
+            task_name: Host 模型任务名；省略时由 Host 自动判定 ``model`` 的含义。
             model_name: 具体模型名称，``model`` 的明确别名。
 
         Returns:
@@ -67,8 +74,11 @@ class LLMCapability:
         payload.update(
             prompt=prompt,
             model=model,
-            task_name=task_name,
         )
+        # 仅在插件显式指定任务时才发送 task_name：它是 Host 判定新旧协议的依据，
+        # 省略时 Host 继续按「先任务名、后具体模型」解析 model，保持旧插件兼容。
+        if task_name:
+            payload["task_name"] = task_name
         if model_name:
             payload["model_name"] = model_name
         if temperature is not None:
@@ -89,7 +99,7 @@ class LLMCapability:
         temperature: float | None = None,
         max_tokens: int | None = None,
         *,
-        task_name: str = "utils",
+        task_name: str | None = None,
         model_name: str = "",
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -98,10 +108,10 @@ class LLMCapability:
         Args:
             prompt: 提示文本或消息列表。
             tools: 工具定义列表。
-            model: 具体模型名称；空字符串表示使用任务的模型选择策略。
+            model: 具体模型名称或模型任务名；空字符串表示使用默认任务。
             temperature: 温度参数；省略时使用 Host 模型配置。
             max_tokens: 最大 token 数；省略时使用 Host 模型配置。
-            task_name: Host 模型任务名，默认使用 ``utils``。
+            task_name: Host 模型任务名；省略时由 Host 自动判定 ``model`` 的含义。
             model_name: 具体模型名称，``model`` 的明确别名。
 
         Returns:
@@ -112,8 +122,10 @@ class LLMCapability:
             prompt=prompt,
             tools=tools,
             model=model,
-            task_name=task_name,
         )
+        # 与 generate 保持一致：只有显式任务才发送 task_name。
+        if task_name:
+            payload["task_name"] = task_name
         if model_name:
             payload["model_name"] = model_name
         if temperature is not None:
