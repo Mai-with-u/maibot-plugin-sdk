@@ -129,4 +129,3 @@ class StatisticsCapability:
 
     def __init__(self, ctx: PluginContext) -> None:
         self.local = LocalStatisticsCapability(ctx)
-

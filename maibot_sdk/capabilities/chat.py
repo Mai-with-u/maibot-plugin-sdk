@@ -5,10 +5,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
+
+
+class AvatarInfo(TypedDict):
+    """独立头像查询结果，图片数据不经过消息或能力响应。"""
+
+    status: Literal["available", "unsupported", "missing"]
+    url: str | None
+    expires_at: float
 
 
 class ChatCapability:
@@ -16,6 +24,35 @@ class ChatCapability:
 
     def __init__(self, ctx: PluginContext):
         self._ctx = ctx
+
+    async def get_avatar(
+        self,
+        platform: str,
+        target_id: str,
+        target_type: Literal["user", "group"] = "user",
+        *,
+        account_id: str = "",
+        scope: str = "",
+        force_refresh: bool = False,
+    ) -> AvatarInfo:
+        """获取独立头像资源，不在消息中传送图片。
+
+        返回包含 status、url、expires_at 的字典。status 为 available、
+        unsupported（当前适配器未提供该能力）或 missing（目标没有头像）。
+        available 的 url 为适配器提供的 HTTP(S) 地址，可单独下载；expires_at
+        是 Host 缓存有效期的 Unix 时间戳。接口失败会抛错，不返回旧头像。
+        插件 manifest 需要声明 chat.get_avatar 能力。多账号平台可指定路由。
+        """
+        result = await self._ctx.call_capability(
+            "chat.get_avatar",
+            platform=platform,
+            target_id=target_id,
+            target_type=target_type,
+            account_id=account_id,
+            scope=scope,
+            force_refresh=force_refresh,
+        )
+        return cast(AvatarInfo, result)
 
     async def get_all_streams(self, platform: str = "qq") -> Any:
         """获取所有活跃的聊天流"""

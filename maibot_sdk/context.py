@@ -36,6 +36,7 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "api.get": "api",
     "api.list": "apis",
     "chat.get_all_streams": "streams",
+    "chat.get_avatar": "avatar",
     "chat.get_group_streams": "streams",
     "chat.get_private_streams": "streams",
     "chat.get_stream_by_group_id": "stream",

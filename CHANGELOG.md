@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.9.0] - 2026-10-01
+
+### 新增
+
+- 新增 `ctx.chat.get_avatar()` 独立用户/群头像查询接口与 `AvatarInfo` 返回类型，支持平台、目标类型、多账号/连接路由和强制刷新，图片不随消息传输。
+- 明确区分头像可用（`available`）、平台不支持（`unsupported`）和目标无头像（`missing`），返回头像 URL 和缓存过期时间。
+- 补充适配器 `adapter.avatar.get` 统一协议、Host 缓存规则和插件能力声明文档；新方法需要 Host 提供 `chat.get_avatar` 能力。
+
 ## [2.8.2] - 2026-09-18
 
 ### 修复

@@ -1988,3 +1988,30 @@ my-maibot-plugin/
 **Q: 插件可以使用多线程/多进程吗？**
 
 可以使用 `asyncio` 和 `threading`。不建议使用 `multiprocessing`，因为插件已经运行在子进程中。
+
+
+## 独立头像资源
+
+插件声明 `chat.get_avatar` 能力后，可独立查询用户或群头像：
+
+```python
+avatar = await self.ctx.chat.get_avatar(
+    platform="qq", target_id="1026294844", target_type="user",
+    account_id="", scope="", force_refresh=False,
+)
+if avatar["status"] == "available":
+    avatar_url = avatar["url"]
+```
+
+返回 `AvatarInfo` 字典：`status` 为 `available`、`unsupported` 或 `missing`，
+`url` 为可独立下载的源地址（没有头像时为 `None`），`expires_at` 为缓存过期的 Unix 时间戳。
+Host 与 WebUI 共享缓存，远程头像最长缓存 24 小时，无头像/不支持缓存 5 分钟；
+`force_refresh=True` 强制更新。查询、下载或协议错误会抛错，不能当作无头像处理。
+图片不跟随消息传输；`account_id`、`scope` 用于同平台多账号/连接路由。
+
+适配器提供头像时，在现有插件声明公开 API `adapter.avatar.get`（version `1`），接受
+`platform`、`target_id`、`target_type`、`account_id`、`scope` 参数；返回
+`{"status": "available", "url": "https://example.com/avatar.png", "expires_in": 86400}`，
+或 `{"status": "unsupported"}` / `{"status": "missing"}`。
+URL 必须为 Host 可以直接下载的 HTTP(S) 图片地址；不返回 base64。
+未声明该 API 的适配器被视为不支持头像。
