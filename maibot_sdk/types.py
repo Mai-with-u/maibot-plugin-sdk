@@ -5,7 +5,7 @@
 
 from copy import deepcopy
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -305,7 +305,7 @@ class ToolParameterInfo(BaseModel):
         """
         if self.param_type in {ToolParamType.FLOAT, ToolParamType.NUMBER}:
             return "number"
-        return self.param_type.value
+        return cast(str, self.param_type.value)
 
 
 # ─── 组件信息 ──────────────────────────────────────────────────────
