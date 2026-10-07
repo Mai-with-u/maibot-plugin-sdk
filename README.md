@@ -279,3 +279,7 @@ uv run pytest -v              # 测试
 ## 许可证
 
 [LGPL-3.0](LICENSE)
+
+## 回复扩展（2.10.0）
+
+`ReplyExtension` 为 `reply` 声明插件参数、补充回复要求和转换整组待发送消息。参见[协议和语音示例](docs/reply_extensions.md)。

@@ -17,6 +17,7 @@
   - [Action](#action)
   - [Command](#command)
   - [Tool](#tool)
+  - [ReplyExtension 回复扩展](reply_extensions.md)
   - [EventHandler](#eventhandler)
   - [HookHandler](#hookhandler)
   - [MessageGateway](#messagegateway)

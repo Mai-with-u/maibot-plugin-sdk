@@ -5,7 +5,7 @@
 
 from copy import deepcopy
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "HOME_CARD": "HOME_CARD",
     "MESSAGE_GATEWAY": "MESSAGE_GATEWAY",
     "TOOL": "TOOL",
+    "REPLY_EXTENSION": "REPLY_EXTENSION",
     "action": "ACTION",
     "api": "API",
     "command": "COMMAND",
@@ -26,6 +27,7 @@ _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "home_card": "HOME_CARD",
     "message_gateway": "MESSAGE_GATEWAY",
     "tool": "TOOL",
+    "reply_extension": "REPLY_EXTENSION",
 }
 _REMOVED_COMPONENT_TYPE_ALIASES = {"WORKFLOW_STEP", "workflow_step"}
 CONFIG_RELOAD_SCOPE_SELF = "self"
@@ -159,6 +161,7 @@ class ComponentType(str, Enum):
     API = "API"
     COMMAND = "COMMAND"
     TOOL = "TOOL"
+    REPLY_EXTENSION = "REPLY_EXTENSION"
     EVENT_HANDLER = "EVENT_HANDLER"
     HOOK_HANDLER = "HOOK_HANDLER"
     HOME_CARD = "HOME_CARD"
@@ -319,6 +322,17 @@ class ComponentInfo(BaseModel):
     description: str = Field(default="", description="组件描述")
     enabled: bool = Field(default=True, description="组件是否启用")
     metadata: dict[str, Any] = Field(default_factory=dict, description="组件元数据")
+
+
+class ReplyExtensionComponentInfo(ComponentInfo):
+    """随 reply 注册的参数和整组消息处理能力。"""
+
+    type: ComponentType = ComponentType.REPLY_EXTENSION
+    parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
+    priority: int = 0
+    timeout_ms: int = Field(default=60000, gt=0)
+    chat_scope: Literal["all", "group", "private"] = "all"
+    allowed_session: list[str] = Field(default_factory=list)
 
 
 class ActionComponentInfo(ComponentInfo):

@@ -6,7 +6,7 @@
 
 import warnings
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from .types import (
     ActivationType,
@@ -23,6 +23,7 @@ from .types import (
     LLMProviderInfo,
     MessageGatewayComponentInfo,
     MessageGatewayRouteType,
+    ReplyExtensionComponentInfo,
     ToolComponentInfo,
     ToolParameterInfo,
     build_tool_detailed_description,
@@ -259,6 +260,60 @@ def Action(
                 "parallel_action": parallel_action,
                 "action_prompt": action_prompt,
             },
+        )
+        setattr(func, _COMPONENT_INFO_ATTR, info)
+        return func
+
+    return decorator
+
+
+def ReplyExtension(
+    name: str,
+    description: str = "",
+    parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
+    *,
+    priority: int = 0,
+    timeout_ms: int = 60000,
+    chat_scope: Literal["all", "group", "private"] = "all",
+    allowed_session: list[str] | None = None,
+    enabled: bool = True,
+    **metadata: Any,
+) -> _Decorator:
+    """声明 reply 参数与处理器；仅模型选择本扩展时调用。
+
+    处理器收到 phase=prepare/before_send、reply_id、call_id、session_id、
+    reply_message_id、chat、parameters、text 和 messages。
+    prepare 返回 {"extra_prompt": "..."}；before_send 返回 {"messages": [...]}。
+    返回 {} 保持原样；错误直接使本次 reply 失败。
+    参数和消息协议详见 docs/reply_extensions.md。
+    """
+    if parameters is not None and not isinstance(parameters, (dict, list)):
+        raise TypeError("ReplyExtension parameters 必须是字典或 ToolParameterInfo 列表")
+    if isinstance(parameters, list) and any(not isinstance(item, ToolParameterInfo) for item in parameters):
+        raise TypeError("ReplyExtension parameters 列表必须包含 ToolParameterInfo")
+    if isinstance(parameters, dict) and "type" in parameters and parameters["type"] != "object":
+        raise ValueError("ReplyExtension 参数根 Schema 必须是 object")
+    if isinstance(parameters, dict) and "type" not in parameters and "properties" not in parameters:
+        if any(not isinstance(item, dict) for item in parameters.values()):
+            raise TypeError("ReplyExtension 参数属性必须是 JSON Schema 对象")
+    schema = _build_tool_parameters_schema(parameters)
+    if schema is None:
+        schema = {"type": "object", "properties": {}}
+    if schema.get("type") != "object":
+        raise ValueError("ReplyExtension 参数根 Schema 必须是 object")
+    schema.setdefault("additionalProperties", False)
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        info = ReplyExtensionComponentInfo(
+            name=name,
+            description=description,
+            parameters_schema=schema,
+            priority=priority,
+            timeout_ms=timeout_ms,
+            metadata=metadata,
+            chat_scope=chat_scope,
+            allowed_session=allowed_session or [],
+            enabled=enabled,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
         return func
@@ -747,6 +802,9 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
                     "metadata": component_metadata,
                 }
             )
+            if isinstance(info, ReplyExtensionComponentInfo):
+                components[-1]["chat_scope"] = info.chat_scope
+                components[-1]["allowed_session"] = list(info.allowed_session)
     return components
 
 

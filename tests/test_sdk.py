@@ -665,7 +665,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.9.0"
+    assert maibot_sdk.__version__ == "2.10.0"
 
 
 def test_llm_generate_omits_unset_generation_options():

@@ -4,7 +4,7 @@
 
 核心导出：
 - MaiBotPlugin: 插件基类
-- Tool, API, Command, EventHandler, HookHandler, MessageGateway, HomeCard: 组件声明装饰器
+- Tool, API, Command, EventHandler, HookHandler, MessageGateway, HomeCard, ReplyExtension: 组件声明装饰器
 - Action: 兼容旧插件的装饰器别名，内部会自动转换为 Tool 声明
 - PluginContext / PluginPaths: 插件运行时上下文与标准路径
 """
@@ -19,6 +19,7 @@ from .components import (
     HookHandler,
     LLMProvider,
     MessageGateway,
+    ReplyExtension,
     Tool,
     WorkflowStep,
 )
@@ -28,7 +29,7 @@ from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.9.0"
+__version__ = "2.10.0"
 
 __all__ = [
     "MaiBotPlugin",
@@ -36,6 +37,7 @@ __all__ = [
     "Action",
     "Command",
     "Tool",
+    "ReplyExtension",
     "EventHandler",
     "HookHandler",
     "HomeCard",
