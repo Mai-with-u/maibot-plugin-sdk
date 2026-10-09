@@ -27,11 +27,13 @@ from maibot_sdk.capabilities.render import RenderCapability
 from maibot_sdk.capabilities.send import SendCapability
 from maibot_sdk.capabilities.statistics import StatisticsCapability
 from maibot_sdk.capabilities.tool import ToolCapability
+from maibot_sdk.capabilities.webui import WebUICapability
 
 # RPC 调用函数类型: async (method, plugin_id, payload, timeout_ms=None) -> result
 RpcCallFn = Callable[..., Awaitable[Any]]
 
 _CAPABILITY_RESULT_KEYS: dict[str, str] = {
+    "webui.claim_upload": "upload",
     "api.call": "result",
     "api.get": "api",
     "api.list": "apis",
@@ -155,6 +157,7 @@ class PluginContext:
 
         # 能力代理
         self.api: APICapability = APICapability(current_ctx)
+        self.webui: WebUICapability = WebUICapability(current_ctx)
         self.gateway: GatewayCapability = GatewayCapability(current_ctx)
         self.send: SendCapability = SendCapability(current_ctx)
         self.db: DatabaseCapability = DatabaseCapability(current_ctx)

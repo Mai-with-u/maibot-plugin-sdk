@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.11.0] - 2026-10-09
+
+### 新增
+
+- 新增 `ctx.webui.claim_upload(upload_id)`，将 WebUI 上传凭证对应的文件领取到当前插件的 `data_dir/uploads`，返回文件路径、SHA-256 和上传 ID。
+- 上传凭证由宿主校验插件归属、有效期及一次性领取状态；文件内容不经过 JSON/RPC，插件需声明 `webui.claim_upload` 能力，宿主需支持 `file_upload_v1`。
+- 补充 WebUI 上传组件、静态 API 绑定、图片限制和后台任务轮询的使用文档。
+
 ## [2.9.0] - 2026-10-01
 
 ### 新增
