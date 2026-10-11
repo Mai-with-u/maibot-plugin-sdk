@@ -2,6 +2,8 @@
 
 本文档面向 MaiBot 插件开发者，覆盖从环境搭建到发布上线的完整流程。
 
+WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单，HTML 页面负责自由布局及复杂交互。完整声明、JavaScript 桥接、安全边界与迁移步骤见[WebUI 页面开发文档](https://docs.mai-mai.org/plugin/webui-pages)，Python 图片领取见[WebUI 图片上传](webui-uploads.md)。当前开发协议为 `schema_version: 2`，需要配套更新主程序和 dashboard；SDK 版本与页面协议分别管理。
+
 ---
 
 ## 目录
@@ -39,7 +41,8 @@
   - [Render -- 渲染](#render----渲染)
   - [Knowledge -- 知识库](#knowledge----知识库)
   - [Tool -- 工具定义](#tool----工具定义)
-  - [Maisaka -- 主动任务](#maisaka----主动任务)
+  - [Maisaka -- 上下文与主动任务](#maisaka----上下文与主动任务)
+  - [WebUI -- 页面与图片上传](#webui----页面与图片上传)
   - [Logger -- 日志](#logger----日志)
 - [消息模型](#消息模型)
 - [类型定义](#类型定义)
@@ -702,6 +705,8 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 `maisaka.reply.before_post_process` 提供 `response`、`session_id`、`reply_message_id`、`reply_tool_args`、`skip_post_process`、`enable_splitter` 和 `enable_chinese_typo`。阻塞处理器可通过 `modified_kwargs` 按单次回复改写正文、完全跳过文本后处理，或分别关闭拆分与中文错别字注入；策略字段必须保持布尔类型。该 Hook 不影响富回复附件组装。
 
 **Host 执行顺序**：
+
+图片自动注释可复用 `chat.receive.before_process`，无须专门新增角色识别钩子。消息字典 `raw_message` 中图片/表情可包含 `binary_data_base64`；转发节点在 `data[].content` 中递归携带组件。插件可返回 `modified_kwargs={"message": updated_message}`，在对应媒体后添加 `{"type":"text","data":"提示正文"}`。应限制总推理耗时、将同步推理移至线程/独立进程，并在失败时继续原消息；不得把模型得分当作校准概率。是否收集素材由插件明确功能决定，自动注释不必写入训练库。
 
 1. `BLOCKING` 先于 `OBSERVE`
 2. `EARLY` 先于 `NORMAL` 先于 `LATE`
@@ -1630,7 +1635,7 @@ top_model = models[0]["model_name"] if models else "unknown"
 - `token_distribution()` 会直接返回 `distribution` 结构，包含可用于饼图的 `pies`。
 - 插件需要在 `_manifest.json` 的 `capabilities` 中声明对应能力，例如 `statistics.local.token_trend`。
 
-### Maisaka -- 主动任务
+### Maisaka -- 上下文与主动任务
 
 ```python
 maisaka = self.ctx.maisaka
@@ -1640,8 +1645,20 @@ maisaka = self.ctx.maisaka
 |------|------|
 | `await maisaka.proactive.trigger(stream_id, intent, **kwargs)` | 请求 Maisaka 基于指定聊天流主动处理一轮对话 |
 | `await maisaka.context.append(stream_id, segments, **kwargs)` | 向指定聊天流的 Maisaka 上下文追加一条图文消息 |
+| `await maisaka.context.resolve_image(stream_id, source_id, index=0)` | 读取现有上下文中的聊天或工具图片，返回 Base64 和图片哈希 |
 | `await maisaka.trigger_proactive(stream_id, intent, **kwargs)` | `maisaka.proactive.trigger()` 的便捷别名 |
 | `await maisaka.append_context(stream_id, segments, **kwargs)` | `maisaka.context.append()` 的便捷别名 |
+
+`context.resolve_image` 需要 SDK 2.12.0+，在插件清单的 `capabilities` 中声明 `maisaka.context.resolve_image`，并使用提供该能力的 Host。`source_id` 可填上下文消息编号（支持短别名）或 `tool_result:<call_id>:<item_index>`；`index` 是该消息内从0开始的图片序号。接口仅读取指定流的现存上下文，不创建会话、不评分或发送图片。成功返回 `{"success": true, "image": {"binary_data_base64": "...", "binary_hash": "..."}}`，失败返回 `{"success": false, "error": "..."}`；图片数据受插件 RPC 单帧体积上限约束。
+
+```python
+result = await self.ctx.maisaka.context.resolve_image(
+    stream_id=stream_id, source_id="tool_result:call_x:1", index=0,
+)
+if not result["success"]:
+    raise ValueError(result["error"])
+image_base64 = result["image"]["binary_data_base64"]
+```
 
 示例：
 
@@ -1664,6 +1681,27 @@ await self.ctx.maisaka.context.append(
 ```
 
 `maisaka.proactive.trigger()` 需要传入 Host 中已经存在的聊天流 ID；如果插件需要主动打开私聊或群聊，请先通过 `ctx.chat.open_session()` 获取聊天流。
+
+### WebUI -- 页面与图片上传
+
+页面声明及渲染由 Host / dashboard 管理，SDK 使用原有静态 `@API` 提供数据和操作。`declarative` 页面仅使用基础组件与标量参数；`custom` 页面通过隔离 iframe 中的 `window.maibot` 调用 query、action、upload 和显式 navigate，可以使用有类型约束的数组/对象参数。
+
+`webui.json` 的 `required_capabilities` 声明页面需要的 `custom_pages`、`image_upload`、`structured_arguments` 等功能；插件 manifest 的 `capabilities` 则声明 Python 能力授权。两者不能互相替代。
+
+Python SDK 提供一个图片领取接口：
+
+```python
+upload = await self.ctx.webui.claim_upload(upload_id)
+# upload = {"path": "...", "sha256": "...", "upload_id": "..."}
+```
+
+需要 manifest 能力 `webui.claim_upload` 和包含该接口的 SDK（2.11.0+）。凭证由 Host 上传接口签发，绑定本插件，一小时有效且只能领取一次；结果中的 path 位于本插件 `data_dir/uploads`。文件字节不经过 RPC，客户端无法指定目标路径。
+
+HTML 页声明 `uploads` 别名并用 `maibot.upload()` 接收图片；对应 action 必须声明必填字符串 upload_id，允许宿主 confirmation。预置组件没有上传、循环或批量选择；批处理 UI 和队列由 HTML 页实现。具体声明、进度与取消示例见[WebUI 图片上传](webui-uploads.md)。
+
+WebUI 网关原样返回 API 的业务 result，不用其中的 success、message 或 navigate_page 自动触发错误、提示或跳转。API 执行失败应抛异常，或由 HTML 解释业务结果；页面导航显式调用 maibot.navigate。取消/超时不意味着已提交的写操作回滚。
+
+---
 
 ### Logger -- 日志
 

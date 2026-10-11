@@ -1,6 +1,6 @@
 """Maisaka 能力代理。
 
-提供向 Maisaka 上下文追加消息、触发主动任务的能力。
+提供向 Maisaka 上下文追加消息、解析上下文图片和触发主动任务的能力。
 """
 
 from __future__ import annotations
@@ -16,6 +16,24 @@ class MaisakaContextCapability:
 
     def __init__(self, ctx: PluginContext) -> None:
         self._ctx = ctx
+
+    async def resolve_image(self, stream_id: str, source_id: str, index: int = 0) -> Any:
+        """读取现有聊天上下文中的图片。
+
+        Args:
+            stream_id: 已存在的真实聊天流 ID，不会创建新的运行上下文。
+            source_id: 上下文消息编号（支持短别名）或 tool_result:<call_id>:<item_index>。
+            index: 消息内图片序号，从 0 开始；工具媒体引用通常使用 0。
+
+        Returns:
+            成功时返回 success 和 image（binary_data_base64、binary_hash）；失败时返回 error。
+        """
+        return await self._ctx.call_capability(
+            "maisaka.context.resolve_image",
+            stream_id=stream_id,
+            source_id=source_id,
+            index=index,
+        )
 
     async def append(
         self,

@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.12.0] - 2026-10-11
+
+### 新增
+
+- 新增 `ctx.maisaka.context.resolve_image(stream_id, source_id, index=0)`，读取指定流现有上下文中的聊天图片及工具媒体，返回 Base64 和图片哈希，需要声明同名能力。
+
+### 文档
+
+- 更新 WebUI schema v2 页面、HTML 桥接、图片上传与迁移说明，明确页面能力和插件能力的区别；需配套更新主程序和 dashboard。
+- 补充图片自动注释的接收钩子用法与上下文图片读取示例。
+
 ## [2.11.0] - 2026-10-09
 
 ### 新增
