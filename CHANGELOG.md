@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.13.0] - 2026-10-13
+
+### 新增
+
+- `@Tool` 增加正式 `platforms` 参数，支持单个平台、多个平台及不限平台；去除首尾空白、转小写并去重，无效声明及时报错。
+- `ToolComponentInfo` 和组件序列化携带平台作用域，供支持该功能的 Host 过滤工具展示、搜索及执行；作用域不进入模型调用参数 Schema。
+
+### 文档
+
+- 同步平台作用域示例、聊天与会话限制的组合规则，以及旧 Host 的兼容行为。
+
 ## [2.12.0] - 2026-10-11
 
 ### 新增

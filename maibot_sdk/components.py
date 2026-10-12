@@ -402,6 +402,8 @@ def Tool(
     brief_description: str = "",
     detailed_description: str = "",
     parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
+    *,
+    platforms: str | list[str] | None = None,
     **metadata: Any,
 ) -> _Decorator:
     """Tool 组件装饰器
@@ -418,6 +420,15 @@ def Tool(
         async def handle_search(self, query: str, **kwargs):
             ...
     """
+
+    raw_platforms = [platforms] if isinstance(platforms, str) else platforms
+    if raw_platforms is None:
+        raw_platforms = []
+    if not isinstance(raw_platforms, list) or any(
+        not isinstance(platform, str) or not platform.strip() for platform in raw_platforms
+    ):
+        raise ValueError("Tool platforms 必须是非空平台名称字符串或字符串列表；None 或 [] 表示不限平台")
+    normalized_platforms = list(dict.fromkeys(platform.strip().lower() for platform in raw_platforms))
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         """将 Tool 元数据附着到目标函数。
@@ -452,6 +463,7 @@ def Tool(
                 fallback_description=normalized_detailed_description,
             ),
             parameters=typed_params,
+            platforms=normalized_platforms,
             parameters_raw=raw_params,
             invoke_method="plugin.invoke_tool",
             metadata=metadata,

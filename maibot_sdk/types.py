@@ -370,6 +370,7 @@ class ToolComponentInfo(ComponentInfo):
     """Tool 组件信息"""
 
     type: ComponentType = ComponentType.TOOL
+    platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
     brief_description: str = Field(default="", description="工具简要描述")
     detailed_description: str = Field(default="", description="工具详细描述")
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
