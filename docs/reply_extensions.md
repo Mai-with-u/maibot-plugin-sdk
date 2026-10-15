@@ -2,10 +2,23 @@
 
 需要支持 `REPLY_EXTENSION` 的 MaiBot 主程序（1.3.5 开发版本）和 `maibot-plugin-sdk>=2.10.0`。插件只依赖 SDK，无需导入主程序或修改 Planner Hook。
 
-`@ReplyExtension(name, description, parameters, priority=0, timeout_ms=60000, **metadata)`
+`@ReplyExtension(name, description, parameters, *, platforms=None, priority=0, timeout_ms=60000, **metadata)`
 注册一个组件。`parameters` 与 Tool 相同，支持 `ToolParameterInfo` 列表、属性字典或完整 object JSON Schema。主程序校验类型、必填项、枚举和默认值；不支持 `$ref`/`$dynamicRef`，请内联声明。未知顶层参数默认拒绝。默认值只在模型选择本扩展时补齐，不会自动启用插件。
 
 `chat_scope="group"/"private"/"all"`、`allowed_session=[...]` 和组件启用开关沿用通用组件机制。停用、卸载后参数从后续 reply 声明中移除；正在生成的回复如果其扩展被卸载或重载，会明确失败。多个扩展按 priority 从小到大、完整名称字典序依次处理，上一个扩展输出交给下一个。
+
+SDK 2.14.0 起可用 `platforms="qq"` 或 `platforms=["qq", "telegram"]` 限定回复扩展适用的平台，接口与 `@Tool` 一致。省略、`None`、`[]` 表示不限平台；平台名称去除首尾空白、转小写并去重，空名称及非法类型直接报错。平台限制与聊天类型、会话范围同时生效，是组件声明而非 `plugin_options` 中的模型参数。支持此功能的 Host 只在匹配平台的 `reply.plugin_options` Schema 中暴露扩展；手动提交其他平台的扩展也会在调用前被拒绝，发送前会再次检查。无上下文的管理清单仍能查看全部扩展。
+
+```python
+@ReplyExtension("forward_images", platforms="qq", parameters={
+    "images": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+})
+async def reply_forward_images(self, *, phase, parameters, text, messages, **context):
+    # 按 prepare / before_send 协议准备本次回复。
+    return {}
+```
+
+使用 `platforms` 需要 SDK 2.14.0 和配套的平台过滤实现；旧 Host 不会执行这项限制，部署时需同时更新主程序。
 
 模型的具体调用参数（假设插件 ID 为 `voice_plugin`，组件名为 `voice`）：
 

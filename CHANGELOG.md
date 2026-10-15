@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.14.0] - 2026-10-15
+
+### 新增
+
+- `@ReplyExtension` 增加与 `@Tool` 一致的 `platforms` 参数和声明校验，平台范围随组件元数据传递，不进入模型调用参数。
+- 配套 Host 按当前聊天平台过滤 `reply.plugin_options` 中的回复扩展，并在准备、发送前重新检查平台范围；与聊天类型、会话范围和启用状态共同生效。
+
 ## [2.13.0] - 2026-10-13
 
 ### 新增

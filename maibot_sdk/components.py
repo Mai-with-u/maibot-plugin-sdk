@@ -37,6 +37,18 @@ _COMPONENT_INFO_ATTR = "__maibot_component_info__"
 _LLM_PROVIDER_INFO_ATTR = "__maibot_llm_provider_info__"
 
 
+def _normalize_platforms(platforms: str | list[str] | None, component_name: str) -> list[str]:
+    """Tool 和回复扩展共用平台声明校验，规范化后的值只用于组件作用域。"""
+    raw_platforms = [platforms] if isinstance(platforms, str) else platforms
+    if raw_platforms is None:
+        raw_platforms = []
+    if not isinstance(raw_platforms, list) or any(
+        not isinstance(platform, str) or not platform.strip() for platform in raw_platforms
+    ):
+        raise ValueError(f"{component_name} platforms 必须是非空平台名称字符串或字符串列表；None 或 [] 表示不限平台")
+    return list(dict.fromkeys(platform.strip().lower() for platform in raw_platforms))
+
+
 def _normalize_tool_descriptions(
     name: str,
     description: str = "",
@@ -272,6 +284,7 @@ def ReplyExtension(
     description: str = "",
     parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
     *,
+    platforms: str | list[str] | None = None,
     priority: int = 0,
     timeout_ms: int = 60000,
     chat_scope: Literal["all", "group", "private"] = "all",
@@ -285,8 +298,10 @@ def ReplyExtension(
     reply_message_id、chat、parameters、text 和 messages。
     prepare 返回 {"extra_prompt": "..."}；before_send 返回 {"messages": [...]}。
     返回 {} 保持原样；错误直接使本次 reply 失败。
+    platforms 限定适用平台，支持字符串或字符串列表；省略、None、[] 表示不限平台。
     参数和消息协议详见 docs/reply_extensions.md。
     """
+    normalized_platforms = _normalize_platforms(platforms, "ReplyExtension")
     if parameters is not None and not isinstance(parameters, (dict, list)):
         raise TypeError("ReplyExtension parameters 必须是字典或 ToolParameterInfo 列表")
     if isinstance(parameters, list) and any(not isinstance(item, ToolParameterInfo) for item in parameters):
@@ -307,6 +322,7 @@ def ReplyExtension(
         info = ReplyExtensionComponentInfo(
             name=name,
             description=description,
+            platforms=normalized_platforms,
             parameters_schema=schema,
             priority=priority,
             timeout_ms=timeout_ms,
@@ -421,14 +437,7 @@ def Tool(
             ...
     """
 
-    raw_platforms = [platforms] if isinstance(platforms, str) else platforms
-    if raw_platforms is None:
-        raw_platforms = []
-    if not isinstance(raw_platforms, list) or any(
-        not isinstance(platform, str) or not platform.strip() for platform in raw_platforms
-    ):
-        raise ValueError("Tool platforms 必须是非空平台名称字符串或字符串列表；None 或 [] 表示不限平台")
-    normalized_platforms = list(dict.fromkeys(platform.strip().lower() for platform in raw_platforms))
+    normalized_platforms = _normalize_platforms(platforms, "Tool")
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         """将 Tool 元数据附着到目标函数。

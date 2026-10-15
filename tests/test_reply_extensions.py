@@ -62,3 +62,33 @@ def test_reply_extension_can_be_disabled_and_type_normalized():
 def test_reply_extension_rejects_malformed_declarations(parameters, error):
     with pytest.raises(error):
         ReplyExtension("bad", parameters=parameters)
+
+
+@pytest.mark.parametrize("platforms,expected", [
+    (None, []), ([], []), ("telegram", ["telegram"]),
+    ([" QQ ", "Telegram", "qq"], ["qq", "telegram"]),
+])
+def test_platforms_are_serialized_without_becoming_reply_parameters(platforms, expected):
+    class Plugin:
+        @ReplyExtension("scoped", platforms=platforms, parameters={"caption": {"type": "string"}})
+        async def scoped(self, **kwargs):
+            return {}
+
+    metadata = collect_components(Plugin())[0]["metadata"]
+    assert metadata["platforms"] == expected
+    assert set(metadata["parameters_schema"]["properties"]) == {"caption"}
+
+
+@pytest.mark.parametrize("platforms", ["", " ", [""], [1], [None], True, 1, {}])
+def test_reply_extension_rejects_invalid_platform_declarations(platforms):
+    with pytest.raises(ValueError, match="ReplyExtension platforms"):
+        ReplyExtension("invalid", platforms=platforms)
+
+
+def test_omitted_platforms_preserve_unrestricted_extensions():
+    class Plugin:
+        @ReplyExtension("unrestricted")
+        async def unrestricted(self, **kwargs):
+            return {}
+
+    assert collect_components(Plugin())[0]["metadata"]["platforms"] == []

@@ -328,6 +328,7 @@ class ReplyExtensionComponentInfo(ComponentInfo):
     """随 reply 注册的参数和整组消息处理能力。"""
 
     type: ComponentType = ComponentType.REPLY_EXTENSION
+    platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
     parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     priority: int = 0
     timeout_ms: int = Field(default=60000, gt=0)
