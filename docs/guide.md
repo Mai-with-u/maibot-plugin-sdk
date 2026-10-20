@@ -1018,7 +1018,7 @@ class ExampleLLMPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露 17 个能力代理：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
 
 ### API -- 插件 API
 
@@ -2042,6 +2042,30 @@ my-maibot-plugin/
 
 可以使用 `asyncio` 和 `threading`。不建议使用 `multiprocessing`，因为插件已经运行在子进程中。
 
+
+## 插件市场只读查询
+
+SDK 2.15.0 起可通过 `self.ctx.market` 查询插件市场。插件清单按实际使用的接口声明能力：
+
+```json
+"capabilities": ["market.search", "market.get_detail", "market.get_readme"]
+```
+
+```python
+result = await self.ctx.market.search("语音", category="Audio", page=1, limit=20)
+detail = await self.ctx.market.get_detail("author.voice")
+readme = await self.ctx.market.get_readme("author.voice", max_chars=8000)
+```
+
+- `search(query="", *, category="", page=1, limit=20, sort_by="name", compatible_only=False, include_manifest=False, include_stats=False, force_refresh=False)` 返回 `plugins`、`total`、`matched`、`page`、`limit`、`pagination`、`available_categories` 及源元信息。每页 1～50 条，多关键词按全部匹配处理。
+- `get_detail(plugin_id, *, force_refresh=False)` 返回 `plugin`、`releases` 及源元信息。`releases` 包含版本兼容性、原因及推荐稳定版本。支持 manifest ID、市场登记 ID、名称或已登记仓库地址；模糊匹配必须唯一。
+- `get_readme(plugin_id, *, max_chars=8000, prefer_local=True, branch="main", force_refresh=False)` 返回 `plugin`、`content`、`chars`、`truncated`、`source`、`source_type`，远程结果另含 `cache`。`chars` 是完整文档长度，`max_chars` 范围 500～20000。优先读取已安装插件的本地 README，不依赖市场在线；远程只读取已登记仓库指定分支的 `README.md`。
+
+搜索和详情中的 `plugin.id` 是 manifest ID，`plugin.marketplace_id` 是市场登记 ID。`source` 为 `official`、`cnb` 或 `github`，`source_url` 为数据地址，`features.stats` 表示是否支持统计，`cache` 提供命中、合并请求、有效期和剩余时间。官方源还提供 `stats_as_of` 和 `growth_ranking`；缺失统计保留 `null`，不伪装成零。
+
+`sort_by` 支持 `name`、`downloads`、`likes`、`rating`、`downloads_growth_7d`、`likes_growth_7d`、`downloads_growth_30d`、`likes_growth_30d`。飙升榜保留服务端全市场位次，只返回已上榜插件，筛选和分页不重算排名。CNB/GitHub 信息源不支持 `include_stats=True` 或统计排序，会明确抛错。
+
+Host 使用 WebUI 配置的信息源，无需 WebUI 启动或登录。目录缓存 30 分钟，官方市场快照及版本索引缓存 5 分钟，远程 README 缓存 30 分钟；同一资源的并发请求会合并，`force_refresh=True` 跳过有效缓存。网络、数据和授权失败直接抛错，不自动换源、换分支或使用过期数据。此能力不提供安装、卸载或市场设置写入。
 
 ## 独立头像资源
 

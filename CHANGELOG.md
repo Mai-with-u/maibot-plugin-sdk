@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.15.0] - 2026-10-21
+
+### 新增
+
+- 新增 `ctx.market.search/get_detail/get_readme` 只读能力，分别声明同名授权后，通过 Host 查询插件市场、发布版本与 README。
+- 与 WebUI 共用信息源和缓存；区分 manifest ID 与市场登记 ID，提供源能力、缓存状态及统计时间，不支持的统计排序和网络失败直接抛错。
+
 ## [2.14.0] - 2026-10-15
 
 ### 新增

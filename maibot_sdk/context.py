@@ -21,6 +21,7 @@ from maibot_sdk.capabilities.gateway import GatewayCapability
 from maibot_sdk.capabilities.knowledge import KnowledgeCapability
 from maibot_sdk.capabilities.llm import LLMCapability
 from maibot_sdk.capabilities.maisaka import MaisakaCapability
+from maibot_sdk.capabilities.market import MarketCapability
 from maibot_sdk.capabilities.message import MessageCapability
 from maibot_sdk.capabilities.person import PersonCapability
 from maibot_sdk.capabilities.render import RenderCapability
@@ -65,6 +66,9 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "frequency.get_current_talk_value": "value",
     "knowledge.search": "content",
     "llm.get_available_models": "models",
+    "market.search": "result",
+    "market.get_detail": "result",
+    "market.get_readme": "result",
     "message.build_readable": "text",
     "message.count_new": "count",
     "message.get_by_id": "message",
@@ -174,6 +178,7 @@ class PluginContext:
         self.tool: ToolCapability = ToolCapability(current_ctx)
         self.statistics: StatisticsCapability = StatisticsCapability(current_ctx)
         self.maisaka: MaisakaCapability = MaisakaCapability(current_ctx)
+        self.market: MarketCapability = MarketCapability(current_ctx)
 
     @property
     def plugin_id(self) -> str:

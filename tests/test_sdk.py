@@ -402,6 +402,7 @@ def test_context_has_all_capabilities():
         "knowledge",
         "tool",
         "statistics",
+        "market",
         "paths",
         "logger",
     ]
@@ -665,7 +666,7 @@ def test_capability_classes_importable():
 def test_version():
     import maibot_sdk
 
-    assert maibot_sdk.__version__ == "2.14.0"
+    assert maibot_sdk.__version__ == "2.15.0"
 
 
 def test_llm_generate_omits_unset_generation_options():
