@@ -2092,3 +2092,34 @@ Host 与 WebUI 共享缓存，远程头像最长缓存 24 小时，无头像/不
 或 `{"status": "unsupported"}` / `{"status": "missing"}`。
 URL 必须为 Host 可以直接下载的 HTTP(S) 图片地址；不返回 base64。
 未声明该 API 的适配器被视为不支持头像。
+
+
+### 长文生成与可回复上下文（SDK 2.16.0+）
+
+需要 MaiBot 1.3.13+ Host，并在插件清单的 `capabilities` 中声明实际使用的
+`maisaka.reply.generate`、`maisaka.context.append`。旧 Host 不提供长文生成能力。
+
+```python
+result = await self.ctx.maisaka.reply.generate(
+    stream_id,
+    reference="原帖、评论和需要总结的材料",
+    format_instruction="写成三段总结，保留麦麦的表达风格",
+    timeout_ms=180000,
+)
+if result["success"]:
+    text = result["text"]  # 由插件自行决定发送位置与时机
+
+await self.ctx.maisaka.context.append(
+    stream_id,
+    [{"type": "text", "data": "评论内容"}],
+    message_id="comment:123",
+    replyable=True,
+    user_info={"user_id": "123", "user_nickname": "评论作者", "platform": "xiaoheihe"},
+)
+```
+
+长文生成仅返回结果，不自动发送或写入聊天历史；可选 `model_name` 指定 Host 已配置的模型。
+材料必须非空且不超过 500000 字符，写作要求不超过 8000 字符。
+可回复上下文必须提供真实消息编号和作者；仅加入历史，不逐条触发入站回复。
+省略 `replyable` 时保持普通上下文行为。内置表情包工具可使用 `msg_id` 指定回复目标，
+小黑盒平台必须指定可回复的主帖或评论编号。

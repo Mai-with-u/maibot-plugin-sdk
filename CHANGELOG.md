@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.16.0] - 2026-10-21
+
+### 新增
+
+- 新增 `ctx.maisaka.reply.generate()`，支持生成符合麦麦人格的长文，结果交给插件自行发送。
+- `ctx.maisaka.context.append()` 支持 `replyable` 和 `user_info`，保留真实作者与消息编号，便于回复指定帖子或评论。
+- 补充能力声明、使用示例与 Host 版本要求。
+
 ## [2.15.0] - 2026-10-21
 
 ### 新增

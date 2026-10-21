@@ -1,6 +1,6 @@
 """Maisaka 能力代理。
 
-提供向 Maisaka 上下文追加消息、解析上下文图片和触发主动任务的能力。
+提供上下文消息、图片读取、长文生成和主动任务能力。
 """
 
 from __future__ import annotations
@@ -43,6 +43,8 @@ class MaisakaContextCapability:
         visible_text: str = "",
         source_kind: str = "",
         message_id: str = "",
+        replyable: bool = False,
+        user_info: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """向指定聊天流的 Maisaka 上下文追加一条图文消息。
@@ -52,7 +54,9 @@ class MaisakaContextCapability:
             segments: 消息段列表。
             visible_text: 可选的可见文本摘要。
             source_kind: 可选的消息来源标识。
-            message_id: 可选的消息 ID。
+            message_id: 可选的消息 ID；replyable=True 时必须提供真实消息 ID。
+            replyable: 是否作为可回复的用户消息加入历史，不会自动触发回复。
+            user_info: replyable=True 时必须提供真实作者信息。
             **kwargs: Host 支持的额外参数。
         """
 
@@ -63,7 +67,46 @@ class MaisakaContextCapability:
             visible_text=visible_text,
             source_kind=source_kind,
             message_id=message_id,
+            replyable=replyable,
+            user_info=user_info,
             **kwargs,
+        )
+
+
+class MaisakaReplyCapability:
+    """生成符合会话人格的长文，仅返回文本，不自动发送。"""
+
+    def __init__(self, ctx: PluginContext) -> None:
+        self._ctx = ctx
+
+    async def generate(
+        self,
+        stream_id: str,
+        reference: str,
+        *,
+        format_instruction: str = "",
+        model_name: str = "",
+        timeout_ms: int | None = None,
+    ) -> Any:
+        """基于材料生成长文，复用 Host 的人格、表达选择与回复 Hook。
+
+        Args:
+            stream_id: Host 中已存在的真实聊天流 ID。
+            reference: 非空写作材料，最多 500000 字符。
+            format_instruction: 可选写作要求，最多 8000 字符。
+            model_name: 可选 Host 模型名称，留空沿用会话配置。
+            timeout_ms: 本次 RPC 超时毫秒数；长文生成可按需增加。
+
+        Returns:
+            成功返回 success、text 和 selected_expression_ids，失败返回 success=False 与 error。
+        """
+        return await self._ctx.call_capability(
+            "maisaka.reply.generate",
+            stream_id=stream_id,
+            reference=reference,
+            format_instruction=format_instruction,
+            model_name=model_name,
+            timeout_ms=timeout_ms,
         )
 
 
@@ -110,6 +153,7 @@ class MaisakaCapability:
 
     def __init__(self, ctx: PluginContext) -> None:
         self._ctx = ctx
+        self.reply = MaisakaReplyCapability(ctx)
         self.context = MaisakaContextCapability(ctx)
         self.proactive = MaisakaProactiveCapability(ctx)
 
