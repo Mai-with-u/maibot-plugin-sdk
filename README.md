@@ -177,9 +177,11 @@ def create_plugin():
 
 ## 配置模型
 
-如果你希望 Runner 自动补齐默认配置、向 WebUI 暴露结构化 Schema，并在插件内以强类型对象读取配置，可以声明 `config_model`：
+插件通过 `config_model` 定义配置结构、默认值和 WebUI Schema，并通过 `self.config` 读取配置：
 
 ```python
+from typing import Any, Dict
+
 from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
 
 
@@ -194,6 +196,7 @@ class PluginSection(PluginConfigBase):
         }
     }
 
+    config_version: str = Field(default="1.0.0", description="配置版本")
     enabled: bool = Field(default=True, description="是否启用插件")
     greeting: str = Field(
         default="你好！",
@@ -222,9 +225,19 @@ class MyPlugin(MaiBotPlugin):
 
     async def on_load(self) -> None:
         self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
+
+    async def on_unload(self) -> None:
+        return None
+
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
+        return None
+
+
+def create_plugin():
+    return MyPlugin()
 ```
 
-配置来源仍然是插件目录下的 `config.toml`。当插件声明了 `config_model` 后，Runner / Host 可以基于模型生成默认配置和 WebUI Schema，插件代码则可以通过 `self.config` 访问校验后的强类型配置对象；需要临时读取原始配置值时，也仍可继续使用 `await self.ctx.config.get(...)`。
+配置字段均需提供默认值，并声明 `plugin.config_version`。Runner 首次加载时在插件目录生成 `config.toml`，源码仓库的 `.gitignore` 应包含 `/config.toml`。调整配置结构时更新模型中的 `plugin.config_version`，Runner 按版本更新配置文件。
 
 ## 兼容说明
 
@@ -235,7 +248,7 @@ class MyPlugin(MaiBotPlugin):
 - 插件需要保存文件时优先使用 `ctx.paths.data_dir`；缓存、下载暂存或渲染中间产物使用 `ctx.paths.runtime_dir`，不要自行拼接主程序根目录或插件源码目录。
 - `ctx.gateway.route_message()` / `ctx.gateway.update_state()` 分别对应主程序的入站路由和网关状态上报接口；只有处于 `ready=True` 的消息网关才会被主程序接收入站消息或纳入出站路由。
 - `ctx.api` 支持查询、调用其他插件公开的 API，也支持用 `register_dynamic_api()` / `sync_dynamic_apis()` 动态更新当前插件的 API 集合。
-- 如果插件声明了 `config_model`，Runner 会在注入配置时按模型补齐默认值并构造 `self.config` 强类型对象；Host / WebUI 也可复用 `get_default_config()` 与 `get_webui_config_schema()` 导出的配置元数据。
+- Runner 按 `config_model` 补齐默认值、校验配置并构造 `self.config`；Host / WebUI 通过 `get_default_config()` 与 `get_webui_config_schema()` 获取配置元数据。
 - WebUI 配置字段默认使用 `json_schema_extra` 中的 `label`、`hint`、`placeholder` 展示；如需多语言，可在字段元数据中加入 `i18n`，在配置节模型上加入 `__ui_i18n__`。
 - `ctx.send.custom(custom_type, data, stream_id)` 现在会同时发送新旧两套字段别名，便于与不同版本 Host 兼容。
 - `ctx.db.count(model_name, filters)` 直接返回 `int`，SDK 会自动解包 Host 返回的 RPC 结果。
@@ -254,7 +267,7 @@ class MyPlugin(MaiBotPlugin):
 ```
 my_plugin/
     plugin.py          # 插件入口，包含 create_plugin()
-    config.toml        # 可选配置
+    .gitignore         # 包含 /config.toml
 ```
 
 ## 环境要求

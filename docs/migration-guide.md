@@ -91,7 +91,7 @@ Runner 子进程（独立进程）
 | "我直接把平台事件塞进内部链路" | "我通过 @Adapter + self.ctx.adapter.receive_external_message() 注入主消息链" |
 | "每个组件是一个独立类" | "每个组件是插件类上的一个被装饰的方法" |
 | "我手动注册组件到列表里" | "装饰器自动收集，无需手动注册" |
-| "配置通过 ConfigField + config_schema 定义" | "配置仍来自 config.toml；推荐用 PluginConfigBase + Field + config_model 声明结构，并通过 self.config / self.ctx.config 读取" |
+| "配置通过 ConfigField + config_schema 定义" | "用 PluginConfigBase + Field + config_model 定义配置，Runner 自动生成 config.toml" |
 
 ---
 
@@ -111,7 +111,7 @@ Runner 子进程（独立进程）
 4. ~~`get_plugin_components()` 手动注册~~ → 自动收集（删除该方法）
 5. ~~`self.send_text()` / `self.send_emoji()` 等基类方法~~ → `self.ctx.send.text()` / `self.ctx.send.emoji()`
 6. ~~`self.get_config(key)` 基类方法~~ → `await self.ctx.config.get(key)`
-7. ~~`ConfigField` + `config_schema` 配置声明~~ → `PluginConfigBase` + `Field` + `config_model`（推荐）或仅保留 `config.toml`
+7. ~~`ConfigField` + `config_schema` 配置声明~~ → `PluginConfigBase` + `Field` + `config_model`
 8. ~~`self.action_data` / `self.matched_groups` 属性~~ → 方法参数 `**kwargs`
 9. 如果旧插件承担平台接入职责：~~直接调用内部消息入口 / 手写平台桥接~~ → `@Adapter` + `send_to_platform()` + `self.ctx.adapter.receive_external_message()`
 
@@ -168,7 +168,7 @@ from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 | `from src.plugin_system import BaseTool` | `from maibot_sdk import Tool` (装饰器) |
 | `from src.plugin_system import BaseEventHandler` | `from maibot_sdk import EventHandler` (装饰器) |
 | `from src.plugin_system import ComponentInfo` | **删除** — 自动收集 |
-| `from src.plugin_system import ConfigField` | `from maibot_sdk import Field, PluginConfigBase`（推荐）或删除后仅保留 `config.toml` |
+| `from src.plugin_system import ConfigField` | `from maibot_sdk import Field, PluginConfigBase` |
 | `from src.plugin_system import ActionActivationType` | `from maibot_sdk.types import ActivationType` |
 | `from src.plugin_system.base.component_types import ToolInfo` | **删除** — 内部使用 |
 | `from src.plugin_system.base.component_types import ComponentType` | **删除** — 内部使用（SDK 自动处理） |
@@ -229,11 +229,36 @@ class MyPlugin(BasePlugin):
 ### 新写法
 
 ```python
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler
+from typing import Any, Dict
+
+from maibot_sdk import Action, Command, EventHandler, Field, MaiBotPlugin, PluginConfigBase, Tool
+from maibot_sdk.types import EventType
+
+
+class PluginSection(PluginConfigBase):
+    __ui_label__ = "插件开关"
+    __ui_order__ = 1
+
+    enabled: bool = Field(default=True, description="是否启用")
+    config_version: str = Field(default="1.0.0", description="配置版本")
+
+
+class SettingsSection(PluginConfigBase):
+    __ui_label__ = "设置"
+    __ui_order__ = 2
+
+    timeout: float = Field(default=30.0, description="超时秒数")
+
+
+class MyPluginConfig(PluginConfigBase):
+    plugin: PluginSection = Field(default_factory=PluginSection)
+    settings: SettingsSection = Field(default_factory=SettingsSection)
 
 
 class MyPlugin(MaiBotPlugin):
     """我的插件"""
+
+    config_model = MyPluginConfig
 
     # 不再需要：
     # - plugin_name（从 _manifest.json 读取）
@@ -241,7 +266,7 @@ class MyPlugin(MaiBotPlugin):
     # - dependencies（从 _manifest.json 读取）
     # - python_dependencies（插件自行管理依赖）
     # - config_file_name（固定为 config.toml）
-    # - config_schema / config_section_descriptions（配置文件手动编写）
+    # - config_schema / config_section_descriptions（由配置模型声明字段与界面元数据）
     # - get_plugin_components()（装饰器自动收集）
     # - @register_plugin 装饰器（使用 create_plugin() 工厂函数）
 
@@ -267,16 +292,16 @@ class MyPlugin(MaiBotPlugin):
 
     # ===== 生命周期 =====
 
-    async def on_load(self):
-        """插件加载（可选）"""
+    async def on_load(self) -> None:
+        """插件加载。"""
         pass
 
-    async def on_unload(self):
-        """插件卸载（可选）"""
+    async def on_unload(self) -> None:
+        """插件卸载。"""
         pass
 
-    async def on_config_update(self, new_config, version):
-        """配置热更新（可选，新增）"""
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
+        """接收配置更新通知。"""
         pass
 
 
@@ -295,7 +320,7 @@ def create_plugin():
 | 适配器声明 | 无统一入口 | `@Adapter(...)` 类装饰器 + `get_adapter_info()` 自动收集 |
 | 插件名称 | `plugin_name = "xxx"` 类属性 | `_manifest.json` 中的 `name` 字段 |
 | 依赖声明 | `dependencies` / `python_dependencies` 类属性 | `_manifest.json` 中声明 |
-| 配置声明 | `config_schema` + `ConfigField` | `config.toml` + `config_model`（推荐）或仅使用 `self.ctx.config` |
+| 配置声明 | `config_schema` + `ConfigField` | `PluginConfigBase` + `Field` + `config_model` |
 | 配置热更 | 无 | 新增 `on_config_update()` 回调 |
 
 ---
@@ -363,8 +388,7 @@ class HelloAction(BaseAction):
 )
 async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **kwargs):
     del kwargs
-    config_result = await self.ctx.config.get("greeting.message")
-    base_message = config_result if isinstance(config_result, str) else "嗨！"
+    base_message = self.config.greeting.message
     message = base_message + greeting_message
     await self.ctx.send.text(message, stream_id)
     return {"success": True, "message": "发送了问候消息"}
@@ -386,8 +410,7 @@ async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **
 )
 async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **kwargs):
     del kwargs
-    config_result = await self.ctx.config.get("greeting.message")
-    base_message = config_result if isinstance(config_result, str) else "嗨！"
+    base_message = self.config.greeting.message
     await self.ctx.send.text(base_message + greeting_message, stream_id)
     return True, "发送了问候消息"
 ```
@@ -410,7 +433,7 @@ async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **
 | `parallel_action = False` | 推荐作为实现约束写入文档；兼容写法仍可用 `parallel_action=False` |
 | `self.action_data.get("param")` | 方法参数：`param: str = ""` 或 `kwargs.get("param")` |
 | `self.chat_id`（等同于 `self.chat_stream.session_id`） | 方法参数：`stream_id: str = ""`（概念相同，旧系统叫 `chat_id`） |
-| `self.get_config(key, default)` | `await self.ctx.config.get(key)` **(注意：异步)** |
+| `self.get_config(key, default)` | `await self.ctx.config.get(key, default)` **(注意：异步)** |
 | `await self.send_text(text)` | `await self.ctx.send.text(text, stream_id)` **(需要传 stream_id)** |
 | `await self.send_emoji(base64)` | `await self.ctx.send.emoji(base64, stream_id)` |
 | `await self.send_image(base64)` | `await self.ctx.send.image(base64, stream_id)` |
@@ -458,8 +481,7 @@ class TimeCommand(BaseCommand):
 ```python
 @Command("time", description="查询当前时间", pattern=r"^/time$")
 async def handle_time(self, stream_id: str = "", **kwargs):
-    config_result = await self.ctx.config.get("time.format")
-    time_format = config_result if isinstance(config_result, str) else "%Y-%m-%d %H:%M:%S"
+    time_format = self.config.time.format
     now = datetime.datetime.now()
     time_str = now.strftime(time_format)
     await self.ctx.send.text(f"⏰ 当前时间：{time_str}", stream_id)
@@ -477,7 +499,7 @@ async def handle_time(self, stream_id: str = "", **kwargs):
 | `self.matched_groups` | 方法参数：`matched_groups: dict = None` 或 `kwargs.get("matched_groups")` |
 | `self.message`（`SessionMessage` 对象） | 方法参数：`raw_message: str = ""`、`stream_id: str = ""` 等（旧系统通过 `self.message.session_id` 获取会话 ID） |
 | `self.message.session_id` | 方法参数：`stream_id: str = ""` |
-| `self.get_config(key, default)` | `await self.ctx.config.get(key)` |
+| `self.get_config(key, default)` | `await self.ctx.config.get(key, default)` |
 | `await self.send_text(text)` | `await self.ctx.send.text(text, stream_id)` |
 | `await self.send_command(cmd, args)` | `await self.ctx.send.command(cmd, stream_id)` |
 | `return True, "msg", 2`（第三参是 `int`：0=不拦截，1=不触发回复但 replyer 可见，2=完全拦截） | `return True, "msg", True`（新系统简化为 `bool`，`True` 相当于旧 `2`，`False` 相当于旧 `0`） |
@@ -848,13 +870,11 @@ Host 的实际执行顺序为：`BLOCKING` 先于 `OBSERVE`，`EARLY` 先于 `NO
 
 ### 核心变化
 
-旧系统使用 **`ConfigField` + `config_schema`** 在代码中声明配置，系统据此生成配置文件和 WebUI 表单。
+用 `PluginConfigBase` + `Field` 定义配置结构、默认值和 WebUI 元数据，并在插件类上声明 `config_model`。模型必须包含 `plugin.config_version`，每个字段都要有默认值。
 
-新版 SDK 中，配置仍然来自插件目录下的 `config.toml`，但现在推荐新增一层 **`PluginConfigBase` + `Field` + `config_model`**：
+Runner 首次加载时生成 `config.toml`，插件通过 `self.config` 读取校验后的配置。插件目录的 `.gitignore` 包含 `/config.toml`。
 
-1. `config.toml` 仍然是运行时实际配置来源。
-2. `await self.ctx.config.get(...)` 仍然可用，适合按需异步读取原始配置值。
-3. `config_model` 可为配置提供默认值、类型校验、缺失字段补齐，以及 WebUI Schema 生成能力。
+配置结构变更时提升模型中的 `plugin.config_version`。Runner 按新版本重建配置：保留同名且类型兼容的字段值、补齐新增字段、移除废弃字段并写回文件。配置更新通知触发时，Runner 先应用配置，再调用 `on_config_update(scope, config_data, version)`。
 
 ### 旧系统配置声明
 
@@ -877,23 +897,11 @@ config_schema = {
 }
 ```
 
-### 新系统推荐写法
-
-**config.toml**（仍然保留，放在插件目录下）：
-
-```toml
-[plugin]
-config_version = "1.0.0"
-enabled = true
-
-[greeting]
-message = "你好！"
-enable_emoji = true
-```
-
-**在代码中声明配置模型**：
+### 新系统配置模型
 
 ```python
+from typing import Any, Dict
+
 from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
 
 
@@ -943,17 +951,23 @@ class HelloPluginConfig(PluginConfigBase):
 
 class HelloPlugin(MaiBotPlugin):
     config_model = HelloPluginConfig
+
+    async def on_load(self) -> None:
+        pass
+
+    async def on_unload(self) -> None:
+        pass
+
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
+        pass
 ```
 
 **在代码中读取配置**：
 
 ```python
-# 推荐：使用强类型配置对象
+# 读取强类型配置
 message = self.config.greeting.message
 enable_emoji = self.config.greeting.enable_emoji
-
-# 按需读取原始配置时，仍可继续使用 ctx.config
-raw_message = await self.ctx.config.get("greeting.message", "默认值")
 
 # 获取插件全部配置字典
 all_config = await self.ctx.config.get_all()
@@ -967,15 +981,15 @@ other_plugin_config = await self.ctx.config.get_plugin("other_plugin")
 | 旧系统 | 新系统 |
 |--------|--------|
 | `self.get_config("key", default)` | `await self.ctx.config.get("key", default)` |
-| `self.config["section"]["key"]` | `self.config.section.key`（声明 `config_model` 时）或 `await self.ctx.config.get("section.key")` |
+| `self.config["section"]["key"]` | `self.config.section.key` |
 | `ConfigField(...)` 声明 | `Field(...)`（放在 `PluginConfigBase` 中） |
 | `config_schema` 字典 | `config_model = MyPluginConfig` |
 | `config_section_descriptions` | 配置节模型上的 `__ui_label__` / `__ui_icon__` / `__ui_order__` |
 | 手动拼 WebUI Schema | `get_webui_config_schema(...)` |
 | 默认值散落在字典里 | `PluginConfigBase` 字段默认值 |
-| 配置版本自动迁移 | 开发者在 `on_config_update()` 中自行处理 |
+| 配置版本自动迁移 | 提升模型中的 `plugin.config_version`，由 Runner 重建配置 |
 
-> **注意**：`self.ctx.config.get()` 是 **异步** 的，必须使用 `await`。而 `self.config` 是 Runner 注入并校验后的强类型配置对象，只在你声明了 `config_model` 时可用。
+`self.config` 是 Runner 注入并校验后的强类型配置对象；`self.ctx.config.get()` 是异步方法，使用 `await` 调用。
 
 ### WebUI 配置可视化
 
@@ -1026,8 +1040,6 @@ push_format: list[Literal["image", "text"]] = Field(
 )
 ```
 
-如果你暂时不想声明 `config_model`，也可以只保留 `config.toml` + `self.ctx.config` 的最小迁移方案；只是这样无法获得强类型配置对象与自动生成的 WebUI Schema。
-
 ---
 
 ## 第九步：迁移 API 调用
@@ -1057,8 +1069,8 @@ push_format: list[Literal["image", "text"]] = Field(
 
 | 旧系统 | 新系统 |
 |--------|--------|
-| `self.get_config("key", default)` | `await self.ctx.config.get("key")` |
-| `self.config["section"]["key"]` | `await self.ctx.config.get("section.key")` |
+| `self.get_config("key", default)` | `await self.ctx.config.get("key", default)` |
+| `self.config["section"]["key"]` | `self.config.section.key` |
 | — | `await self.ctx.config.get_plugin()` **(获取当前插件全部配置)** |
 | — | `await self.ctx.config.get_plugin("other_plugin")` **(获取指定插件配置)** |
 | — | `await self.ctx.config.get_all()` **(获取当前插件的完整配置快照)** |
@@ -1348,14 +1360,37 @@ class HelloWorldPlugin(BasePlugin):
 
 ```python
 """新版 Hello World 插件 — 使用 maibot-plugin-sdk"""
+from typing import Any, Dict
+
+from maibot_sdk import Action, Command, EventHandler, Field, MaiBotPlugin, PluginConfigBase, Tool
+from maibot_sdk.types import ActivationType, EventType, ToolParameterInfo, ToolParamType
+
 import datetime
 
-from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler
-from maibot_sdk.types import ActivationType, EventType, ToolParameterInfo, ToolParamType
+
+class PluginSection(PluginConfigBase):
+    enabled: bool = Field(default=True, description="是否启用")
+    config_version: str = Field(default="1.0.0", description="配置版本")
+
+
+class GreetingSection(PluginConfigBase):
+    message: str = Field(default="嗨！", description="默认问候语")
+
+
+class TimeSection(PluginConfigBase):
+    format: str = Field(default="%Y-%m-%d %H:%M:%S", description="时间格式")
+
+
+class HelloWorldConfig(PluginConfigBase):
+    plugin: PluginSection = Field(default_factory=PluginSection)
+    greeting: GreetingSection = Field(default_factory=GreetingSection)
+    time: TimeSection = Field(default_factory=TimeSection)
 
 
 class HelloWorldPlugin(MaiBotPlugin):
     """Hello World 示例插件"""
+
+    config_model = HelloWorldConfig
 
     # ===== Action =====
 
@@ -1368,8 +1403,7 @@ class HelloWorldPlugin(MaiBotPlugin):
         associated_types=["text"],
     )
     async def handle_hello(self, stream_id: str = "", greeting_message: str = "", **kwargs):
-        config_result = await self.ctx.config.get("greeting.message")
-        base = config_result if isinstance(config_result, str) else "嗨！"
+        base = self.config.greeting.message
         await self.ctx.send.text(base + greeting_message, stream_id)
         return True, "已问候"
 
@@ -1377,8 +1411,7 @@ class HelloWorldPlugin(MaiBotPlugin):
 
     @Command("time", description="查询时间", pattern=r"^/time$")
     async def handle_time(self, stream_id: str = "", **kwargs):
-        config_result = await self.ctx.config.get("time.format")
-        fmt = config_result if isinstance(config_result, str) else "%Y-%m-%d %H:%M:%S"
+        fmt = self.config.time.format
         now = datetime.datetime.now().strftime(fmt)
         await self.ctx.send.text(f"⏰ {now}", stream_id)
         return True, f"时间: {now}", True
@@ -1408,10 +1441,13 @@ class HelloWorldPlugin(MaiBotPlugin):
 
     # ===== 生命周期 =====
 
-    async def on_load(self):
+    async def on_load(self) -> None:
         pass
 
-    async def on_unload(self):
+    async def on_unload(self) -> None:
+        pass
+
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
         pass
 
 
@@ -1419,18 +1455,10 @@ def create_plugin():
     return HelloWorldPlugin()
 ```
 
-### config.toml（手动创建）
+### .gitignore
 
-```toml
-[plugin]
-config_version = "1.0.0"
-enabled = true
-
-[greeting]
-message = "嗨！"
-
-[time]
-format = "%Y-%m-%d %H:%M:%S"
+```gitignore
+/config.toml
 ```
 
 ---
@@ -1474,13 +1502,19 @@ async def handle_action(self, stream_id: str = "", **kwargs):
 
 ### Q5: 配置热更新怎么处理？
 
-新系统新增了 `on_config_update` 回调：
+Runner 应用配置后调用 `on_config_update(scope, config_data, version)`。插件自身配置的 `scope` 为 `"self"`：
 
 ```python
-async def on_config_update(self, new_config: dict, version: str):
-    """配置文件更新时自动回调"""
-    # 更新内部状态
-    self.my_setting = new_config.get("my_section", {}).get("key", "default")
+from typing import Any, Dict
+
+from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF
+
+
+async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
+    """配置更新时刷新内部状态。"""
+    if scope == CONFIG_RELOAD_SCOPE_SELF:
+        # 使用已经校验的配置更新内部状态
+        self.greeting_message = self.config.greeting.message
 ```
 
 ### Q6: 旧插件用到了全局变量（如 `_plugin_instance`）怎么办？
@@ -1550,7 +1584,7 @@ msg.modify_plain_text("新文本")
 - `from src.plugin_system import BasePlugin, register_plugin, ...` → `from maibot_sdk import MaiBotPlugin, Action, Command, Tool, EventHandler`
 - `from src.plugin_system import ActionActivationType` → `from maibot_sdk.types import ActivationType`
 - `from src.plugin_system import BaseAction, BaseCommand, BaseTool, BaseEventHandler` → 删除，改用装饰器
-- `from src.plugin_system import ConfigField, ComponentInfo` → 删除；如需结构化配置，改为 `PluginConfigBase` + `Field`
+- `ConfigField` 改为 `from maibot_sdk import Field, PluginConfigBase`；删除 `ComponentInfo` 导入
 - `from src.plugin_system.base.component_types import ...` → 删除
 - `from src.plugin_system.base.config_types import section_meta` → 删除
 - `from src.common.logger import get_logger` → 删除，使用 `self.ctx.logger.info()` 或 `logging.getLogger(__name__)`
@@ -1560,7 +1594,7 @@ msg.modify_plain_text("新文本")
 - `@register_plugin` 装饰器 → 删除
 - `class MyPlugin(BasePlugin):` → `class MyPlugin(MaiBotPlugin):`
 - 删除类属性：`plugin_name`, `enable_plugin`, `dependencies`, `python_dependencies`, `config_file_name`, `config_schema`, `config_section_descriptions`
-- 如需强类型配置，可新增 `config_model = MyPluginConfig`
+- 声明 `config_model = MyPluginConfig`，实现 `on_load()`、`on_unload()` 和 `on_config_update(scope, config_data, version)`
 - 删除 `get_plugin_components()` 方法
 - 在文件末尾添加：`def create_plugin(): return MyPlugin()`
 
@@ -1573,7 +1607,7 @@ msg.modify_plain_text("新文本")
 - `action_parameters`, `action_require`, `associated_types` → 同名装饰器参数
 - `self.action_data.get("key")` → 方法参数 `key: str = ""` 或 `kwargs.get("key")`
 - `self.stream_id` → 方法参数 `stream_id: str = ""`
-- `self.get_config("key", default)` → `await self.ctx.config.get("key")`
+- `self.get_config("key", default)` → `await self.ctx.config.get("key", default)`
 - `await self.send_text(text)` → `await self.ctx.send.text(text, stream_id)`
 - `await self.send_emoji(b64)` → `await self.ctx.send.emoji(b64, stream_id)`
 - 返回值保持 `(bool, str)` 不变
@@ -1606,17 +1640,19 @@ msg.modify_plain_text("新文本")
 - 旧系统中 EventHandler/Command 等独立类需要 `global _plugin_instance` 引用插件
 - 新系统中所有组件都是插件类的方法，直接使用 `self` 访问插件实例和状态
 
-### 8. 配置文件
-- 根据原 `config_schema` 生成一份等效的 `config.toml` 文件
-- 推荐把 `ConfigField` 迁移为 `PluginConfigBase` + `Field`，并在插件类上声明 `config_model`
-- 代码中 `self.get_config(key)` → `await self.ctx.config.get(key)`；若已声明 `config_model`，也可改为 `self.config.section.key`
+### 8. 配置模型
+- 将 `config_schema` 迁移为 `PluginConfigBase` + `Field`，保留字段类型、默认值和界面元数据，在插件类上声明 `config_model`
+- 模型包含 `plugin.config_version`；配置结构变更时提升该版本号
+- Runner 首次生成 `config.toml`，版本升级时保留同名且类型兼容的字段值、补齐新增字段并移除废弃字段
+- 使用 `self.config.section.key` 读取配置；配置更新回调通过 `self.config` 读取已校验的配置
+- 插件目录的 `.gitignore` 包含 `/config.toml`
 
 ### 9. API 调用替换
 - `await self.send_text(text)` → `await self.ctx.send.text(text, stream_id)`
 - `await self.send_emoji(b64)` → `await self.ctx.send.emoji(b64, stream_id)`
 - `await self.send_image(b64)` → `await self.ctx.send.image(b64, stream_id)`
 - `await self.send_command(cmd)` → `await self.ctx.send.command(cmd, stream_id)`
-- `self.get_config(key, default)` → `await self.ctx.config.get(key)`（异步！）
+- `self.get_config(key, default)` → `await self.ctx.config.get(key, default)`（异步！）
 - `logger.info(msg)` → `self.ctx.logger.info(msg)` 或 `logging.getLogger(__name__).info(msg)`
 
 ### 10. 类型导入
@@ -1627,8 +1663,8 @@ msg.modify_plain_text("新文本")
 
 ## 输出要求
 
-1. 输出完整的迁移后 `plugin.py` 文件
-2. 输出对应的 `config.toml` 文件（基于原 config_schema 生成）
+1. 输出完整的迁移后 `plugin.py`，包含配置模型
+2. 输出包含 `/config.toml` 的 `.gitignore`
 3. 输出更新后的 `_manifest.json` 文件（添加 capabilities 和 id 字段）
 4. 列出所有变更点的简要说明
 

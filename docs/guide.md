@@ -154,7 +154,7 @@ plugins/
   my_plugin/
     _manifest.json   # 插件清单；声明依赖、能力和 LLM Provider（按 Host 版本要求）
     plugin.py        # 入口文件（必需）
-    config.toml      # 插件配置（可选）
+    .gitignore       # 包含 /config.toml
     README.md        # 插件说明（可选）
     utils.py         # 自定义工具模块（可选）
     ...
@@ -198,7 +198,7 @@ def create_plugin():
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `config_reload_subscriptions` | `Iterable[str]` | 订阅全局配置热更新广播，仅支持 `bot` / `model` |
-| `config_model` | `type[PluginConfigBase] \| None` | 可选的配置模型类，用于默认配置、配置校验与 WebUI Schema 生成 |
+| `config_model` | `type[PluginConfigBase] \| None` | 配置模型类，定义配置结构、默认值和 WebUI Schema |
 
 ### 生命周期回调
 
@@ -230,9 +230,11 @@ class ConfigAwarePlugin(MaiBotPlugin):
 
 ### 配置模型
 
-如果插件希望以强类型方式声明配置、自动补齐默认值，并给 Host / WebUI 提供结构化 Schema，可以在插件类上声明 `config_model`：
+插件通过 `config_model` 定义配置结构、默认值和 WebUI Schema，并通过 `self.config` 读取配置：
 
 ```python
+from typing import Any, Dict
+
 from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
 
 
@@ -247,6 +249,7 @@ class PluginSection(PluginConfigBase):
         }
     }
 
+    config_version: str = Field(default="1.0.0", description="配置版本")
     enabled: bool = Field(default=True, description="是否启用插件")
     greeting: str = Field(
         default="你好！",
@@ -279,9 +282,19 @@ class GreetingPlugin(MaiBotPlugin):
 
     async def on_load(self) -> None:
         self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
+
+    async def on_unload(self) -> None:
+        return None
+
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
+        return None
+
+
+def create_plugin():
+    return GreetingPlugin()
 ```
 
-配置模型启用后，SDK 会提供以下行为：
+SDK 提供以下配置接口：
 
 - `get_default_config()`：根据模型默认值构造默认配置字典。
 - `get_webui_config_schema()`：根据模型与 `Field(..., json_schema_extra=...)` 元数据生成 WebUI Schema。
@@ -290,12 +303,13 @@ class GreetingPlugin(MaiBotPlugin):
 
 说明：
 
-- 运行时的配置来源仍然是插件目录下的 `config.toml`。
+- 配置字段均需提供默认值，并声明 `plugin.config_version`。
+- Runner 首次加载时在插件目录生成 `config.toml`；源码仓库的 `.gitignore` 应包含 `/config.toml`。
+- 调整配置结构时更新模型中的 `plugin.config_version`。Runner 按版本重建配置，保留同名且类型兼容的字段值、补齐新增字段并移除废弃字段。
 - 配置节标题、排序、图标可通过 `__ui_label__`、`__ui_order__`、`__ui_icon__` 设置；如需按 WebUI 语言切换配置节标题或说明，可设置 `__ui_i18n__`，键名使用 `title` / `description`。
 - `Field(..., json_schema_extra=...)` 可携带 `label`、`hint`、`placeholder`、`x-widget`、`x-icon`、`depends_on`、`depends_value`、`step` 等 UI 元数据。
 - `Literal[...]` 会自动生成 `choices`；若字段类型为 `list[Literal[...]]`，生成的 Schema 会继续使用 `type: "select"`，并额外输出 `multiple: true`。
 - 字段级多语言文本可写入 `json_schema_extra["i18n"]`，结构为 `{locale: {"label": "...", "hint": "...", "placeholder": "..."}}`。WebUI 会优先按当前语言读取 `i18n`，再回退到 `label`、`hint`、`placeholder` 的默认文本。
-- 未声明 `config_model` 时，插件仍然可以只使用 `await self.ctx.config.get(...)` 读取配置。
 
 ### 运行时路径
 
@@ -1346,26 +1360,15 @@ config = self.ctx.config
 | `await config.get_plugin(plugin_name)` | 获取指定插件的配置 |
 | `await config.get_all()` | 获取插件全部配置 |
 
-配置来源为插件目录下的 `config.toml`。
+Runner 根据 `config_model` 校验并注入插件配置。
 
 `config.get()`、`config.get_plugin()` 和 `config.get_all()` 都会直接返回配置值或配置字典，不需要手动从 RPC 结果中读取 `value` 字段。
 
-如果插件声明了 `config_model`，除了 `ctx.config` 之外，还可以通过 `self.config` 读取校验后的强类型配置对象：
+在插件方法中读取配置：
 
 ```python
-class MyPlugin(MaiBotPlugin):
-    config_model = GreetingPluginConfig
-
-    async def on_load(self) -> None:
-        self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
-```
-
-示例：
-
-```python
-# 读取单个值
-api_key = await self.ctx.config.get("api_key", "")
-timeout = await self.ctx.config.get("network.timeout", 30)
+# 读取模型字段
+greeting = self.config.plugin.greeting
 
 # 读取全部配置
 all_config = await self.ctx.config.get_all()
@@ -1378,15 +1381,17 @@ all_config = await self.ctx.config.get_all()
 - 修改 `plugin.py`、`_manifest.json` 或插件源码文件时，会触发所属 Supervisor 的安全热重载。
 
 ```python
+from typing import Any, Dict
+
 from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, ON_MODEL_CONFIG_RELOAD
 
 
-class MyPlugin(MaiBotPlugin):
+class MyPlugin(GreetingPlugin):
     config_reload_subscriptions = {ON_MODEL_CONFIG_RELOAD}
 
-    async def on_config_update(self, scope: str, config_data: dict[str, object], version: str) -> None:
+    async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
         if scope == CONFIG_RELOAD_SCOPE_SELF:
-            self.api_key = str(config_data.get("api_key", ""))
+            self.ctx.logger.info("当前问候语: %s", self.config.plugin.greeting)
         elif scope == ON_MODEL_CONFIG_RELOAD:
             self.ctx.logger.info("模型配置已更新: %s", version)
 ```
@@ -1395,7 +1400,7 @@ class MyPlugin(MaiBotPlugin):
 
 - `scope="self"` 表示插件自身的 `config.toml` 更新。
 - `scope="bot"` / `scope="model"` 表示主程序全局配置广播。
-- 如果插件声明了 `config_model`，Runner 会在调用 `on_config_update(scope="self", ...)` 之前先按模型补齐缺失字段并刷新 `self.config`。
+- Runner 在调用 `on_config_update(scope="self", ...)` 前完成配置版本处理、模型校验和 `self.config` 刷新。
 - 配置更新不会自动重启插件；只要 Host 发来的是配置更新事件，Runner 会直接调用 `on_config_update()`，适合保留内存态或长连接状态。
 
 ### Emoji -- 表情包
@@ -1862,7 +1867,7 @@ from maibot_sdk.types import (
 1. Runner 发现 plugins/my_plugin/plugin.py
 2. Runner 调用 create_plugin() 获取插件实例
 3. Runner 注入 PluginContext (self._ctx)
-4. Runner 应用插件自身配置（如 `config.toml`，若声明 `config_model` 还会构造强类型配置实例）
+4. Runner 根据 config_model 加载并校验配置，首次生成 config.toml，注入 self.config
 5. Runner 向 Host bootstrap capability 令牌
 6. Runner 调用 get_components() / get_config_reload_subscriptions() 收集组件与订阅声明
 7. Runner 将组件声明发送给 Host 注册
@@ -1882,7 +1887,7 @@ from maibot_sdk.types import (
 `PluginContext` 在 `on_load()` 之前已经完成注入，插件配置也已经应用，且 Host 已为当前插件签发 capability 令牌、完成组件注册。因此以下操作在 `on_load()` 中是安全的：
 
 - 调用 `self.ctx.send.*`、`self.ctx.db.*`、`self.ctx.config.*` 等能力
-- 读取 `self.config` 强类型配置（如果插件声明了 `config_model`）
+- 读取 `self.config` 强类型配置
 - 创建需要依赖配置内容的内存缓存
 - 执行一次性初始化检查或探测
 - 对消息网关插件调用 `self.ctx.gateway.update_state(..., ready=True)` 上报链路就绪
@@ -2007,12 +2012,12 @@ uv run mypy my_plugin/
 ```
 my-maibot-plugin/
   plugin.py
-  config.toml
+  .gitignore         # 包含 /config.toml
   README.md
   requirements.txt   # 插件自身的额外依赖（如有）
 ```
 
-用户只需将目录 clone 到 `plugins/` 下。
+用户将目录 clone 到 `plugins/` 下，Runner 首次加载时自动生成 `config.toml`。
 
 ---
 
