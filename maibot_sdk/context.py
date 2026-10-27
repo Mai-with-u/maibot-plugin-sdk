@@ -19,6 +19,7 @@ from maibot_sdk.capabilities.emoji import EmojiCapability
 from maibot_sdk.capabilities.files import FilesCapability
 from maibot_sdk.capabilities.frequency import FrequencyCapability
 from maibot_sdk.capabilities.gateway import GatewayCapability
+from maibot_sdk.capabilities.internal_chat import InternalChatCapability
 from maibot_sdk.capabilities.knowledge import KnowledgeCapability
 from maibot_sdk.capabilities.llm import LLMCapability
 from maibot_sdk.capabilities.maisaka import MaisakaCapability
@@ -37,6 +38,8 @@ RpcCallFn = Callable[..., Awaitable[Any]]
 
 _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "webui.claim_upload": "upload",
+    "internal_chat.identity": "result",
+    "internal_chat.send": "result",
     "api.call": "result",
     "api.get": "api",
     "api.list": "apis",
@@ -177,6 +180,7 @@ class PluginContext:
         self.frequency: FrequencyCapability = FrequencyCapability(current_ctx)
         self.component: ComponentCapability = ComponentCapability(current_ctx)
         self.chat: ChatCapability = ChatCapability(current_ctx)
+        self.internal_chat: InternalChatCapability = InternalChatCapability(current_ctx)
         self.person: PersonCapability = PersonCapability(current_ctx)
         self.render: RenderCapability = RenderCapability(current_ctx)
         self.knowledge: KnowledgeCapability = KnowledgeCapability(current_ctx)

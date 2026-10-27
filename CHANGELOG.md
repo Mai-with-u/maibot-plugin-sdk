@@ -14,6 +14,8 @@
 
 - 新增 `ctx.web.search()` / `ctx.web.fetch()`，复用 Host 已分配的联网服务，返回结构化搜索结果和完整网页正文。
 
+- 新增 `ctx.internal_chat.identity()` / `send()`，插件界面可代主人接入 Bot 内部统一聊天，与网页聊天室共用 `internal / owner` 私聊流；麦麦的回复经 `send_service.after_send` 按身份识别。
+
 ## [2.16.0] - 2026-10-21
 
 ### 新增

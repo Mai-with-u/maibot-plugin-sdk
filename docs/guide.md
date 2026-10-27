@@ -45,6 +45,7 @@ WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单�
   - [Tool -- 工具定义](#tool----工具定义)
   - [Maisaka -- 上下文与主动任务](#maisaka----上下文与主动任务)
   - [WebUI -- 页面与图片上传](#webui----页面与图片上传)
+  - [InternalChat -- 内部统一聊天](#internalchat----内部统一聊天)
   - [Logger -- 日志](#logger----日志)
 - [消息模型](#消息模型)
 - [类型定义](#类型定义)
@@ -1034,7 +1035,7 @@ class ExampleLLMPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`internal_chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
 
 ### API -- 插件 API
 
@@ -1721,6 +1722,31 @@ upload = await self.ctx.webui.claim_upload(upload_id)
 HTML 页声明 `uploads` 别名并用 `maibot.upload()` 接收图片；对应 action 必须声明必填字符串 upload_id，允许宿主 confirmation。预置组件没有上传、循环或批量选择；批处理 UI 和队列由 HTML 页实现。具体声明、进度与取消示例见[WebUI 图片上传](webui-uploads.md)。
 
 WebUI 网关原样返回 API 的业务 result，不用其中的 success、message 或 navigate_page 自动触发错误、提示或跳转。API 执行失败应抛异常，或由 HTML 解释业务结果；页面导航显式调用 maibot.navigate。取消/超时不意味着已提交的写操作回滚。
+
+---
+
+### InternalChat -- 内部统一聊天
+
+内部统一聊天是主人与麦麦之间唯一固定的私聊聊天流：所有网页聊天室，以及桌宠、托盘小工具等插件界面都接入这一条聊天流，记录、上下文和记忆连续，且不受适配器名单约束。插件可以代主人说话，并接收麦麦的回复：
+
+```python
+me = await self.ctx.internal_chat.identity()
+# me = {"platform": "internal", "user_id": "owner"}
+sent = await self.ctx.internal_chat.send("今天吃什么？")
+# sent = {"message_id": "..."}
+```
+
+需要 manifest 能力 `internal_chat.identity` / `internal_chat.send`、MaiBot 1.3.16+ Host 和 SDK 2.17.0+。`send` 以主人身份发言，插件不能指定其他用户或独立昵称，称呼统一使用网页聊天室设置的共享昵称；`text` 去除首尾空白后为 1～2000 字符。消息会同步显示在在线的网页聊天室中，并记录插件来源：即使主人身份配置了管理员或命令权限，插件代发的消息也不能执行受保护命令。
+
+麦麦发给主人的消息（无论回复的是网页还是插件里的发言）照常发出，插件通过 `send_service.after_send` 观察并按 `identity()` 识别：
+
+```python
+@HookHandler("send_service.after_send", name="my_chat_reply", mode=HookMode.OBSERVE)
+async def on_message_sent(self, message: dict, sent: bool = False, **kwargs):
+    target = message["message_info"].get("additional_config", {}).get("platform_io_target_user_id")
+    if sent and message["platform"] == self._me["platform"] and target == self._me["user_id"]:
+        ...  # message["raw_message"] 为标准消息段列表
+```
 
 ---
 
