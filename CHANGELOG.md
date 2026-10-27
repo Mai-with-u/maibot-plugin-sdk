@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [2.17.0] - 2026-10-26
+## [2.17.0] - 2026-10-27
 
 ### 新增
 
@@ -15,6 +15,10 @@
 - 新增 `ctx.files.list/read_text/download/upload/send`，由 Host 签发工具调用期间的聊天作用域，插件无需传入聊天 ID。
 - 上传和下载通过限时 HTTP 通道流式传输，下载校验大小和 SHA-256；RPC 仅交换元数据、引用与凭证，发送不确定时返回 `unknown`。
 - 新增 `ctx.internal_chat.identity()` / `send()`，插件界面可代主人接入 Bot 内部统一聊天，与网页聊天室共用 `internal / owner` 私聊流；麦麦的回复经 `send_service.after_send` 按身份识别。
+
+### 修复
+
+- 文件能力正确传递 RPC 超时设置；上传、下载及取消时的清理失败保留原始异常，并兼容 Python 3.10。
 
 ## [2.16.0] - 2026-10-21
 

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sys
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -79,7 +80,7 @@ async def test_upload_preflight_failure_cancels_reservation(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_cleanup_rpc_failure_preserves_upload_error(tmp_path, monkeypatch):
+async def test_cleanup_rpc_failure_preserves_upload_error(tmp_path, monkeypatch, caplog):
     path = tmp_path / "file.txt"
     path.write_bytes(b"hello")
     async def capability(capability_name, **kwargs):
@@ -93,11 +94,12 @@ async def test_cleanup_rpc_failure_preserves_upload_error(tmp_path, monkeypatch)
     with pytest.raises(OSError, match="upload connection failed") as caught:
         await FilesCapability(SimpleNamespace(call_capability=capability)).upload(path)
     assert caught.value is original_error
-    assert "cleanup unavailable" in " ".join(caught.value.__notes__)
+    diagnostics = " ".join(caught.value.__notes__) if sys.version_info >= (3, 11) else caplog.text
+    assert "cleanup unavailable" in diagnostics
 
 
 @pytest.mark.asyncio
-async def test_partial_cleanup_failure_preserves_checksum_error(tmp_path, monkeypatch):
+async def test_partial_cleanup_failure_preserves_checksum_error(tmp_path, monkeypatch, caplog):
     async def capability(capability_name, **kwargs):
         return {"url": "http://unused", "size": 4, "sha256": hashlib.sha256(b"good").hexdigest()}
     monkeypatch.setattr("maibot_sdk.capabilities.files.urlopen", lambda *args, **kwargs: BytesIO(b"oops"))
@@ -108,12 +110,13 @@ async def test_partial_cleanup_failure_preserves_checksum_error(tmp_path, monkey
         patch.setattr(type(path), "unlink", denied_unlink)
         with pytest.raises(ValueError, match="checksum") as caught:
             await FilesCapability(SimpleNamespace(call_capability=capability)).download("ref", path)
-        assert "file locked" in " ".join(caught.value.__notes__)
+        diagnostics = " ".join(caught.value.__notes__) if sys.version_info >= (3, 11) else caplog.text
+        assert "file locked" in diagnostics
     path.unlink()
 
 
 @pytest.mark.asyncio
-async def test_worker_failure_does_not_replace_cancellation():
+async def test_worker_failure_does_not_replace_cancellation(caplog):
     import asyncio
     import threading
 
@@ -131,4 +134,5 @@ async def test_worker_failure_does_not_replace_cancellation():
     release.set()
     with pytest.raises(asyncio.CancelledError) as caught:
         await task
-    assert "worker failed" in " ".join(caught.value.__notes__)
+    diagnostics = " ".join(caught.value.__notes__) if sys.version_info >= (3, 11) else caplog.text
+    assert "worker failed" in diagnostics

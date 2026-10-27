@@ -3,6 +3,8 @@
 import asyncio
 import hashlib
 import json
+import logging
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -14,6 +16,14 @@ if TYPE_CHECKING:
     from maibot_sdk.context import PluginContext
 
 
+def _add_transfer_error_note(error: BaseException, note: str) -> None:
+    """保留原始异常；Python 3.10 通过日志记录清理失败，后续版本附加异常备注。"""
+    if sys.version_info >= (3, 11):
+        error.add_note(note)
+    else:
+        logging.getLogger(__name__).warning(note)
+
+
 async def _transfer(function: Callable[[], T]) -> T:
     task = asyncio.create_task(asyncio.to_thread(function))
     try:
@@ -22,7 +32,7 @@ async def _transfer(function: Callable[[], T]) -> T:
         try:
             await task
         except (Exception, asyncio.CancelledError) as worker_error:
-            error.add_note(f"Transfer worker failed during cancellation: {worker_error!r}")
+            _add_transfer_error_note(error, f"Transfer worker failed during cancellation: {worker_error!r}")
         raise
 
 
@@ -39,15 +49,19 @@ class FilesCapability:
     async def list(self, offset: int = 0) -> list[dict[str, Any]]:
         return cast(list[dict[str, Any]], await self._ctx.call_capability("files.list", offset=offset))
 
-    async def read_text(self, file_ref: str, offset: int = 0, limit: int = 12000,
-                        encoding: str = "utf-8-sig") -> dict[str, Any]:
-        return cast(dict[str, Any], await self._ctx.call_capability(
-            "files.read_text", file_ref=file_ref, offset=offset, limit=limit, encoding=encoding, timeout_ms=180000))
+    async def read_text(
+        self, file_ref: str, offset: int = 0, limit: int = 12000, encoding: str = "utf-8-sig"
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            await self._ctx.call_capability(
+                "files.read_text", file_ref=file_ref, offset=offset, limit=limit, encoding=encoding, timeout_ms=180000
+            ),
+        )
 
     async def send(self, file_ref: str) -> dict[str, Any]:
         """发送到当前聊天；unknown 表示投递结果不确定，不应自动重发。"""
-        return cast(dict[str, Any], await self._ctx.call_capability(
-            "files.send", file_ref=file_ref, timeout_ms=180000))
+        return cast(dict[str, Any], await self._ctx.call_capability("files.send", file_ref=file_ref, timeout_ms=180000))
 
     async def upload(self, path: Path, name: str = "", mime_type: str = "application/octet-stream") -> dict[str, Any]:
         path = Path(path)
@@ -59,9 +73,15 @@ class FilesCapability:
                 size = path.stat().st_size
                 if size > info["max_bytes"]:
                     raise ValueError("File exceeds the host limit")
-                request = Request(info["url"], data=cast(Any, handle), method="PUT", headers={
-                    "Content-Type": mime_type, "Content-Length": str(size),
-                })
+                request = Request(
+                    info["url"],
+                    data=cast(Any, handle),
+                    method="PUT",
+                    headers={
+                        "Content-Type": mime_type,
+                        "Content-Length": str(size),
+                    },
+                )
                 with urlopen(request, timeout=120) as response:
                     return cast(dict[str, Any], json.loads(response.read(65536)))
 
@@ -71,7 +91,7 @@ class FilesCapability:
             try:
                 await self._ctx.call_capability("files.upload", operation="cancel", upload_token=info["upload_token"])
             except (Exception, asyncio.CancelledError) as cleanup_error:
-                error.add_note(f"Failed to release upload reservation: {cleanup_error!r}")
+                _add_transfer_error_note(error, f"Failed to release upload reservation: {cleanup_error!r}")
             raise
 
     async def download(self, file_ref: str, destination: Path) -> dict[str, Any]:
@@ -98,7 +118,7 @@ class FilesCapability:
                         handle.close()
                         destination.unlink()
                     except OSError as cleanup_error:
-                        error.add_note(f"Failed to remove partial download: {cleanup_error!r}")
+                        _add_transfer_error_note(error, f"Failed to remove partial download: {cleanup_error!r}")
                     raise
 
         await _transfer(transfer)
