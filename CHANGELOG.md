@@ -9,11 +9,11 @@
 
 ### 新增
 
-- 新增 `ctx.files.list/read_text/download/upload/send`，由 Host 签发工具调用期间的聊天作用域，插件无需传入聊天 ID。
-- 上传和下载通过限时 HTTP 通道流式传输，下载校验大小和 SHA-256；RPC 仅交换元数据、引用与凭证，发送不确定时返回 `unknown`。
+- 新增 `ctx.desktop_pet.status/show/hide/say/set_thinking`，按清单能力控制主程序内置桌宠；气泡仅作桌面提示，不写入聊天历史和记忆，窗口操作确认后返回状态。
 
 - 新增 `ctx.web.search()` / `ctx.web.fetch()`，复用 Host 已分配的联网服务，返回结构化搜索结果和完整网页正文。
-
+- 新增 `ctx.files.list/read_text/download/upload/send`，由 Host 签发工具调用期间的聊天作用域，插件无需传入聊天 ID。
+- 上传和下载通过限时 HTTP 通道流式传输，下载校验大小和 SHA-256；RPC 仅交换元数据、引用与凭证，发送不确定时返回 `unknown`。
 - 新增 `ctx.internal_chat.identity()` / `send()`，插件界面可代主人接入 Bot 内部统一聊天，与网页聊天室共用 `internal / owner` 私聊流；麦麦的回复经 `send_service.after_send` 按身份识别。
 
 ## [2.16.0] - 2026-10-21

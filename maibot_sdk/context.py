@@ -15,6 +15,7 @@ from maibot_sdk.capabilities.chat import ChatCapability
 from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
 from maibot_sdk.capabilities.database import DatabaseCapability
+from maibot_sdk.capabilities.desktop_pet import DesktopPetCapability
 from maibot_sdk.capabilities.emoji import EmojiCapability
 from maibot_sdk.capabilities.files import FilesCapability
 from maibot_sdk.capabilities.frequency import FrequencyCapability
@@ -40,6 +41,11 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "webui.claim_upload": "upload",
     "internal_chat.identity": "result",
     "internal_chat.send": "result",
+    "desktop_pet.status": "result",
+    "desktop_pet.show": "result",
+    "desktop_pet.hide": "result",
+    "desktop_pet.say": "result",
+    "desktop_pet.set_thinking": "result",
     "api.call": "result",
     "api.get": "api",
     "api.list": "apis",
@@ -181,6 +187,7 @@ class PluginContext:
         self.component: ComponentCapability = ComponentCapability(current_ctx)
         self.chat: ChatCapability = ChatCapability(current_ctx)
         self.internal_chat: InternalChatCapability = InternalChatCapability(current_ctx)
+        self.desktop_pet: DesktopPetCapability = DesktopPetCapability(current_ctx)
         self.person: PersonCapability = PersonCapability(current_ctx)
         self.render: RenderCapability = RenderCapability(current_ctx)
         self.knowledge: KnowledgeCapability = KnowledgeCapability(current_ctx)

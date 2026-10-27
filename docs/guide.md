@@ -1035,7 +1035,9 @@ class ExampleLLMPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`internal_chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`internal_chat`、`desktop_pet`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+
+控制主程序内置桌宠的接口、清单权限和示例见[桌宠能力](desktop-pet.md)。
 
 ### API -- 插件 API
 
