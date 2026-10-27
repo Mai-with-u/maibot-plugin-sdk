@@ -12,6 +12,8 @@
 - 新增 `ctx.files.list/read_text/download/upload/send`，由 Host 签发工具调用期间的聊天作用域，插件无需传入聊天 ID。
 - 上传和下载通过限时 HTTP 通道流式传输，下载校验大小和 SHA-256；RPC 仅交换元数据、引用与凭证，发送不确定时返回 `unknown`。
 
+- 新增 `ctx.web.search()` / `ctx.web.fetch()`，复用 Host 已分配的联网服务，返回结构化搜索结果和完整网页正文。
+
 ## [2.16.0] - 2026-10-21
 
 ### 新增

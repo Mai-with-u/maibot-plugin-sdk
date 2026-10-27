@@ -29,6 +29,7 @@ from maibot_sdk.capabilities.render import RenderCapability
 from maibot_sdk.capabilities.send import SendCapability
 from maibot_sdk.capabilities.statistics import StatisticsCapability
 from maibot_sdk.capabilities.tool import ToolCapability
+from maibot_sdk.capabilities.web import WebCapability
 from maibot_sdk.capabilities.webui import WebUICapability
 
 # RPC 调用函数类型: async (method, plugin_id, payload, timeout_ms=None) -> result
@@ -88,6 +89,8 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "statistics.local.token_trend": "series",
     "statistics.local.tool_trend": "series",
     "tool.get_definitions": "tools",
+    "web.search": "result",
+    "web.fetch": "result",
 }
 
 _BOOLEAN_SUCCESS_CAPABILITIES = {
@@ -181,6 +184,7 @@ class PluginContext:
         self.statistics: StatisticsCapability = StatisticsCapability(current_ctx)
         self.maisaka: MaisakaCapability = MaisakaCapability(current_ctx)
         self.market: MarketCapability = MarketCapability(current_ctx)
+        self.web: WebCapability = WebCapability(current_ctx)
 
     @property
     def plugin_id(self) -> str:

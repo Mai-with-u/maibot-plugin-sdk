@@ -1034,7 +1034,7 @@ class ExampleLLMPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
 
 ### API -- 插件 API
 
@@ -2130,3 +2130,18 @@ await self.ctx.maisaka.context.append(
 可回复上下文必须提供真实消息编号和作者；仅加入历史，不逐条触发入站回复。
 省略 `replyable` 时保持普通上下文行为。内置表情包工具可使用 `msg_id` 指定回复目标，
 小黑盒平台必须指定可回复的主帖或评论编号。
+
+### 联网搜索与网页读取
+
+SDK 2.17.0 起，声明 `web.search` / `web.fetch` 能力后，可复用 Host 在「功能分配 → 联网搜索」选定的服务：
+
+```python
+result = await self.ctx.web.search("Python asyncio 文档", max_results=3)
+if result["results"]:
+    page = await self.ctx.web.fetch(result["results"][0]["url"])
+    text = page["content"]
+```
+
+需要包含这两项能力实现的 Host。返回结构化搜索结果或完整网页正文，无需聊天 ID。
+未启用、未授权、超时或上游失败会抛出异常；返回值不包含服务密钥。
+参数、返回字段和限制见 [联网接口文档](web.md)。
