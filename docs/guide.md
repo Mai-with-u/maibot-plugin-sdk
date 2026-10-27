@@ -2,6 +2,8 @@
 
 本文档面向 MaiBot 插件开发者，覆盖从环境搭建到发布上线的完整流程。
 
+聊天附件的登记、读取、流式上传下载和发送见[文件能力](files.md)；SDK 2.17.0 新增 `ctx.files`，需要配套启用主程序文件服务。
+
 WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单，HTML 页面负责自由布局及复杂交互。完整声明、JavaScript 桥接、安全边界与迁移步骤见[WebUI 页面开发文档](https://docs.mai-mai.org/plugin/webui-pages)，Python 图片领取见[WebUI 图片上传](webui-uploads.md)。当前开发协议为 `schema_version: 2`，需要配套更新主程序和 dashboard；SDK 版本与页面协议分别管理。
 
 ---

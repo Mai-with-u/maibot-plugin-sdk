@@ -16,6 +16,7 @@ from maibot_sdk.capabilities.component import ComponentCapability
 from maibot_sdk.capabilities.config import ConfigCapability
 from maibot_sdk.capabilities.database import DatabaseCapability
 from maibot_sdk.capabilities.emoji import EmojiCapability
+from maibot_sdk.capabilities.files import FilesCapability
 from maibot_sdk.capabilities.frequency import FrequencyCapability
 from maibot_sdk.capabilities.gateway import GatewayCapability
 from maibot_sdk.capabilities.knowledge import KnowledgeCapability
@@ -162,6 +163,7 @@ class PluginContext:
         # 能力代理
         self.api: APICapability = APICapability(current_ctx)
         self.webui: WebUICapability = WebUICapability(current_ctx)
+        self.files: FilesCapability = FilesCapability(current_ctx)
         self.gateway: GatewayCapability = GatewayCapability(current_ctx)
         self.send: SendCapability = SendCapability(current_ctx)
         self.db: DatabaseCapability = DatabaseCapability(current_ctx)
