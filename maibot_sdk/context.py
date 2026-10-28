@@ -42,6 +42,13 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "internal_chat.identity": "result",
     "internal_chat.send": "result",
     "desktop_pet.status": "result",
+    "desktop_pet.get_skin": "result",
+    "desktop_pet.list_animations": "result",
+    "desktop_pet.play_animation": "result",
+    "desktop_pet.play_event": "result",
+    "desktop_pet.stop_animation": "result",
+    "desktop_pet.animation_status": "result",
+
     "desktop_pet.show": "result",
     "desktop_pet.hide": "result",
     "desktop_pet.say": "result",

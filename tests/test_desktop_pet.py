@@ -8,6 +8,9 @@ from maibot_sdk.context import PluginContext
 
 @pytest.mark.parametrize("action,args", [
     ("status", {}), ("show", {}), ("hide", {}),
+    ("get_skin", {}), ("list_animations", {}),
+    ("play_animation", {"name": "wave", "repeat": 2}), ("play_event", {"event": "greeting"}),
+    ("stop_animation", {"playback_id": "id"}), ("animation_status", {"playback_id": "id"}),
     ("say", {"text": "完成了"}), ("set_thinking", {"active": False}),
 ])
 def test_desktop_pet_routes_and_unwraps_status(action, args):

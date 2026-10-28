@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.18.0] - 2026-10-28
+
+### 新增
+
+- 桌宠：新增皮肤查询、动画列表、标准事件播放、自定义动画播放、停止与播放状态查询；操作按插件归属隔离。
+
 ## [2.17.0] - 2026-10-27
 
 ### 新增
