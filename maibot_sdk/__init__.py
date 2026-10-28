@@ -24,15 +24,18 @@ from .components import (
     WorkflowStep,
 )
 from .config import Field, PluginConfigBase
+from .config_widgets import ConfigWidget, ConfigWidgetState
 from .context import PluginContext, PluginPaths
 from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.18.0"
+__version__ = "2.19.0"
 
 __all__ = [
     "MaiBotPlugin",
+    "ConfigWidget",
+    "ConfigWidgetState",
     "API",
     "Action",
     "Command",

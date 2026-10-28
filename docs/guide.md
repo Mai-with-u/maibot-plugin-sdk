@@ -2173,3 +2173,86 @@ if result["results"]:
 需要包含这两项能力实现的 Host。返回结构化搜索结果或完整网页正文，无需聊天 ID。
 未启用、未授权、超时或上游失败会抛出异常；返回值不包含服务密钥。
 参数、返回字段和限制见 [联网接口文档](web.md)。
+
+
+## 配置页运行时控件（二维码、状态、操作按钮）
+
+新版主程序支持在插件设置页直接展示登录二维码和动态状态，不必为简单登录流程编写 WebUI 扩展。
+在 `MaiBotPlugin.config_widgets` 声明 `ConfigWidget`，实现两个异步方法即可：
+
+- `get_config_widget_state()`：返回以控件 ID 为键的完整 `ConfigWidgetState` 字典。
+- `on_config_widget_action(action_id)`：处理已声明的 `action` 按钮。
+
+这些控件不属于 `config_model`。控件声明在 Schema 的 `runtime_widgets` 中，实时值通过独立接口传输；不会写入 TOML，也不会改变配置草稿或触发配置热重载。所有插件类型均可使用。
+
+```python
+from typing import Dict
+import base64
+import time
+
+from maibot_sdk import ConfigWidget, ConfigWidgetState, MaiBotPlugin
+
+
+class Adapter(MaiBotPlugin):
+    config_widgets = [
+        ConfigWidget(id="connection", kind="status", label="连接状态"),
+        ConfigWidget(id="login_qr", kind="qrcode", label="扫码登录"),
+        ConfigWidget(id="refresh", kind="action", label="刷新二维码"),
+        ConfigWidget(id="logout", kind="action", label="退出登录", confirmation="确定退出当前账号？"),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.connected = False
+        self.qr_image = None
+        self.qr_expires_at = None
+        # self.client 由适配器自己的平台连接代码初始化。
+
+    async def get_config_widget_state(self) -> Dict[str, ConfigWidgetState]:
+        return {
+            "connection": ConfigWidgetState(
+                text="已连接" if self.connected else "等待登录",
+                tone="success" if self.connected else "neutral",
+            ),
+            "login_qr": ConfigWidgetState(
+                image=self.qr_image, expires_at=self.qr_expires_at,
+                visible=not self.connected,
+                text="请使用平台客户端扫码" if self.qr_image else "点击刷新二维码开始登录",
+            ),
+            "refresh": ConfigWidgetState(visible=not self.connected),
+            "logout": ConfigWidgetState(disabled=not self.connected),
+        }
+
+    async def on_config_widget_action(self, action_id: str) -> None:
+        # 下列平台客户端方法为接入示意，请替换为适配器的实际异步接口。
+        if action_id == "refresh":
+            png_bytes = await self.client.request_login_qr()
+            self.qr_image = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+            self.qr_expires_at = time.time() + 120  # 应使用平台返回的真实有效期
+        elif action_id == "logout":
+            await self.client.logout()
+            self.connected = False
+            self.qr_image = None
+            self.qr_expires_at = None
+        else:
+            raise ValueError(f"未知操作: {action_id}")
+
+    def on_platform_connected(self) -> None:
+        # 在平台登录成功回调中更新内存状态，页面随后自动刷新。
+        self.connected = True
+        self.qr_image = None
+        self.qr_expires_at = None
+```
+
+状态必须覆盖全部已声明控件，不显示的控件使用 `visible=False`。`tone` 支持 `neutral/success/warning/error`。
+二维码 `image` 仅接收 PNG/JPEG 的 base64 data URL（最多 1,000,000 字符），不接受远程 URL、SVG 或 HTML。
+如果平台返回二维码原文，请由适配器使用二维码生成库编码为 PNG。`expires_at` 使用 Unix 秒；到期后页面隐藏图片并提示刷新。
+
+配置页打开时约每 2 秒读取一次完整快照，后台页面暂停定时刷新，离开页面后清除查询缓存。
+读取状态应快速返回内存快照，不要每次读取都重新申请二维码；登录、网络 I/O 放在异步操作或适配器自己的后台任务中。
+单次读取/操作限时 8 秒；长登录流程应启动后台任务后立即返回，通过状态展示进度。
+同一插件的请求串行互斥，进行中的重复请求会报忙；操作不会自动重试。按钮的可见/禁用状态在服务端执行前重新校验。
+操作执行后立即读取最新状态。操作异常会直接显示在页面，二维码与状态不会被写进日志或 HTTP 缓存。
+
+开发联调可设置 `MAIBOT_PLUGIN_SDK_PATH` 指向本地 SDK 仓库并重启主程序，插件也需要重新加载以更新 Schema。
+旧 SDK 插件不声明 `runtime_widgets` 时完全保持原有行为。该功能需要同时更新主程序和 SDK；旧主程序不会渲染这些控件。

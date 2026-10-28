@@ -22,6 +22,7 @@ from .config import (
     merge_plugin_config_data,
     validate_plugin_config,
 )
+from .config_widgets import ConfigWidget, ConfigWidgetState
 from .context import PluginContext
 from .types import normalize_config_reload_subscription
 
@@ -47,6 +48,17 @@ class MaiBotPlugin:
         def create_plugin():
             return MyPlugin()
     """
+
+    config_widgets: ClassVar[list[ConfigWidget]] = []
+    """配置页运行时控件，与 config_model 独立，不写入配置文件。"""
+
+    async def get_config_widget_state(self) -> dict[str, ConfigWidgetState]:
+        """返回所有控件的完整状态；只读取内存，耗时 I/O 应异步执行。"""
+        return {widget.id: ConfigWidgetState() for widget in self.config_widgets}
+
+    async def on_config_widget_action(self, action_id: str) -> None:
+        """处理配置页按钮操作；仅已声明且当前可用的 action 会被调用。"""
+        raise ValueError(f"未实现配置页操作: {action_id}")
 
     config_reload_subscriptions: ClassVar[Iterable[str]] = ()
     """插件订阅的全局配置热重载范围。
@@ -281,13 +293,28 @@ class MaiBotPlugin:
             Dict[str, Any]: 当前插件的 WebUI 配置 Schema。
         """
 
-        return type(self).build_config_schema(
+        schema = type(self).build_config_schema(
             plugin_id=plugin_id,
             plugin_name=plugin_name,
             plugin_version=plugin_version,
             plugin_description=plugin_description,
             plugin_author=plugin_author,
         )
+        if self.config_widgets:
+            if not schema:
+                schema = {
+                    "plugin_id": plugin_id,
+                    "plugin_info": {
+                        "name": plugin_name,
+                        "version": plugin_version,
+                        "description": plugin_description,
+                        "author": plugin_author,
+                    },
+                    "sections": {},
+                    "layout": {"type": "auto", "tabs": []},
+                }
+            schema["runtime_widgets"] = [widget.model_dump() for widget in self.config_widgets]
+        return schema
 
     def get_components(self) -> list[dict[str, Any]]:
         """收集所有被装饰器标记的组件信息

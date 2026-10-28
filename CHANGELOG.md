@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.19.0] - 2026-10-28
+
+### 新增
+
+- 配置页：新增 `ConfigWidget`、`ConfigWidgetState` 与运行时状态/操作接口，支持二维码、动态状态和按钮，数据独立于 TOML 配置。
+
 ## [2.18.0] - 2026-10-28
 
 ### 新增
