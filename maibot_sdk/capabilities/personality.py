@@ -15,7 +15,7 @@ class PersonalityCapability:
         return cast(dict[str, Any], await self._ctx.call_capability("personality.list"))
 
     async def get_current(self) -> dict[str, Any]:
-        """返回当前 name 与五个人设字段；未命名时 name 为空。需 personality.get_current。"""
+        """返回当前 name 与人设字段（含群聊、私聊提示词）；未命名时 name 为空。需 personality.get_current。"""
         return cast(dict[str, Any], await self._ctx.call_capability("personality.get_current"))
 
     async def switch(self, name: str) -> dict[str, Any]:

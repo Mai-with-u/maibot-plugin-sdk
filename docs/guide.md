@@ -1737,7 +1737,7 @@ current = await self.ctx.personality.get_current()  # {"name": "...", "personali
 result = await self.ctx.personality.switch("温柔的麦麦")  # {"changed": True, "current": {...}}
 ```
 
-在 manifest 的 `capabilities` 中分别声明 `personality.list`、`personality.get_current`、`personality.switch`。人设对象包含 `name`、`personality`、`behavior_style`、`reply_style`、`multiple_reply_style`、`multiple_probability`；未命名的当前人设 `name` 为空。
+在 manifest 的 `capabilities` 中分别声明 `personality.list`、`personality.get_current`、`personality.switch`。人设对象包含 `name`、`personality`、`behavior_style`、`reply_style`、`group_chat_prompt`、`private_chat_prompts`、`multiple_reply_style`、`multiple_probability`；未命名的当前人设 `name` 为空。
 
 `switch(name)` 按名称精确匹配，全局生效并持久化，完成热重载后返回。切换前保留已保存的当前编辑；未命名的设定以“切换前人设”留档。同名切换不会覆盖当前编辑，返回 `changed: False`。不存在的人设不会写入配置。缺少授权、参数非法、文件写入或热重载失败会抛出能力调用异常；热重载失败可能已经保存到磁盘，可重试。浏览器尚未保存的内容不在 SDK 可读取范围内，正在生成的回复不会被取消。
 
