@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.20.0] - 2026-10-29
+
+### 新增
+
+- 人设：新增 `ctx.personality.list()`、`get_current()`、`switch(name)`，查询及持久化切换 Host 全局备选人设。
+
 ## [2.19.0] - 2026-10-28
 
 ### 新增

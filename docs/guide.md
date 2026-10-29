@@ -1035,7 +1035,7 @@ class ExampleLLMPlugin(MaiBotPlugin):
 
 所有能力通过 `self.ctx` 访问。底层统一转发为 RPC 请求，插件无需关心 IPC 细节。
 
-当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`internal_chat`、`desktop_pet`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
+当前 `PluginContext` 暴露能力代理：`api`、`webui`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`internal_chat`、`desktop_pet`、`person`、`personality`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`web`，以及一个标准 `logging.Logger` 形式的 `logger` 属性。
 
 控制主程序内置桌宠的接口、清单权限和示例见[桌宠能力](desktop-pet.md)。
 
@@ -1726,6 +1726,20 @@ HTML 页声明 `uploads` 别名并用 `maibot.upload()` 接收图片；对应 ac
 WebUI 网关原样返回 API 的业务 result，不用其中的 success、message 或 navigate_page 自动触发错误、提示或跳转。API 执行失败应抛异常，或由 HTML 解释业务结果；页面导航显式调用 maibot.navigate。取消/超时不意味着已提交的写操作回滚。
 
 ---
+
+### Personality -- 全局备选人设
+
+需要 SDK 2.20.0+ 与提供 `personality.*` 的 Host。通过 WebUI 保存备选人设后，插件可查询并手动切换：
+
+```python
+available = await self.ctx.personality.list()  # {"profiles": [...]}
+current = await self.ctx.personality.get_current()  # {"name": "...", "personality": "...", ...}
+result = await self.ctx.personality.switch("温柔的麦麦")  # {"changed": True, "current": {...}}
+```
+
+在 manifest 的 `capabilities` 中分别声明 `personality.list`、`personality.get_current`、`personality.switch`。人设对象包含 `name`、`personality`、`behavior_style`、`reply_style`、`multiple_reply_style`、`multiple_probability`；未命名的当前人设 `name` 为空。
+
+`switch(name)` 按名称精确匹配，全局生效并持久化，完成热重载后返回。切换前保留已保存的当前编辑；未命名的设定以“切换前人设”留档。同名切换不会覆盖当前编辑，返回 `changed: False`。不存在的人设不会写入配置。缺少授权、参数非法、文件写入或热重载失败会抛出能力调用异常；热重载失败可能已经保存到磁盘，可重试。浏览器尚未保存的内容不在 SDK 可读取范围内，正在生成的回复不会被取消。
 
 ### InternalChat -- 内部统一聊天
 

@@ -27,6 +27,7 @@ from maibot_sdk.capabilities.maisaka import MaisakaCapability
 from maibot_sdk.capabilities.market import MarketCapability
 from maibot_sdk.capabilities.message import MessageCapability
 from maibot_sdk.capabilities.person import PersonCapability
+from maibot_sdk.capabilities.personality import PersonalityCapability
 from maibot_sdk.capabilities.render import RenderCapability
 from maibot_sdk.capabilities.send import SendCapability
 from maibot_sdk.capabilities.statistics import StatisticsCapability
@@ -41,6 +42,9 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "webui.claim_upload": "upload",
     "internal_chat.identity": "result",
     "internal_chat.send": "result",
+    "personality.list": "result",
+    "personality.get_current": "result",
+    "personality.switch": "result",
     "desktop_pet.status": "result",
     "desktop_pet.get_skin": "result",
     "desktop_pet.list_animations": "result",
@@ -195,6 +199,7 @@ class PluginContext:
         self.internal_chat: InternalChatCapability = InternalChatCapability(current_ctx)
         self.desktop_pet: DesktopPetCapability = DesktopPetCapability(current_ctx)
         self.person: PersonCapability = PersonCapability(current_ctx)
+        self.personality: PersonalityCapability = PersonalityCapability(current_ctx)
         self.render: RenderCapability = RenderCapability(current_ctx)
         self.knowledge: KnowledgeCapability = KnowledgeCapability(current_ctx)
         self.tool: ToolCapability = ToolCapability(current_ctx)
