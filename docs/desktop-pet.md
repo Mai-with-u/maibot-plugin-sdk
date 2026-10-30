@@ -25,6 +25,37 @@ if state["ready"]:
 如果要代主人向麦麦发言，请使用 `ctx.internal_chat.send(text)`；它和单纯展示提示气泡不同，发言会进入 `internal / owner` 聊天流并可能触发回复。
 
 
+## 桌宠扩展按钮（SDK 2.21.0）
+
+需要包含按钮功能的 Host。按钮出现在桌宠的拼图图标「插件扩展」中，每个插件最多 10 个，ID 在插件内部唯一。
+
+```python
+from maibot_sdk import DesktopPetButton, DesktopPetButtonState, MaiBotPlugin
+
+
+class MyPlugin(MaiBotPlugin):
+    desktop_pet_buttons = [
+        DesktopPetButton(id="settings", label="扩展设置", icon="settings", order=10),
+    ]
+
+    async def get_desktop_pet_button_states(self):
+        return {"settings": DesktopPetButtonState(text="打开设置窗口")}
+
+    async def on_desktop_pet_button_click(self, button_id: str):
+        if button_id == "settings":
+            await self.open_settings_window()
+```
+
+`open_settings_window()` 为插件自己实现的窗口启动方法。回调最长 8 秒，长任务应启动后返回并在卸载时自行清理。Host 只调用已声明、可见且未禁用的按钮，同一按钮执行中拒绝重复点击。异常在桌宠显示；插件停用、卸载或 Runner 退出时按钮自动移除，桌宠重启后重新同步。
+
+- 声明字段：`id`（1～64 字符）、`label`（1～32 字符）、`icon`、`order`（-10000～10000）。
+- 内置图标：`puzzle`、`volume`、`settings`、`refresh`、`star`、`heart`、`book`、`bell`。
+- 状态字段：`visible`、`disabled`、`text`；每次须返回所有按钮的完整状态，不能包含未知 ID。
+- 菜单打开、按钮执行完和插件状态变化后刷新；需要主动刷新时，在清单声明 `desktop_pet.refresh_buttons`，再调用 `await self.ctx.desktop_pet.refresh_buttons()`。
+- 声明本身不需要额外 capability，不写入插件 TOML。已有 SDK 2.20 可用同样字段的字典声明并自行实现两个异步回调；新版类型模型只提供类型与校验便利。
+
+插件不得注入窗口脚本或接收其他插件的按钮点击。
+
 ## 皮肤动画（SDK 2.18.0）
 
 新能力：`desktop_pet.get_skin`、`desktop_pet.list_animations`、`desktop_pet.play_animation`、`desktop_pet.play_event`、`desktop_pet.stop_animation`、`desktop_pet.animation_status`，按需在 capabilities 声明。

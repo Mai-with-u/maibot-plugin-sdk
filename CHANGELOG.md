@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.21.0] - 2026-10-30
+
+### 新增
+
+- 桌宠：新增 `DesktopPetButton`、`DesktopPetButtonState`、按钮状态与点击回调，Host 统一渲染扩展菜单并处理忙碌和卸载清理。
+- 桌宠：新增 `ctx.desktop_pet.refresh_buttons()`，请求异步刷新按钮状态。
+
 ## [2.20.0] - 2026-10-29
 
 ### 新增

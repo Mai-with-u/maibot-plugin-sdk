@@ -26,16 +26,19 @@ from .components import (
 from .config import Field, PluginConfigBase
 from .config_widgets import ConfigWidget, ConfigWidgetState
 from .context import PluginContext, PluginPaths
+from .desktop_pet_buttons import DesktopPetButton, DesktopPetButtonState
 from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
 from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-__version__ = "2.20.0"
+__version__ = "2.21.0"
 
 __all__ = [
     "MaiBotPlugin",
     "ConfigWidget",
     "ConfigWidgetState",
+    "DesktopPetButton",
+    "DesktopPetButtonState",
     "API",
     "Action",
     "Command",

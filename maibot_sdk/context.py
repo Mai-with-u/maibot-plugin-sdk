@@ -56,6 +56,7 @@ _CAPABILITY_RESULT_KEYS: dict[str, str] = {
     "desktop_pet.hide": "result",
     "desktop_pet.say": "result",
     "desktop_pet.set_thinking": "result",
+    "desktop_pet.refresh_buttons": "result",
     "api.call": "result",
     "api.get": "api",
     "api.list": "apis",

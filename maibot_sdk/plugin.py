@@ -24,6 +24,7 @@ from .config import (
 )
 from .config_widgets import ConfigWidget, ConfigWidgetState
 from .context import PluginContext
+from .desktop_pet_buttons import DesktopPetButton, DesktopPetButtonState
 from .types import normalize_config_reload_subscription
 
 
@@ -48,6 +49,22 @@ class MaiBotPlugin:
         def create_plugin():
             return MyPlugin()
     """
+
+    desktop_pet_buttons: ClassVar[list[DesktopPetButton | dict[str, Any]]] = []
+    """桌宠扩展菜单按钮，每个插件最多 10 个；按钮 ID 在插件内部唯一。"""
+
+    async def get_desktop_pet_button_states(self) -> dict[str, DesktopPetButtonState]:
+        """返回完整状态；Host 在刷新菜单和按钮执行后读取。"""
+        return {
+            (
+                button.id if isinstance(button, DesktopPetButton) else DesktopPetButton.model_validate(button).id
+            ): DesktopPetButtonState()
+            for button in self.desktop_pet_buttons
+        }
+
+    async def on_desktop_pet_button_click(self, button_id: str) -> None:
+        """处理已声明、可见且未禁用的按钮；耗时任务应后台运行并自行管理生命周期。"""
+        raise ValueError(f"未实现桌宠按钮操作: {button_id}")
 
     config_widgets: ClassVar[list[ConfigWidget]] = []
     """配置页运行时控件，与 config_model 独立，不写入配置文件。"""

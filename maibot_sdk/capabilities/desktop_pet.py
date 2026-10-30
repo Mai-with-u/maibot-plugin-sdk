@@ -10,6 +10,10 @@ class DesktopPetCapability:
     def __init__(self, ctx: "PluginContext") -> None:
         self._ctx = ctx
 
+    async def refresh_buttons(self) -> dict[str, Any]:
+        """请求 Host 异步刷新按钮状态，需要 desktop_pet.refresh_buttons。"""
+        return cast(dict[str, Any], await self._ctx.call_capability("desktop_pet.refresh_buttons"))
+
     async def status(self) -> dict[str, Any]:
         """查询 enabled/supported/running/ready/visible/error。需要 desktop_pet.status。"""
         return cast(dict[str, Any], await self._ctx.call_capability("desktop_pet.status"))
