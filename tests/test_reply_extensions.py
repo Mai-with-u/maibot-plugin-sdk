@@ -92,3 +92,17 @@ def test_omitted_platforms_preserve_unrestricted_extensions():
             return {}
 
     assert collect_components(Plugin())[0]["metadata"]["platforms"] == []
+
+
+@pytest.mark.parametrize("required", ["", "若要求语音，请使用口语"])
+def test_reply_extension_declares_generation_prompt(required):
+    class Plugin:
+        @ReplyExtension("sample", generation_prompt=required)
+        async def sample(self, **kwargs):
+            return {}
+    assert collect_components(Plugin())[0]["metadata"]["generation_prompt"] == required
+
+
+def test_reply_extension_rejects_invalid_generation_prompt():
+    with pytest.raises(TypeError):
+        ReplyExtension("sample", generation_prompt=False)

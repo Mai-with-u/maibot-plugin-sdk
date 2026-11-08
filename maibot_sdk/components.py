@@ -1,7 +1,6 @@
 """组件声明装饰器
 
 用于在插件类中声明 Tool/Command/EventHandler/HookHandler/MessageGateway/LLMProvider 等能力。
-兼容入口 `Action` 仍然保留，但会在内部转换为 Tool 声明。
 """
 
 import warnings
@@ -26,7 +25,7 @@ from .types import (
     ReplyExtensionComponentInfo,
     ToolComponentInfo,
     ToolParameterInfo,
-    build_tool_detailed_description,
+    normalize_tool_description,
 )
 
 # 装饰器签名: 接受函数返回函数
@@ -47,29 +46,6 @@ def _normalize_platforms(platforms: str | list[str] | None, component_name: str)
     ):
         raise ValueError(f"{component_name} platforms 必须是非空平台名称字符串或字符串列表；None 或 [] 表示不限平台")
     return list(dict.fromkeys(platform.strip().lower() for platform in raw_platforms))
-
-
-def _normalize_tool_descriptions(
-    name: str,
-    description: str = "",
-    brief_description: str = "",
-    detailed_description: str = "",
-) -> tuple[str, str]:
-    """规范化工具的简要描述与详细描述。
-
-    Args:
-        name: 工具名称。
-        description: 兼容旧参数的描述字段。
-        brief_description: 新版简要描述。
-        detailed_description: 新版详细描述。
-
-    Returns:
-        tuple[str, str]: ``(简要描述, 详细描述)``。
-    """
-
-    normalized_brief_description = str(brief_description or description or f"工具 {name}").strip()
-    normalized_detailed_description = str(detailed_description or "").strip()
-    return normalized_brief_description, normalized_detailed_description
 
 
 def _build_tool_parameters_schema(
@@ -153,7 +129,6 @@ def _build_action_parameters_schema(action_parameters: dict[str, Any] | None) ->
 
 
 def _build_action_detailed_description(
-    action_parameters: dict[str, Any] | None,
     action_require: list[str] | None,
     associated_types: list[str] | None,
     activation_type: ActivationType,
@@ -164,7 +139,6 @@ def _build_action_detailed_description(
     """构造兼容旧 Action 的详细工具描述。
 
     Args:
-        action_parameters: Action 参数定义。
         action_require: Action 使用要求。
         associated_types: Action 关联消息类型。
         activation_type: Action 激活方式。
@@ -176,12 +150,7 @@ def _build_action_detailed_description(
         str: 兼容旧 Action 的详细描述文本。
     """
 
-    parameters_schema = _build_action_parameters_schema(action_parameters)
     description_parts: list[str] = []
-
-    parameter_description = build_tool_detailed_description(parameters_schema)
-    if parameter_description:
-        description_parts.append(parameter_description)
 
     normalized_requirements = [str(item).strip() for item in (action_require or []) if str(item).strip()]
     if normalized_requirements:
@@ -242,20 +211,18 @@ def Action(
             stacklevel=2,
         )
 
-        brief_description, _ = _normalize_tool_descriptions(name=name, description=description)
         converted_parameters_schema = _build_action_parameters_schema(action_parameters)
+        action_details = _build_action_detailed_description(
+            action_require=action_require,
+            associated_types=associated_types,
+            activation_type=activation_type,
+            activation_keywords=activation_keywords,
+            action_prompt=action_prompt,
+        )
+        action_description = description.strip() or f"工具 {name}"
         info = ToolComponentInfo(
             name=name,
-            description=brief_description,
-            brief_description=brief_description,
-            detailed_description=_build_action_detailed_description(
-                action_parameters=action_parameters,
-                action_require=action_require,
-                associated_types=associated_types,
-                activation_type=activation_type,
-                activation_keywords=activation_keywords,
-                action_prompt=action_prompt,
-            ),
+            description="\n\n".join((action_description, action_details)),
             parameters_raw=converted_parameters_schema or {},
             invoke_method="plugin.invoke_action",
             metadata={
@@ -286,6 +253,7 @@ def ReplyExtension(
     *,
     platforms: str | list[str] | None = None,
     priority: int = 0,
+    generation_prompt: str = "",
     timeout_ms: int = 60000,
     chat_scope: Literal["all", "group", "private"] = "all",
     allowed_session: list[str] | None = None,
@@ -296,11 +264,16 @@ def ReplyExtension(
 
     处理器收到 phase=prepare/before_send、reply_id、call_id、session_id、
     reply_message_id、chat、parameters、text 和 messages。
-    prepare 返回 {"extra_prompt": "..."}；before_send 返回 {"messages": [...]}。
+    generation_prompt 声明条件式正文要求，不依赖本轮参数。
+    并行模式下 prepare 校验参数并返回 {}；串行模式仍支持返回 {"extra_prompt": "..."}。
+    before_send 返回 {"messages": [...]}。
     返回 {} 保持原样；错误直接使本次 reply 失败。
     platforms 限定适用平台，支持字符串或字符串列表；省略、None、[] 表示不限平台。
     参数和消息协议详见 docs/reply_extensions.md。
     """
+    if not isinstance(generation_prompt, str):
+        raise TypeError("generation_prompt 必须是字符串")
+    metadata["generation_prompt"] = generation_prompt
     normalized_platforms = _normalize_platforms(platforms, "ReplyExtension")
     if parameters is not None and not isinstance(parameters, (dict, list)):
         raise TypeError("ReplyExtension parameters 必须是字典或 ToolParameterInfo 列表")
@@ -455,22 +428,16 @@ def Tool(
         elif isinstance(parameters, dict):
             raw_params = parameters
 
-        normalized_brief_description, normalized_detailed_description = _normalize_tool_descriptions(
-            name=name,
-            description=description,
-            brief_description=brief_description,
-            detailed_description=detailed_description,
-        )
-        parameters_schema = _build_tool_parameters_schema(parameters)
-
+        tool_description = normalize_tool_description(
+            {
+                "description": description,
+                "brief_description": brief_description,
+                "detailed_description": detailed_description,
+            }
+        )["description"]
         info = ToolComponentInfo(
             name=name,
-            description=normalized_brief_description,
-            brief_description=normalized_brief_description,
-            detailed_description=build_tool_detailed_description(
-                parameters_schema,
-                fallback_description=normalized_detailed_description,
-            ),
+            description=tool_description,
             parameters=typed_params,
             platforms=normalized_platforms,
             parameters_raw=raw_params,
@@ -557,21 +524,28 @@ def HookHandler(
     Returns:
         _Decorator: 用于修饰插件方法的装饰器。
 
+    处理器可返回 HookResult 字典：action="continue" 放行，modified_kwargs 改参，
+    action="abort" 配合 custom_result={"reason": "原因"} 主动中止。
+    仅允许中止的 Hook 的 blocking 处理器可使用 abort，具体停止范围由 Host 决定。
+    error_policy 控制处理器异常时的行为，主动中止无需抛异常或改为空正文。
+
     用法：
         @HookHandler(
-            "heart_fc.heart_flow_cycle_start",
-            name="cycle_start_guard",
+            "maisaka.replyer.before_request",
+            name="reply_guard",
             mode=HookMode.BLOCKING,
             order=HookOrder.EARLY,
         )
-        async def handle_cycle_start(self, **kwargs):
-            return {"action": "continue", "modified_kwargs": kwargs}
+        async def guard_reply(self, reply_message_id="", **kwargs):
+            if not reply_message_id:
+                return {"action": "abort", "custom_result": {"reason": "没有明确的回复目标。"}}
+            return {"action": "continue"}
 
         @HookHandler(
-            "heart_fc.heart_flow_cycle_start",
+            "send_service.after_send",
             mode=HookMode.OBSERVE,
         )
-        async def observe_cycle_start(self, **kwargs):
+        async def observe_send(self, **kwargs):
             await self.ctx.db.save("hook_log", kwargs)
     """
 

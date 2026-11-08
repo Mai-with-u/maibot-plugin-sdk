@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.22.0] - 2026-11-08
+
+### 主要功能
+
+- Hook：新增 `HookResult` 返回类型，以及 `maisaka.reply.after_split` 钩子名称常量和参数类型。
+- 回复扩展：支持 `generation_prompt`，可在正文生成前声明条件式要求。支持并行补充器的 Host 会在汇合后调用 `prepare` 校验参数。
+
+### 细节
+
+- 插件兼容：保留 `ActivationType`、`@Action` 和旧版 `BaseAction`，旧插件仍可通过 Tool 调用链运行。
+- Tool：注册时统一使用 `description`，参数说明留在 Schema 中，继续接受旧的描述参数，并在未提供 `description` 时合并简要和详细说明。
+- 文档：补充 Hook 主动中止、Planner 失败分类和 Host 能力检查说明。
+
 ## [2.21.0] - 2026-10-30
 
 ### 新增

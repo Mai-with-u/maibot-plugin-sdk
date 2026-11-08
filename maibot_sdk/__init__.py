@@ -5,7 +5,7 @@
 核心导出：
 - MaiBotPlugin: 插件基类
 - Tool, API, Command, EventHandler, HookHandler, MessageGateway, HomeCard, ReplyExtension: 组件声明装饰器
-- Action: 兼容旧插件的装饰器别名，内部会自动转换为 Tool 声明
+- Action: 兼容旧插件的装饰器，内部会转换为 Tool 声明
 - PluginContext / PluginPaths: 插件运行时上下文与标准路径
 """
 
@@ -29,9 +29,17 @@ from .context import PluginContext, PluginPaths
 from .desktop_pet_buttons import DesktopPetButton, DesktopPetButtonState
 from .llm_provider import LLMProviderBase
 from .plugin import MaiBotPlugin
-from .types import CONFIG_RELOAD_SCOPE_SELF, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
+from .types import (
+    CONFIG_RELOAD_SCOPE_SELF,
+    MAISAKA_REPLY_AFTER_SPLIT,
+    ON_BOT_CONFIG_RELOAD,
+    ON_MODEL_CONFIG_RELOAD,
+    HookResult,
+    ReplyAfterSplitPayload,
+    ReplyPostProcessSegment,
+)
 
-__version__ = "2.21.0"
+__version__ = "2.22.0"
 
 __all__ = [
     "MaiBotPlugin",
@@ -46,6 +54,10 @@ __all__ = [
     "ReplyExtension",
     "EventHandler",
     "HookHandler",
+    "HookResult",
+    "MAISAKA_REPLY_AFTER_SPLIT",
+    "ReplyAfterSplitPayload",
+    "ReplyPostProcessSegment",
     "HomeCard",
     "LLMProvider",
     "LLMProviderBase",

@@ -4,12 +4,13 @@
 
 聊天附件的登记、读取、流式上传下载和发送见[文件能力](files.md)；SDK 2.17.0 新增 `ctx.files`，需要配套启用主程序文件服务。
 
-WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单，HTML 页面负责自由布局及复杂交互。完整声明、JavaScript 桥接、安全边界与迁移步骤见[WebUI 页面开发文档](https://docs.mai-mai.org/plugin/webui-pages)，Python 图片领取见[WebUI 图片上传](webui-uploads.md)。当前开发协议为 `schema_version: 2`，需要配套更新主程序和 dashboard；SDK 版本与页面协议分别管理。
+插件在 `webui.json` 的 `pages` 中声明 WebUI 页面，MaiBot 自动将页面加入侧栏。预置组件处理简单展示和标量表单，HTML 页面负责自由布局及复杂交互。完整声明、JavaScript 桥接、安全边界与迁移步骤见[WebUI 页面开发文档](https://docs.mai-mai.org/plugin/webui-pages)，Python 图片领取见[WebUI 图片上传](webui-uploads.md)。当前开发协议为 `schema_version: 2`，需要配套更新主程序和 dashboard；SDK 版本与页面协议分别管理。
 
 ---
 
 ## 目录
 
+- [Manifest 插件类别](#manifest-插件类别)
 - [环境准备](#环境准备)
 - [快速开始](#快速开始)
 - [插件结构](#插件结构)
@@ -18,8 +19,8 @@ WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单�
   - [运行时路径](#运行时路径)
 - [组件装饰器](#组件装饰器)
   - [API](#api)
-  - [Action](#action)
   - [Command](#command)
+  - [Action](#action)
   - [Tool](#tool)
   - [ReplyExtension 回复扩展](reply_extensions.md)
   - [EventHandler](#eventhandler)
@@ -57,6 +58,28 @@ WebUI 页面使用 `webui.json`：预置组件处理简单展示和标量表单�
 
 ---
 
+## Manifest 插件类别
+
+`plugin_type` 表示插件的主要类别，供 WebUI 展示和筛选。字段可省略；缺省或填写 `extension` 时显示为“无类别”，不列入分类筛选。请选择最能代表插件主要功能的一项。
+
+- `adapter` — 适配器：接入聊天平台或消息协议
+- `tool` — 工具：命令、查询和模型可调用工具
+- `provider` — 服务提供方：LLM、TTS、API 等能力提供方
+- `management` — 管理：群管理、权限和后台管理
+- `data` — 数据与知识：统计、记忆、知识库和数据处理
+- `media` — 媒体：图片、语音、视频和表情处理
+- `game` — 游戏娱乐：游戏、娱乐和互动
+- `integration` — 外部集成：外部平台、搜索服务和 Webhook
+- `other` — 其他：无法归入已有类别的插件
+- `chat` — 聊天：对话、回复和聊天行为增强
+- `creative` — 创作：绘画、写作和内容生成
+- `automation` — 自动化：定时任务、自动执行和工作流
+- `deskpet` — 桌宠：桌面宠物及相关交互
+
+兼容旧值：`knowledge` 显示为数据与知识，`entertainment` 显示为游戏娱乐，`search` 显示为外部集成；其他未知值显示为其他。Host 目前接受字符串，不强制校验上述枚举。`adapter` 还用于适配器 Runner 分组。
+
+完整字段和校验规则见 [Manifest 文档](https://docs.maibot.chat/plugin/manifest)。
+
 ## 环境准备
 
 Python >= 3.10。
@@ -81,7 +104,6 @@ from maibot_sdk import API, Command, EventHandler, Field, HomeCard, HookHandler,
 ```
 
 SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架。
-如果你正在迁移旧插件，仍可导入 `Action`；但它现在是兼容入口，内部会自动转换成 Tool 声明。
 
 ---
 
@@ -95,7 +117,6 @@ SDK 的运行时依赖仅有 `pydantic` 和 `msgpack`，不会引入额外框架
 ```python
 from maibot_sdk import Command, CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin, Tool
 from maibot_sdk.types import ToolParameterInfo, ToolParamType
-
 
 class HelloPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -111,8 +132,7 @@ class HelloPlugin(MaiBotPlugin):
 
     @Tool(
         "say_hello",
-        brief_description="在当前聊天中发送问候",
-        detailed_description="参数说明：\n- stream_id：string，必填。当前聊天流 ID。",
+        description="在当前聊天中发送问候",
         parameters=[
             ToolParameterInfo(
                 name="stream_id",
@@ -131,7 +151,6 @@ class HelloPlugin(MaiBotPlugin):
     async def handle_hello(self, **kwargs):
         await self.ctx.send.text("Hello!", kwargs["stream_id"])
         return True, "Hello!", 2
-
 
 def create_plugin():
     return HelloPlugin()
@@ -224,7 +243,6 @@ def create_plugin():
 ```python
 from maibot_sdk import MaiBotPlugin, ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD
 
-
 class ConfigAwarePlugin(MaiBotPlugin):
     config_reload_subscriptions = {ON_BOT_CONFIG_RELOAD, ON_MODEL_CONFIG_RELOAD}
 ```
@@ -239,7 +257,6 @@ class ConfigAwarePlugin(MaiBotPlugin):
 from typing import Any, Dict
 
 from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
-
 
 class PluginSection(PluginConfigBase):
     """插件基础配置。"""
@@ -273,12 +290,10 @@ class PluginSection(PluginConfigBase):
         },
     )
 
-
 class GreetingPluginConfig(PluginConfigBase):
     """插件完整配置。"""
 
     plugin: PluginSection = Field(default_factory=PluginSection)
-
 
 class GreetingPlugin(MaiBotPlugin):
     config_model = GreetingPluginConfig
@@ -291,7 +306,6 @@ class GreetingPlugin(MaiBotPlugin):
 
     async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
         return None
-
 
 def create_plugin():
     return GreetingPlugin()
@@ -313,6 +327,25 @@ SDK 提供以下配置接口：
 - `Field(..., json_schema_extra=...)` 可携带 `label`、`hint`、`placeholder`、`x-widget`、`x-icon`、`depends_on`、`depends_value`、`step` 等 UI 元数据。
 - `Literal[...]` 会自动生成 `choices`；若字段类型为 `list[Literal[...]]`，生成的 Schema 会继续使用 `type: "select"`，并额外输出 `multiple: true`。
 - 字段级多语言文本可写入 `json_schema_extra["i18n"]`，结构为 `{locale: {"label": "...", "hint": "...", "placeholder": "..."}}`。WebUI 会优先按当前语言读取 `i18n`，再回退到 `label`、`hint`、`placeholder` 的默认文本。
+
+### 聊天流选择字段
+
+主程序 WebUI 支持 `x-widget: "chat-stream"`。字段类型为 `str` 时单选，`List[str]` 时多选。下拉菜单显示真实会话名称、平台和目标号码，支持搜索，并保留手动输入聊天流 ID 的入口；配置中保存真实 `session_id` 字符串。此控件沿用 SDK 的 UI 元数据协议，无需新增插件能力权限。
+
+```python
+from typing import List
+
+from maibot_sdk import Field, PluginConfigBase
+
+class SharingConfig(PluginConfigBase):
+    stream_ids: List[str] = Field(
+        default_factory=list,
+        description="接收分享的聊天流",
+        json_schema_extra={"label": "分享目标", "x-widget": "chat-stream"},
+    )
+```
+
+单选时使用 `stream_id: str = Field(default="", json_schema_extra={"x-widget": "chat-stream"})`。手动输入支持真实聊天流 ID，以及 `platform:id:type`（如 `qq:123456:group`、`qq:123456:private`），也可用空格或逗号分隔三个字段。目标格式会解析为已存在的真实会话后保存 ID；匹配多个账号时需从下拉菜单选择具体会话。手动输入不会创建聊天流，业务调用仍需校验 ID 是否对应已存在的真实会话。需要配套支持此控件的主程序 WebUI；旧版 WebUI 应升级后使用。
 
 ### 运行时路径
 
@@ -336,7 +369,7 @@ runtime_path = self.ctx.paths.runtime_dir / "render.png"
 
 组件是插件对外暴露的功能单元。通过装饰器声明组件，Runner 在加载插件时自动收集并注册到 Host。
 
-当前 SDK 对外推荐 8 种正式声明装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`、`HomeCard`、`LLMProvider`。`Action` 仍然保留，但仅作为旧插件迁移时的兼容入口，内部会自动转换成 Tool 声明。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
+当前 SDK 对外推荐 8 种正式声明装饰器：`API`、`Command`、`Tool`、`EventHandler`、`HookHandler`、`MessageGateway`、`HomeCard`、`LLMProvider`。`WorkflowStep` 已在 2.0 中移除，仅保留一个会抛错的占位入口用于提示迁移。
 
 ### API
 
@@ -344,7 +377,6 @@ runtime_path = self.ctx.paths.runtime_dir / "render.png"
 
 ```python
 from maibot_sdk import API, MaiBotPlugin
-
 
 class MathPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -379,13 +411,40 @@ class MathPlugin(MaiBotPlugin):
 - `public=False` 时，API 仍会注册，但默认仅供插件自身或 Host 内部流程使用。
 - 除静态 `@API` 外，插件也可以通过 `register_dynamic_api()` / `unregister_dynamic_api()` / `sync_dynamic_apis()` 维护动态 API 集合，适合 MCP 服务上下线这类场景。
 
+### Command
+
+Command 是命令处理器，通过正则表达式匹配用户输入。
+
+```python
+from maibot_sdk import Command
+
+@Command("set_mode", description="设置模式", pattern=r"^/mode\s+(\w+)", aliases=["/m"])
+async def handle_mode(self, **kwargs):
+    # kwargs 中包含 match 对象和原始消息
+    await self.ctx.send.text("模式已切换", kwargs["stream_id"])
+    return True, "done", 2
+```
+
+**参数列表**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `name` | `str` | (必填) | 组件名称 |
+| `description` | `str` | `""` | 描述 |
+| `pattern` | `str` | `""` | 正则匹配模式 |
+| `aliases` | `list[str]` | `[]` | 命令别名 |
+
+**返回值**：`(success: bool, response: str, priority: int)`
+
+- `priority` -- 回复优先级（数值越大越优先）
+
 ### Action
 
 `Action` 现在是**兼容旧插件的声明入口**，不再是 SDK 推荐的新能力声明方式。主程序内部已经统一按 Tool 抽象处理这类能力，所以：
 
 - 新插件请优先使用 `@Tool`
 - 旧插件迁移时如果想少改动，可以暂时保留 `@Action`
-- `@Action` 会在 SDK 内部自动转换成 Tool 声明，并保留旧的激活条件、提示语和参数信息到元数据/详细描述中
+- `@Action` 会在 SDK 内部自动转换成 Tool 声明，并将旧的激活条件和提示语保留在描述与元数据中，参数信息保留在 Schema 中
 
 ```python
 from maibot_sdk import Action
@@ -537,10 +596,6 @@ async def handle_search(self, query: str, limit: int = 5, **kwargs):
 描述字段约定：
 - `description`：关于工具的描述，包括使用方法，使用情景，注意事项
 
-以下字段已弃用，如果没有`description`，会将`brief_description`作为`description`
-- `brief_description`：给主程序或小模型快速判断“这个工具是做什么的”
-- `detailed_description`：描述参数、必填项、可选项和调用约束
-
 **ToolParamType 枚举**：
 
 | 值 | 含义 |
@@ -639,7 +694,7 @@ async def filter_spam(self, **kwargs):
 |----|------|
 | `ON_START` | 系统启动 |
 | `ON_STOP` | 系统关闭 |
-| `ON_MESSAGE_PRE_PROCESS` | 消息预处理（在 Action/Command 之前） |
+| `ON_MESSAGE_PRE_PROCESS` | 消息预处理（在 Tool/Command 之前） |
 | `ON_MESSAGE` | 收到消息 |
 | `ON_PLAN` | 规划阶段 |
 | `POST_LLM` | LLM 响应后 |
@@ -662,7 +717,7 @@ async def filter_spam(self, **kwargs):
 声明不合法时，插件会直接注册失败，不会再出现“插件加载成功但 Hook 没生效”的半成功状态。
 
 ```python
-from maibot_sdk import HookHandler
+from maibot_sdk import HookHandler, HookResult
 from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
 
 @HookHandler(
@@ -673,9 +728,9 @@ from maibot_sdk.types import ErrorPolicy, HookMode, HookOrder
     timeout_ms=5000,
     error_policy=ErrorPolicy.SKIP,
 )
-async def guard_inbound_message(self, message=None, **kwargs):
+async def guard_inbound_message(self, message=None, **kwargs) -> HookResult:
     if not isinstance(message, dict):
-        return {"action": "abort"}
+        return {"action": "abort", "custom_result": {"reason": "入站消息结构不合法。"}}
     return {"action": "continue"}
 
 @HookHandler(
@@ -714,9 +769,6 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 | `emoji.maisaka.before_select` | Maisaka 选择表情前 | 是 | 是 |
 | `emoji.maisaka.after_select` | Maisaka 选出表情后 | 是 | 是 |
 | `emoji.register.after_build_description` | 表情包描述生成完成后 | 是 | 是 |
-| `emoji.register.after_build_emotion` | 表情包情绪标签生成完成后 | 是 | 是 |
-| `jargon.query.before_search` | Maisaka 黑话查询前 | 是 | 是 |
-| `jargon.query.after_search` | Maisaka 黑话查询完成后 | 是 | 是 |
 | `jargon.extract.before_persist` | 黑话条目写库前 | 是 | 是 |
 | `jargon.inference.before_finalize` | 黑话推断结果写回前 | 是 | 是 |
 | `expression.select.before_select` | 表达方式选择前 | 是 | 是 |
@@ -728,12 +780,28 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 | `send_service.after_send` | 发送流程完成后 | 否 | 否 |
 | `maisaka.planner.before_request` | Maisaka 规划器请求模型前 | 否 | 是 |
 | `maisaka.planner.after_response` | Maisaka 收到模型响应后 | 否 | 是 |
-| `maisaka.replyer.before_request` | Maisaka replyer 构建模型请求参数前 | 否 | 是 |
-| `maisaka.replyer.before_model_request` | Maisaka replyer 构造完最终 `messages` 后、请求模型前 | 否 | 是 |
-| `maisaka.replyer.after_response` | Maisaka replyer 收到模型响应后 | 否 | 是 |
-| `maisaka.reply.before_post_process` | Maisaka 最终可见回复执行文本后处理前 | 否 | 是 |
+| `maisaka.replyer.before_request` | Maisaka replyer 构建模型请求参数前 | 是 | 是 |
+| `maisaka.replyer.before_model_request` | Maisaka replyer 构造完最终 Context Items 后、请求模型前 | 是 | 是 |
+| `maisaka.replyer.after_response` | Maisaka replyer 收到模型响应后 | 是 | 是 |
+| `maisaka.reply.before_post_process` | Maisaka 最终可见回复执行文本后处理前 | 是 | 是 |
+| `maisaka.reply.after_split` | 最终文本回复断句后、限制段数与合并前 | 否 | 是 |
 
-`maisaka.reply.before_post_process` 提供 `response`、`session_id`、`reply_message_id`、`reply_tool_args`、`skip_post_process`、`enable_splitter` 和 `enable_chinese_typo`。阻塞处理器可通过 `modified_kwargs` 按单次回复改写正文、完全跳过文本后处理，或分别关闭拆分与中文错别字注入；策略字段必须保持布尔类型。该 Hook 不影响富回复附件组装。
+`maisaka.reply.before_post_process` 提供 `response`、`session_id`、`reply_message_id`、`reply_tool_args`、`skip_post_process`、`enable_splitter` 和 `enable_chinese_typo`。阻塞处理器可通过 `modified_kwargs` 按单次回复改写正文、完全跳过文本后处理，或分别关闭拆分与内置错别字插件；策略字段必须保持布尔类型。该 Hook 不影响富回复附件组装。
+
+`maisaka.reply.after_split` 在启用回复文本后处理时执行。关闭断句时，正文作为单段传入。通过 `skip_post_process` 跳过后处理时不会触发。SDK 提供 `MAISAKA_REPLY_AFTER_SPLIT`、`ReplyAfterSplitPayload` 和 `ReplyPostProcessSegment`。
+
+- `segments` 是非空的有序列表。每段包含 `text`、尾随分隔符 `separator`、`quote_previous` 和 `is_correction`。正文必须有内容，后两个字段必须为布尔值。
+- `session_id` 是实际聊天流的会话 ID。`enable_chinese_typo` 由上一个 Hook 决定，供错字插件检查。
+- 阻塞处理器应返回完整的 `modified_kwargs`。把新增纠正段的 `is_correction` 设为 `true` 可在合并时保留消息边界，`quote_previous` 控制是否引用前一条。主程序仍会应用最大回复段数限制。
+
+```python
+from maibot_sdk import HookHandler, HookResult, MAISAKA_REPLY_AFTER_SPLIT, ReplyPostProcessSegment
+
+@HookHandler(MAISAKA_REPLY_AFTER_SPLIT)
+async def transform_reply(self, segments: list[ReplyPostProcessSegment], **kwargs) -> HookResult:
+    first = {**segments[0], "text": segments[0]["text"].strip()}
+    return {"modified_kwargs": {**kwargs, "segments": [first, *segments[1:]]}}
+```
 
 **Host 执行顺序**：
 
@@ -749,9 +817,55 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 | 字段 | 含义 |
 |------|------|
 | `action="continue"` | 继续执行后续 blocking 处理器 |
-| `action="abort"` | 中止本次 Hook 调用 |
-| `modified_kwargs` | 仅 `BLOCKING` 处理器可返回，用于覆盖后续处理器看到的参数 |
-| `custom_result` | 额外返回值；主要用于日志和上层附加处理 |
+| `action="abort"` | 在允许中止的 Hook 中取消所属操作，并停止后续处理器 |
+| `modified_kwargs` | 仅 `BLOCKING` 处理器可返回，完整替换后续处理器看到的参数；修改时保留原参数 |
+| `custom_result` | 附加结果；主动中止时用 `{"reason": "原因"}` 提供统一中止原因 |
+
+#### 主动中止并提供原因
+
+插件统一返回 `action="abort"` 和 `custom_result.reason`。`HookResult` 是这一字典协议的可选类型提示，
+运行时仍返回普通字典；无须导入主程序代码或抛异常。
+
+```python
+from maibot_sdk import HookHandler, HookResult
+from maibot_sdk.types import HookMode
+
+@HookHandler("maisaka.replyer.before_request", mode=HookMode.BLOCKING)
+async def guard_reply(self, request_type="", reply_message_id="", **kwargs) -> HookResult:
+    if request_type == "maisaka.replyer" and not reply_message_id:
+        return {
+            "action": "abort",
+            "custom_result": {"reason": "没有明确的回复目标，请选择具体消息后再回复。"},
+        }
+    return {"action": "continue"}
+```
+
+`reason` 为可选字符串。建议说明具体拦截条件，必要时补充可执行的调整建议。
+正常拦截不需要将 `error_policy` 设为 `ABORT`；该参数只处理插件执行异常。
+`OBSERVE` 处理器不能拦截。Host 在第一个有效中止后结束 Hook 调度，中止优先于正文改写和 `retry`。
+
+每个检查点的中止范围由 Host 明确处理：
+
+- `maisaka.replyer.before_request` / `before_model_request`：取消本次生成，不调用模型，也不因中止重试或惩罚模型。
+- `maisaka.replyer.after_response` / `maisaka.reply.before_post_process`：取消本次回复，不继续重生成、后处理或发送。
+- `send_service.after_build_message` / `before_send`：取消当前消息的发送；分段回复中已经送达的消息保留回执，后续段停止。
+- `emoji.maisaka.before_select` / `after_select`：取消本次表情发送。
+- `expression.select.before_select` / `after_selection`：仅跳过表达选择，回复仍可继续，原因保留在选择结果和生成指标中。
+- 接收消息、命令、黑话和表情注册：只停止对应操作，来源和原因进入日志；表达学习还会记录到学习状态。
+
+reply 与 send_emoji 向 Planner 返回统一的 `plugin_aborted` 结果，携带
+`reason` 和 `hook_abort: {hook_name, handler_name, reason}`。reply 另外区分：
+
+- `model_empty_response`：模型未生成正文。
+- `plugin_empty_response`：模型有正文，但经 Hook 修改后为空。
+
+需要取消回复时直接返回 `abort`，不要用清空 `response` 表达取消意图。
+需要按要求重写正文时使用 `retry=True`、`retry_reason`；后者是 Replyer 重生成约束，不是中止原因。
+旧表情 Hook 的 `abort_message` 由 Host 统一转换为中止原因，新插件使用 `custom_result.reason`，
+同时提供非空新原因时优先使用新字段。插件自定义的私有抑制原因字段不会被自动消费。
+
+该中止只作用于本次操作，Planner 会收到调整调用或停止的提示，不会自动建立跨调用的消息封禁。
+可用 Hook 与 `allow_abort` 以正在运行的 Host 的 `/plugins/runtime/hooks` 为准；升级 SDK 本身不会开启旧 Host 的中止能力。
 
 **ErrorPolicy 错误策略**：
 
@@ -771,7 +885,6 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 from typing import Any
 
 from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin, MessageGateway
-
 
 class NapCatGatewayPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -839,7 +952,6 @@ class NapCatGatewayPlugin(MaiBotPlugin):
 
 ```python
 from maibot_sdk import HomeCard, MaiBotPlugin
-
 
 class StatusCardPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -945,7 +1057,6 @@ from typing import Any
 
 from maibot_sdk import LLMProvider, MaiBotPlugin
 
-
 class ExampleLLMPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
         return None
@@ -967,7 +1078,6 @@ class ExampleLLMPlugin(MaiBotPlugin):
         if operation == "audio_transcription":
             return {"content": "音频转写结果"}
         raise ValueError(f"不支持的 LLM Provider 操作类型: {operation}")
-
 
 def create_plugin() -> ExampleLLMPlugin:
     return ExampleLLMPlugin()
@@ -1006,12 +1116,10 @@ from typing import Any
 
 from maibot_sdk import LLMProvider, LLMProviderBase, MaiBotPlugin
 
-
 class ExampleProvider(LLMProviderBase):
     async def get_response(self, request: dict[str, Any]) -> dict[str, Any]:
         del request
         return {"content": "来自 Provider 类的响应"}
-
 
 class ExampleLLMPlugin(MaiBotPlugin):
     def __init__(self) -> None:
@@ -1196,7 +1304,7 @@ db = self.ctx.db
 
 `db.count()` 的返回值始终是 `int`。即使 Host 侧 RPC 返回的是带 `count` 字段的对象，SDK 也会自动解包。
 
-注意：这里的 `model_name` 必须是 Host 侧 `src.common.database.database_model` 中存在的模型类名，例如 `"ChatHistory"`、`"ActionRecord"`。旧版 `table` 参数名和 `db.get(key_field, key_value)` 形式已经废弃。
+注意：这里的 `model_name` 必须是 Host 侧 `src.common.database.database_model` 中存在的模型类名，例如 `"ChatHistory"`、`"Messages"`。旧版 `table` 参数名和 `db.get(key_field, key_value)` 形式已经废弃。
 
 能力返回值兼容说明：对于 `config.get()`、`chat.*`、`message.*`、`person.*`、`frequency.get_*()`、`tool.get_definitions()` 这类本来就应返回单个值或列表的接口，SDK 会自动把 Host 侧 `{"success": true, "value": ...}`、`{"success": true, "streams": ...}` 这类 RPC 包装结果还原成插件更直观的返回值。插件代码通常不需要再手动读取 `value`、`messages`、`streams` 等字段。
 
@@ -1214,15 +1322,9 @@ results = await self.ctx.db.query(
 
 # 获取单条记录
 record = await self.ctx.db.get(
-    model_name="ActionRecord",
-    filters={"action_id": "a-1"},
+    model_name="Messages",
+    filters={"message_id": "m-1"},
     single_result=True,
-)
-
-# 插入
-await self.ctx.db.save(
-    model_name="ActionRecord",
-    data={"action_id": "a-1", "session_id": "session-123", "action_name": "reply"},
 )
 
 # 更新
@@ -1389,7 +1491,6 @@ all_config = await self.ctx.config.get_all()
 from typing import Any, Dict
 
 from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, ON_MODEL_CONFIG_RELOAD
-
 
 class MyPlugin(GreetingPlugin):
     config_reload_subscriptions = {ON_MODEL_CONFIG_RELOAD}
@@ -1802,7 +1903,7 @@ Runner 进程启动后会在 `logging.root` 上安装一个 IPC Handler，拦截
 
 ## 消息模型
 
-`MaiMessages` 是跨组件传递的统一消息格式，用于 EventHandler、HookHandler、Action 之间共享消息数据。
+`MaiMessages` 是跨组件传递的统一消息格式，用于 EventHandler、HookHandler 之间共享消息数据。
 
 ```python
 from maibot_sdk.messages import MaiMessages, MessageSegment
@@ -1870,9 +1971,10 @@ msg_copy = msg.deepcopy()
 ```python
 from maibot_sdk.types import (
     # 枚举
-    ActivationType,      # Action 激活方式
     ChatMode,            # 聊天模式 (FOCUS/NORMAL/PRIORITY/ALL)
-    ComponentType,       # 组件类型 (ACTION/API/COMMAND/TOOL/EVENT_HANDLER/HOOK_HANDLER/MESSAGE_GATEWAY)
+    ActivationType,      # Action 激活方式
+    ActionComponentInfo, # Action 组件信息
+    ComponentType,       # 组件类型 (API/COMMAND/TOOL/EVENT_HANDLER/HOOK_HANDLER/MESSAGE_GATEWAY)
     ErrorPolicy,         # 异常策略 (ABORT/SKIP/LOG)
     EventType,           # 事件类型
     HookMode,            # Hook 处理模式 (BLOCKING/OBSERVE)
@@ -1884,7 +1986,6 @@ from maibot_sdk.types import (
     # 模型
     ToolParameterInfo,   # 工具参数定义
     ComponentInfo,       # 组件基础信息
-    ActionComponentInfo, # Action 组件信息
     APIComponentInfo,    # API 组件信息
     CommandComponentInfo,# Command 组件信息
     ToolComponentInfo,   # Tool 组件信息
@@ -1988,8 +2089,7 @@ SDK 基于 Pydantic，可以在不启动 MaiBot 的情况下测试组件声明�
 
 ```python
 import pytest
-from maibot_sdk import MaiBotPlugin, Action
-from maibot_sdk.types import ActivationType
+from maibot_sdk import MaiBotPlugin, Tool
 
 class MyPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -2003,9 +2103,9 @@ class MyPlugin(MaiBotPlugin):
         del config_data
         del version
 
-    @Action("test", activation_type=ActivationType.KEYWORD, activation_keywords=["hello"])
+    @Tool("test", description="测试工具")
     async def handle(self, **kwargs):
-        return True, "ok"
+        return {"success": True}
 
 def test_components():
     plugin = MyPlugin()
@@ -2091,7 +2191,6 @@ my-maibot-plugin/
 
 可以使用 `asyncio` 和 `threading`。不建议使用 `multiprocessing`，因为插件已经运行在子进程中。
 
-
 ## 插件市场只读查询
 
 SDK 2.15.0 起可通过 `self.ctx.market` 查询插件市场。插件清单按实际使用的接口声明能力：
@@ -2142,7 +2241,6 @@ Host 与 WebUI 共享缓存，远程头像最长缓存 24 小时，无头像/不
 URL 必须为 Host 可以直接下载的 HTTP(S) 图片地址；不返回 base64。
 未声明该 API 的适配器被视为不支持头像。
 
-
 ### 长文生成与可回复上下文（SDK 2.16.0+）
 
 需要 MaiBot 1.3.13+ Host，并在插件清单的 `capabilities` 中声明实际使用的
@@ -2188,7 +2286,6 @@ if result["results"]:
 未启用、未授权、超时或上游失败会抛出异常；返回值不包含服务密钥。
 参数、返回字段和限制见 [联网接口文档](web.md)。
 
-
 ## 配置页运行时控件（二维码、状态、操作按钮）
 
 新版主程序支持在插件设置页直接展示登录二维码和动态状态，不必为简单登录流程编写 WebUI 扩展。
@@ -2205,7 +2302,6 @@ import base64
 import time
 
 from maibot_sdk import ConfigWidget, ConfigWidgetState, MaiBotPlugin
-
 
 class Adapter(MaiBotPlugin):
     config_widgets = [

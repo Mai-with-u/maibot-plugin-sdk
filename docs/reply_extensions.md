@@ -38,7 +38,7 @@ async def reply_forward_images(self, *, phase, parameters, text, messages, **con
 
 | 参数 | 含义 |
 | --- | --- |
-| phase | `prepare`（生成前）或 `before_send`（后处理和附件完成后、任何消息发送前） |
+| phase | `prepare`（正文与补充器汇合后）或 `before_send`（后处理和附件完成后、任何消息发送前） |
 | reply_id | 主程序为本次回复生成的唯一 ID，两个阶段相同；并发回复各自独立 |
 | call_id | 原始 reply 工具调用 ID |
 | session_id / reply_message_id | 聊天流 ID / 目标消息 ID |
@@ -47,7 +47,7 @@ async def reply_forward_images(self, *, phase, parameters, text, messages, **con
 | text | `prepare` 时为空；`before_send` 时为生成、Hook 处理后的完整正文 |
 | messages | `prepare` 时为空；`before_send` 时为整组待发送消息 |
 
-`prepare` 返回 `{"extra_prompt": "额外要求"}` 或 `{}`。主程序把要求交给 Replyer，并在生成 Hook 的 extra_prompt 中提供。`before_send` 返回 `{"messages": [...]}` 或 `{}`（保留原样）。不得直接调用 Send 代理替主程序发这组回复；主程序负责发送、记录历史、监控和失败判断。空消息组、无效返回值、插件报错和超时均使本次 reply 失败，发送前失败不会发送任何消息。
+`generation_prompt` 预先声明条件式正文要求，不能依赖本轮补充器参数。并行模式下 `prepare` 只校验参数并返回 `{}`；串行模式仍支持在生成前通过 `prepare` 返回 `{"extra_prompt": "..."}`。`before_send` 返回 `{"messages": [...]}` 或 `{}`（保留原样）。不得直接调用 Send 代理替主程序发这组回复；主程序负责发送、记录历史、监控和失败判断。空消息组、无效返回值、插件报错和超时均使本次 reply 失败，发送前失败不会发送任何消息。
 
 每条消息格式：`{"segments": [...], "quote_previous": false}`。顺序就是发送顺序；第一条消息沿用 reply 的 set_quote，后续消息 quote_previous=true 时引用前一条。插件修改文字时应保留无关图片、@、表情段和 quote_previous，避免丢失原始附件。多插件按顺序转换整组消息，不会分别对每个文字片段调用。
 
@@ -74,7 +74,7 @@ async def reply_voice(self, *, phase, parameters, text, messages, **context):
     if not parameters["attach_voice"]:
         return {}
     if phase == "prepare":
-        return {"extra_prompt": "这次回复会转成语音，请使用适合朗读的自然口语。"}
+        return {}
     audio = await self.synthesize_voice(text)
     result = []
     for message in messages:
@@ -97,3 +97,12 @@ async def reply_voice(self, *, phase, parameters, text, messages, **context):
 ```
 
 本地联调可设置 `MAIBOT_PLUGIN_SDK_PATH` 为本 SDK 仓库目录；重新启动插件 Runner 后会加载本地 SDK。使用回复扩展的正式插件应在依赖声明中指定 `maibot-plugin-sdk>=2.10.0`。
+
+
+## 正文与发送扩展
+
+`@ReplyExtension(..., generation_prompt="若指导要求语音，请使用适合朗读的自然口语。")` 声明条件式正文提示。所有当前可用扩展的提示在生成前注入，但不表示本轮已选中这些扩展。
+
+普通 Replyer 与补充器完全并行。汇合后只对选中的扩展执行参数校验、`prepare` 和 `before_send`。`prepare` 不允许返回正文要求；需要外部信息才能生成正文的操作应在 Planner 阶段完成。生成 Hook 不可依赖尚未完成的补充器参数。
+
+只有 Mai Replier 等待补充器提供回复目标，实际模型切换和重试都会重新判断。

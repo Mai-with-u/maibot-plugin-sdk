@@ -5,9 +5,9 @@
 
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "ACTION": "ACTION",
@@ -39,81 +39,24 @@ _CONFIG_RELOAD_SUBSCRIPTION_ALIASES: dict[str, str] = {
 }
 
 
-def _normalize_schema_type_name(raw_type: Any) -> str:
-    """将任意 Schema 类型值规范化为可读字符串。
-
-    Args:
-        raw_type: 原始类型值。
-
-    Returns:
-        str: 规范化后的类型名称。
-    """
-
-    normalized_type = str(raw_type or "").strip().lower()
-    if not normalized_type:
-        return "string"
-    if normalized_type in {"number", "integer", "boolean", "array", "object"}:
-        return normalized_type
-    return normalized_type
-
-
-def build_tool_detailed_description(
-    parameters_schema: dict[str, Any] | None,
-    fallback_description: str = "",
-) -> str:
-    """根据对象级参数 Schema 生成工具详细描述。
-
-    Args:
-        parameters_schema: 工具参数对象 Schema。
-        fallback_description: 无法从 Schema 推导时使用的兜底说明。
-
-    Returns:
-        str: 生成后的详细描述文本。
-    """
-
-    if not parameters_schema:
-        return fallback_description.strip()
-
-    properties = parameters_schema.get("properties")
-    if not isinstance(properties, dict) or not properties:
-        return fallback_description.strip()
-
-    required_names = {str(name).strip() for name in parameters_schema.get("required", []) if str(name).strip()}
-
-    lines = ["参数说明："]
-    for parameter_name, parameter_schema in properties.items():
-        if not isinstance(parameter_schema, dict):
-            continue
-
-        normalized_name = str(parameter_name).strip()
-        required_text = "必填" if normalized_name in required_names else "可选"
-        parameter_type = _normalize_schema_type_name(parameter_schema.get("type"))
-        parameter_description = str(parameter_schema.get("description", "") or "").strip() or "无额外说明"
-        line = f"- {normalized_name}：{parameter_type}，{required_text}。{parameter_description}"
-
-        enum_values = parameter_schema.get("enum")
-        if isinstance(enum_values, list) and enum_values:
-            line += f" 可选值：{'、'.join(str(item) for item in enum_values)}。"
-
-        if "default" in parameter_schema:
-            line += f" 默认值：{parameter_schema['default']}。"
-
-        lines.append(line)
-
-    if len(lines) == 1:
-        return fallback_description.strip()
-
-    if fallback_description.strip():
-        lines.append("")
-        lines.append(fallback_description.strip())
-    return "\n".join(lines).strip()
+def normalize_tool_description(data: dict[str, Any]) -> dict[str, Any]:
+    """在组件输入边界统一工具描述字段。"""
+    normalized = dict(data)
+    description = normalized.get("description")
+    legacy_descriptions = (normalized.pop("brief_description", None), normalized.pop("detailed_description", None))
+    normalized["description"] = (
+        description.strip()
+        if description and description.strip()
+        else "\n\n".join(value.strip() for value in legacy_descriptions if value and value.strip())
+    )
+    return normalized
 
 
 def normalize_component_type_name(component_type: Any) -> str:
     """将组件类型归一化为协议层使用的大写字符串。
 
     SDK 2.0 起，组件协议值统一为大写。为降低迁移成本，仍接受大小写不同但
-    语义相同的写法，例如 ``action`` / ``ACTION``。
+    语义相同的写法，例如 ``tool`` / ``TOOL``。
 
     `WorkflowStep` 已被 `HookHandler` 替代，属于明确的 breaking change，
     因此这里不会再把 ``workflow_step`` 静默映射为 ``HOOK_HANDLER``。
@@ -241,6 +184,40 @@ class HookOrder(str, Enum):
     EARLY = "early"
     NORMAL = "normal"
     LATE = "late"
+
+
+MAISAKA_REPLY_AFTER_SPLIT = "maisaka.reply.after_split"
+
+
+class ReplyPostProcessSegment(TypedDict):
+    """回复断句后、消息合并前的文本分段。"""
+
+    text: str
+    separator: str
+    quote_previous: bool
+    is_correction: bool
+
+
+class ReplyAfterSplitPayload(TypedDict):
+    """`maisaka.reply.after_split` 钩子参数。"""
+
+    segments: list[ReplyPostProcessSegment]
+    session_id: str
+    enable_chinese_typo: bool
+
+
+class HookResult(TypedDict, total=False):
+    """命名 Hook 处理器的字典返回协议；省略 action 表示继续。
+
+    blocking 处理器可返回 action="abort"，通过 custom_result={"reason": "原因"}
+    说明中止原因；作用范围由 Host 的 HookSpec 和业务调用方决定。
+    modified_kwargs 是完整的替换参数字典，custom_result 也可承载其他附加结果。
+    observe 处理器的返回值不参与流程控制。
+    """
+
+    action: Literal["continue", "abort"]
+    modified_kwargs: dict[str, Any]
+    custom_result: Any
 
 
 class ModifyFlag(str, Enum):
@@ -372,20 +349,15 @@ class ToolComponentInfo(ComponentInfo):
 
     type: ComponentType = ComponentType.TOOL
     platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
-    brief_description: str = Field(default="", description="工具简要描述")
-    detailed_description: str = Field(default="", description="工具详细描述")
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
     parameters_raw: dict[str, Any] = Field(default_factory=dict, description="原始参数 schema（兼容 dict 声明）")
     invoke_method: str = Field(default="plugin.invoke_tool", description="调用当前工具时使用的 RPC 方法")
 
-    def get_brief_description(self) -> str:
-        """获取工具的简要描述。
-
-        Returns:
-            str: 归一化后的简要描述。
-        """
-
-        return str(self.brief_description or self.description or f"工具 {self.name}").strip()
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_description(cls, data: Any) -> Any:
+        """注册数据只保留统一的 description。"""
+        return normalize_tool_description(data) if isinstance(data, dict) else data
 
     def get_parameters_schema(self) -> dict[str, Any] | None:
         """获取对象级工具参数 Schema。
@@ -423,18 +395,6 @@ class ToolComponentInfo(ComponentInfo):
         if required_names:
             tool_schema["required"] = required_names
         return tool_schema
-
-    def get_detailed_description(self) -> str:
-        """获取工具的详细描述。
-
-        Returns:
-            str: 包含参数说明的详细描述。
-        """
-
-        return build_tool_detailed_description(
-            self.get_parameters_schema(),
-            fallback_description=str(self.detailed_description or "").strip(),
-        )
 
 
 class EventHandlerComponentInfo(ComponentInfo):

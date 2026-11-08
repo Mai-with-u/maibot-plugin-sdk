@@ -2,9 +2,9 @@
 
 MaiBot 插件开发的唯一依赖。提供插件基类、配置模型、组件装饰器、能力代理和类型定义。
 
-> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 17 种能力代理、日志接口、7 种正式声明装饰器、1 种兼容装饰器、配置模型、消息模型、生命周期、调试与发布。
+> **完整文档**：[插件开发指南](docs/guide.md) — 覆盖 17 种能力代理、日志接口、组件装饰器、配置模型、消息模型、生命周期、调试与发布。
 >
-> **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `ACTION`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
+> **Breaking change（2.0.0）**：`WorkflowStep` 已移除并重命名为 `HookHandler`。组件协议值统一为大写（如 `TOOL`、`EVENT_HANDLER`）。顶层仍保留 `WorkflowStep` 名称，但只会在运行时抛出明确错误，不再提供兼容映射。
 
 ## 安装
 
@@ -32,8 +32,7 @@ class MyPlugin(MaiBotPlugin):
 
     @Tool(
         "greet",
-        brief_description="在合适的时候向用户打招呼",
-        detailed_description="参数说明：\n- stream_id：string，必填。当前聊天流 ID。",
+        description="在合适的时候向用户打招呼",
         parameters=[
             ToolParameterInfo(
                 name="stream_id",
@@ -59,7 +58,7 @@ def create_plugin():
 
 将上述代码保存为 `plugin.py`，放入 MaiBot 的 `plugins/` 目录即可自动加载。
 
-如果你是在迁移旧插件，`Action` 装饰器仍然可以继续使用；但它现在只是兼容入口，SDK 内部会把它转换成 Tool 声明，新的插件建议直接使用 `@Tool`。
+现有插件仍可使用 `Action` 装饰器和 `maibot_sdk.types.ActivationType`。SDK 会将旧 Action 转换为 Tool 注册。
 
 如果你在编写平台接入插件，请使用 `@MessageGateway` 声明消息网关组件，并通过 `self.ctx.gateway.route_message()` 将外部平台消息注入 Host。详细示例见 [插件开发指南](docs/guide.md) 中的 `MessageGateway` 章节。
 
@@ -100,7 +99,6 @@ def create_plugin():
 from typing import Any
 
 from maibot_sdk import CONFIG_RELOAD_SCOPE_SELF, MaiBotPlugin, MessageGateway
-
 
 class NapCatGatewayPlugin(MaiBotPlugin):
     async def on_load(self) -> None:
@@ -164,7 +162,6 @@ class NapCatGatewayPlugin(MaiBotPlugin):
         if not accepted:
             self.ctx.logger.warning("Host 未接收入站消息: %s", payload["message_id"])
 
-
 def create_plugin():
     return NapCatGatewayPlugin()
 ```
@@ -183,7 +180,6 @@ def create_plugin():
 from typing import Any, Dict
 
 from maibot_sdk import Field, MaiBotPlugin, PluginConfigBase
-
 
 class PluginSection(PluginConfigBase):
     """插件基础配置。"""
@@ -213,12 +209,10 @@ class PluginSection(PluginConfigBase):
         },
     )
 
-
 class MyPluginConfig(PluginConfigBase):
     """插件完整配置。"""
 
     plugin: PluginSection = Field(default_factory=PluginSection)
-
 
 class MyPlugin(MaiBotPlugin):
     config_model = MyPluginConfig
@@ -232,7 +226,6 @@ class MyPlugin(MaiBotPlugin):
     async def on_config_update(self, scope: str, config_data: Dict[str, Any], version: str) -> None:
         return None
 
-
 def create_plugin():
     return MyPlugin()
 ```
@@ -244,6 +237,7 @@ def create_plugin():
 - Runner 会在调用 `on_load()` 之前先注入 `PluginContext` 并完成 capability bootstrap，因此插件可以在 `on_load()` 中直接调用 `self.ctx.send.*`、`self.ctx.db.*` 等能力，无需自行等待“注册完成”信号。
 - SDK 插件必须实现 `on_load()`、`on_unload()` 和 `on_config_update(scope, config_data, version)` 三个生命周期方法；未实现时 Runner 会拒绝加载。
 - `HookHandler` 现在基于命名 Hook 点注册，不再依赖固定的 workflow stage；插件通过 `hook`、`mode`、`order` 描述自己的订阅位置。
+- Hook 主动中止统一返回 `{"action": "abort", "custom_result": {"reason": "原因"}}`，可用 `HookResult` 标注返回类型；具体中止范围、Planner 反馈和旧插件迁移见[开发指南](docs/guide.md#主动中止并提供原因)。
 - `PluginContext` 暴露能力代理与运行时辅助对象：`api`、`gateway`、`send`、`db`、`llm`、`config`、`emoji`、`message`、`frequency`、`component`、`chat`、`person`、`render`、`knowledge`、`tool`、`statistics`、`maisaka`、`market`、`paths`。
 - 插件需要保存文件时优先使用 `ctx.paths.data_dir`；缓存、下载暂存或渲染中间产物使用 `ctx.paths.runtime_dir`，不要自行拼接主程序根目录或插件源码目录。
 - `ctx.gateway.route_message()` / `ctx.gateway.update_state()` 分别对应主程序的入站路由和网关状态上报接口；只有处于 `ready=True` 的消息网关才会被主程序接收入站消息或纳入出站路由。
