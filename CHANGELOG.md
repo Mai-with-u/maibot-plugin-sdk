@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.22.1] - 2026-11-08
+
+### 细节
+
+- 文档：补充聊天表情缓存、定时自动注册和视觉描述生成三个 Host Hook 的触发条件、参数与中止行为。
+
 ## [2.22.0] - 2026-11-08
 
 ### 主要功能

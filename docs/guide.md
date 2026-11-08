@@ -766,6 +766,8 @@ async def collect_send_metrics(self, message=None, sent=False, **kwargs):
 | `chat.receive.after_process` | 入站消息轻量预处理完成后 | 是 | 是 |
 | `chat.command.before_execute` | 命令匹配成功、正式执行前 | 是 | 是 |
 | `chat.command.after_execute` | 命令执行结束后 | 否 | 是 |
+| `emoji.receive.before_cache` | 新收到的聊天表情写入缓存前 | 是 | 否 |
+| `emoji.maintenance.before_register` | 定时维护尝试自动注册候选表情前 | 是 | 否 |
 | `emoji.maisaka.before_select` | Maisaka 选择表情前 | 是 | 是 |
 | `emoji.maisaka.after_select` | Maisaka 选出表情后 | 是 | 是 |
 | `emoji.register.after_build_description` | 表情包描述生成完成后 | 是 | 是 |
@@ -802,6 +804,12 @@ async def transform_reply(self, segments: list[ReplyPostProcessSegment], **kwarg
     first = {**segments[0], "text": segments[0]["text"].strip()}
     return {"modified_kwargs": {**kwargs, "segments": [first, *segments[1:]]}}
 ```
+
+**表情包接入点**
+
+- `emoji.receive.before_cache` 提供 `emoji_hash`（SHA-256）、`binary_data_base64` 和 `session_id`。聊天表情未命中缓存且符合大小限制时触发，包含展开合并转发时处理的表情。阻塞处理器返回 `action="abort"` 可跳过该表情的写盘、建档和内置识别，消息仍继续处理。此时聊天文本使用通用的表情占位。
+- `emoji.maintenance.before_register` 提供 `file_name` 和 `file_size`（字节）。开启自动注册且候选通过扫描筛选时触发。返回 `action="abort"` 会跳过当前候选并继续扫描，文件会留待后续轮次。插件主动调用 `ctx.emoji.register_emoji()` 和 WebUI 上传走各自的入口。
+- `emoji.register.after_build_description` 提供 `emoji`、`description` 和 `image_format`。聊天识别与文件注册共用这一接入点。它可以修改视觉模型生成的描述，或中止描述处理，已经写入的聊天表情缓存仍会保留。
 
 **Host 执行顺序**：
 
