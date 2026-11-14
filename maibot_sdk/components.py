@@ -5,13 +5,14 @@
 
 import warnings
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any
 
 from .types import (
     ActivationType,
     APIComponentInfo,
     ChatMode,
     CommandComponentInfo,
+    ComponentChatScope,
     ErrorPolicy,
     EventHandlerComponentInfo,
     EventType,
@@ -23,6 +24,7 @@ from .types import (
     MessageGatewayComponentInfo,
     MessageGatewayRouteType,
     ReplyExtensionComponentInfo,
+    ScopedComponentInfo,
     ToolComponentInfo,
     ToolParameterInfo,
     normalize_tool_description,
@@ -255,7 +257,7 @@ def ReplyExtension(
     priority: int = 0,
     generation_prompt: str = "",
     timeout_ms: int = 60000,
-    chat_scope: Literal["all", "group", "private"] = "all",
+    chat_scope: ComponentChatScope = "all",
     allowed_session: list[str] | None = None,
     enabled: bool = True,
     **metadata: Any,
@@ -301,7 +303,7 @@ def ReplyExtension(
             timeout_ms=timeout_ms,
             metadata=metadata,
             chat_scope=chat_scope,
-            allowed_session=allowed_session or [],
+            allowed_session=[] if allowed_session is None else allowed_session,
             enabled=enabled,
         )
         setattr(func, _COMPONENT_INFO_ATTR, info)
@@ -393,9 +395,13 @@ def Tool(
     parameters: list[ToolParameterInfo] | dict[str, Any] | None = None,
     *,
     platforms: str | list[str] | None = None,
+    chat_scope: ComponentChatScope = "all",
+    allowed_session: list[str] | None = None,
     **metadata: Any,
 ) -> _Decorator:
     """Tool 组件装饰器
+
+    platforms、chat_scope、allowed_session 共同限制工具可用的会话。
 
     用法（结构化参数）：
         @Tool("search", description="搜索", parameters=[
@@ -440,6 +446,8 @@ def Tool(
             description=tool_description,
             parameters=typed_params,
             platforms=normalized_platforms,
+            chat_scope=chat_scope,
+            allowed_session=[] if allowed_session is None else allowed_session,
             parameters_raw=raw_params,
             invoke_method="plugin.invoke_tool",
             metadata=metadata,
@@ -790,16 +798,11 @@ def collect_components(instance: object) -> list[dict[str, Any]]:
                 **declared_metadata,
                 "handler_name": attr_name,
             }
-            components.append(
-                {
-                    "name": info.name,
-                    "type": info.type.value,
-                    "metadata": component_metadata,
-                }
-            )
-            if isinstance(info, ReplyExtensionComponentInfo):
-                components[-1]["chat_scope"] = info.chat_scope
-                components[-1]["allowed_session"] = list(info.allowed_session)
+            component = {"name": info.name, "type": info.type.value, "metadata": component_metadata}
+            if isinstance(info, ScopedComponentInfo):
+                for field in ("platforms", "chat_scope", "allowed_session"):
+                    component[field] = component_metadata.pop(field)
+            components.append(component)
     return components
 
 

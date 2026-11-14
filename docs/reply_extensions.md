@@ -2,7 +2,7 @@
 
 需要支持 `REPLY_EXTENSION` 的 MaiBot 主程序（1.3.5 开发版本）和 `maibot-plugin-sdk>=2.10.0`。插件只依赖 SDK，无需导入主程序或修改 Planner Hook。
 
-`@ReplyExtension(name, description, parameters, *, platforms=None, priority=0, timeout_ms=60000, **metadata)`
+`@ReplyExtension(name, description, parameters, *, platforms=None, priority=0, generation_prompt="", timeout_ms=60000, chat_scope="all", allowed_session=None, enabled=True, **metadata)`
 注册一个组件。`parameters` 与 Tool 相同，支持 `ToolParameterInfo` 列表、属性字典或完整 object JSON Schema。主程序校验类型、必填项、枚举和默认值；不支持 `$ref`/`$dynamicRef`，请内联声明。未知顶层参数默认拒绝。默认值只在模型选择本扩展时补齐，不会自动启用插件。
 
 `chat_scope="group"/"private"/"all"`、`allowed_session=[...]` 和组件启用开关沿用通用组件机制。停用、卸载后参数从后续 reply 声明中移除；正在生成的回复如果其扩展被卸载或重载，会明确失败。多个扩展按 priority 从小到大、完整名称字典序依次处理，上一个扩展输出交给下一个。
@@ -18,7 +18,7 @@ async def reply_forward_images(self, *, phase, parameters, text, messages, **con
     return {}
 ```
 
-使用 `platforms` 需要 SDK 2.14.0 和配套的平台过滤实现；旧 Host 不会执行这项限制，部署时需同时更新主程序。
+SDK 2.23.0 起将 `platforms`、`chat_scope` 和 `allowed_session` 序列化为组件声明的顶层字段。使用此声明格式的插件清单应要求 `maibot-plugin-sdk>=2.23.0`，并先将 MaiBot 更新到支持顶层作用域字段的版本；旧版 MaiBot 从 `metadata` 读取平台限制。
 
 模型的具体调用参数（假设插件 ID 为 `voice_plugin`，组件名为 `voice`）：
 

@@ -550,12 +550,12 @@ async def handle_mode(self, **kwargs):
 
 Tool 供 LLM Agent 在规划阶段调用。参数定义会被序列化为 JSON Schema 传递给 LLM。
 
-每个 Tool 可独立声明 `platforms="telegram"`（单个平台）、`platforms=["qq", "telegram"]`（多个平台），或省略/使用 `None`、`[]`（不限平台）。SDK 去除首尾空白、转小写并去重，空名称、非字符串元素及其他类型会报错。平台作用域属于组件声明，不进入模型调用参数 Schema。
+每个 Tool 可声明 `platforms="telegram"` 或 `platforms=["qq", "telegram"]`，省略或传入 `None`、`[]` 表示不限平台。`chat_scope` 接受 `"all"`、`"group"`、`"private"`，默认 `"all"`。`allowed_session` 接受会话标识列表，省略或传入空列表表示不限会话。
 
-支持该功能的 Host 按当前聊天平台过滤工具展示、搜索结果和执行权限，与 `chat_scope`、`allowed_session` 共同生效；执行受限工具必须有匹配的平台上下文。旧 Host 会忽略字段，依赖平台权限的操作仍应由插件校验宿主注入的 `platform`。
+三个条件共同过滤工具展示、搜索和执行。SDK 2.23.0 起将它们序列化为组件声明的顶层字段，模型参数由 `parameters` 单独定义。插件清单应要求 `maibot-plugin-sdk>=2.23.0`，并先将 MaiBot 更新到支持顶层作用域字段的版本；旧版 MaiBot 从 `metadata` 读取平台限制。
 
 ```python
-@Tool("telegram_react", platforms="telegram")
+@Tool("telegram_react", platforms="telegram", chat_scope="group")
 async def telegram_react(self, **kwargs):
     ...
 

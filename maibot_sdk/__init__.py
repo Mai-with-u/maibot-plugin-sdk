@@ -39,7 +39,7 @@ from .types import (
     ReplyPostProcessSegment,
 )
 
-__version__ = "2.22.1"
+__version__ = "2.23.0"
 
 __all__ = [
     "MaiBotPlugin",

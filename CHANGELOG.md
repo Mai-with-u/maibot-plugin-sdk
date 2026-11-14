@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.23.0] - 2026-11-14
+
+### 主要功能
+
+- Tool：显式支持 `chat_scope` 和 `allowed_session`，与 `platforms` 共同限定工具可用的聊天范围。
+
+### 细节
+
+- 组件声明：Tool 和回复扩展统一将 `platforms`、`chat_scope`、`allowed_session` 序列化为顶层字段，与模型参数和自定义元数据分开。
+- 会话限制：校验 `allowed_session` 为非空字符串组成的列表，去除首尾空白和重复项；无效聊天类型或会话声明直接报错。
+- 兼容性：使用此版本前需先更新到支持顶层作用域字段的 MaiBot；旧 Host 从 `metadata` 读取平台限制，不能正确处理新声明。插件清单应要求 `maibot-plugin-sdk>=2.23.0`。
+
 ## [2.22.1] - 2026-11-08
 
 ### 细节

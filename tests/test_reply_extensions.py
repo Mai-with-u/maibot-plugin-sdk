@@ -74,9 +74,10 @@ def test_platforms_are_serialized_without_becoming_reply_parameters(platforms, e
         async def scoped(self, **kwargs):
             return {}
 
-    metadata = collect_components(Plugin())[0]["metadata"]
-    assert metadata["platforms"] == expected
-    assert set(metadata["parameters_schema"]["properties"]) == {"caption"}
+    component = collect_components(Plugin())[0]
+    assert component["platforms"] == expected
+    assert {"platforms", "chat_scope", "allowed_session"}.isdisjoint(component["metadata"])
+    assert set(component["metadata"]["parameters_schema"]["properties"]) == {"caption"}
 
 
 @pytest.mark.parametrize("platforms", ["", " ", [""], [1], [None], True, 1, {}])
@@ -91,7 +92,7 @@ def test_omitted_platforms_preserve_unrestricted_extensions():
         async def unrestricted(self, **kwargs):
             return {}
 
-    assert collect_components(Plugin())[0]["metadata"]["platforms"] == []
+    assert collect_components(Plugin())[0]["platforms"] == []
 
 
 @pytest.mark.parametrize("required", ["", "若要求语音，请使用口语"])

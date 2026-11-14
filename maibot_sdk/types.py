@@ -7,7 +7,7 @@ from copy import deepcopy
 from enum import Enum
 from typing import Any, Literal, TypedDict
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _COMPONENT_TYPE_ALIASES: dict[str, str] = {
     "ACTION": "ACTION",
@@ -301,16 +301,31 @@ class ComponentInfo(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="组件元数据")
 
 
-class ReplyExtensionComponentInfo(ComponentInfo):
+ComponentChatScope = Literal["all", "group", "private"]
+
+
+class ScopedComponentInfo(ComponentInfo):
+    """带有平台和会话限制的组件声明。"""
+
+    platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
+    chat_scope: ComponentChatScope = "all"
+    allowed_session: list[str] = Field(default_factory=list)
+
+    @field_validator("allowed_session", mode="before")
+    @classmethod
+    def validate_allowed_session(cls, value: Any) -> list[str]:
+        if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+            raise ValueError("allowed_session 必须是非空会话标识的字符串列表")
+        return list(dict.fromkeys(item.strip() for item in value))
+
+
+class ReplyExtensionComponentInfo(ScopedComponentInfo):
     """随 reply 注册的参数和整组消息处理能力。"""
 
     type: ComponentType = ComponentType.REPLY_EXTENSION
-    platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
     parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     priority: int = 0
     timeout_ms: int = Field(default=60000, gt=0)
-    chat_scope: Literal["all", "group", "private"] = "all"
-    allowed_session: list[str] = Field(default_factory=list)
 
 
 class ActionComponentInfo(ComponentInfo):
@@ -344,11 +359,10 @@ class CommandComponentInfo(ComponentInfo):
     aliases: list[str] = Field(default_factory=list, description="命令别名")
 
 
-class ToolComponentInfo(ComponentInfo):
+class ToolComponentInfo(ScopedComponentInfo):
     """Tool 组件信息"""
 
     type: ComponentType = ComponentType.TOOL
-    platforms: list[str] = Field(default_factory=list, description="适用平台列表，空列表表示不限平台")
     parameters: list[ToolParameterInfo] = Field(default_factory=list, description="结构化参数定义")
     parameters_raw: dict[str, Any] = Field(default_factory=dict, description="原始参数 schema（兼容 dict 声明）")
     invoke_method: str = Field(default="plugin.invoke_tool", description="调用当前工具时使用的 RPC 方法")
